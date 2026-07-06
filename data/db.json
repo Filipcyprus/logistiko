@@ -1,0 +1,86 @@
+{
+  "settings": {
+    "language": "en",
+    "companyName": "My Print Shop",
+    "afm": "",
+    "address": "",
+    "city": "",
+    "postalCode": "",
+    "phone": "",
+    "email": "",
+    "logo": "",
+    "vatRate": 19,
+    "currency": "€",
+    "receiptPrefix": "RCT-",
+    "invoicePrefix": "INV-",
+    "creditPrefix": "CN-",
+    "quotePrefix": "QT-",
+    "orderPrefix": "ORD-",
+    "purchasePrefix": "PO-",
+    "series": "A",
+    "footerNote": "Thank you for choosing us!",
+    "mail": {
+      "host": "",
+      "port": 587,
+      "secure": false,
+      "user": "",
+      "pass": "",
+      "fromName": "",
+      "fromEmail": ""
+    }
+  },
+  "counters": {
+    "receipt": 1,
+    "invoice": 1,
+    "credit": 1,
+    "quote": 1,
+    "order": 1,
+    "purchase": 1,
+    "job": 1
+  },
+  "stages": [
+    {
+      "id": "s1",
+      "name": "To start",
+      "color": "slate",
+      "order": 0
+    },
+    {
+      "id": "s2",
+      "name": "Design / Prepress",
+      "color": "violet",
+      "order": 1
+    },
+    {
+      "id": "s3",
+      "name": "Printing",
+      "color": "blue",
+      "order": 2
+    },
+    {
+      "id": "s4",
+      "name": "Finishing / Binding",
+      "color": "amber",
+      "order": 3
+    },
+    {
+      "id": "s5",
+      "name": "Ready / Delivery",
+      "color": "emerald",
+      "order": 4
+    }
+  ],
+  "jobs": [],
+  "categories": [],
+  "customers": [],
+  "suppliers": [],
+  "products": [],
+  "invoices": [],
+  "quotes": [],
+  "orders": [],
+  "purchases": [],
+  "payments": [],
+  "expenses": [],
+  "stockMovements": [],
+  "activities": []
+}

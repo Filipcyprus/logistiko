@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Write-Output \"--- Program Files node ---\"; Get-ChildItem \"C:\\\\Program Files\\\\nodejs\" -ErrorAction SilentlyContinue | Select-Object Name; Write-Output \"--- nvm ---\"; Get-Command nvm -ErrorAction SilentlyContinue; Write-Output \"--- winget ---\"; \\(Get-Command winget -ErrorAction SilentlyContinue\\).Source; Write-Output \"--- fnm ---\"; \\(Get-Command fnm -ErrorAction SilentlyContinue\\).Source)",
+      "PowerShell(winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements --silent -h 2>&1)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); node -v; npm -v)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); Set-Location \"C:\\\\Users\\\\Filip\\\\OneDrive\\\\Desktop\\\\Logistiko\"; npm install 2>&1 | Select-Object -Last 20)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); Set-Location \"C:\\\\Users\\\\Filip\\\\OneDrive\\\\Desktop\\\\Logistiko\"; npm run dev 2>&1 | Out-File -FilePath \"C:\\\\Users\\\\Filip\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Filip-OneDrive-Desktop-Logistiko\\\\fad7cfec-9d66-4e13-bd79-2538d4b4edd7\\\\scratchpad\\\\dev.log\" -Encoding utf8)",
+      "PowerShell($deadline=\\(Get-Date\\).AddSeconds\\(60\\); $ready=$false; while\\(\\(Get-Date\\) -lt $deadline\\){ try { $r=Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing -TimeoutSec 3; if\\($r.StatusCode -eq 200\\){$ready=$true; break} } catch {} Start-Sleep -Milliseconds 1500 }; if\\($ready\\){ Write-Output \"READY 200\" } else { Write-Output \"NOT READY\" }; Get-Content \"C:\\\\Users\\\\Filip\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Filip-OneDrive-Desktop-Logistiko\\\\fad7cfec-9d66-4e13-bd79-2538d4b4edd7\\\\scratchpad\\\\dev.log\" -Tail 20 -ErrorAction SilentlyContinue)"
+    ]
+  }
+}

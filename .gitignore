@@ -1,0 +1,11 @@
+/node_modules
+/.next
+/out
+/build
+npm-debug.log*
+.DS_Store
+*.pem
+.env*.local
+
+# Τοπικά δεδομένα (κρατήστε αντίγραφο ασφαλείας ξεχωριστά)
+# /data
