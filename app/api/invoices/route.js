@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { computeTotals } from "@/lib/format";
 import { serverT } from "@/lib/i18n/server";
+import { logActivity } from "@/lib/audit";
 
 export async function GET() {
   const db = readDB();
@@ -117,5 +118,6 @@ export async function POST(request) {
   }
 
   writeDB(db);
+  await logActivity(request, "sale", { number: invoice.number, total: invoice.total, paymentMethod: invoice.paymentMethod, type: invoice.type });
   return NextResponse.json(invoice, { status: 201 });
 }

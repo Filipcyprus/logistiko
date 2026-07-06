@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getById, update, remove } from "@/lib/db";
 import { generateBarcode } from "@/lib/barcode";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
+import { logActivity } from "@/lib/audit";
 
 async function getRole(request) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
@@ -38,12 +39,15 @@ export async function PUT(request, { params }) {
   }
   const rec = update("products", params.id, patch);
   if (!rec) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
+  await logActivity(request, "product_update", { name: rec.name, id: rec.id, fields: Object.keys(patch) });
   return NextResponse.json(rec);
 }
 
 export async function DELETE(request, { params }) {
   const role = await getRole(request);
   if (["manager", "cashier"].includes(role)) return NextResponse.json({ error: "errors.forbidden" }, { status: 403 });
+  const existing = getById("products", params.id);
   remove("products", params.id);
+  await logActivity(request, "product_delete", { name: existing?.name || "", id: params.id });
   return NextResponse.json({ ok: true });
 }

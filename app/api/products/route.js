@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { list, insert, readDB, writeDB, uid } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server";
 import { generateBarcode } from "@/lib/barcode";
+import { logActivity } from "@/lib/audit";
 
 export async function GET() {
   return NextResponse.json(list("products"));
@@ -63,5 +64,6 @@ export async function POST(request) {
     writeDB(db2);
   }
 
+  await logActivity(request, "product_create", { name: rec.name, id: rec.id });
   return NextResponse.json(rec, { status: 201 });
 }

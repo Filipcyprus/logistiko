@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB } from "@/lib/db";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
+import { logActivity } from "@/lib/audit";
 
 // Κλείσιμο βάρδιας: υπολογίζει το αναμενόμενο μετρητό (αρχικό ταμείο + μετρητοίς πωλήσεις
 // κατά τη διάρκεια της βάρδιας) και το συγκρίνει με το μετρημένο ποσό που δηλώνει ο ταμίας.
@@ -31,5 +32,6 @@ export async function PUT(request, { params }) {
   });
 
   writeDB(db);
+  await logActivity(request, "shift_close", { expectedCash: shift.expectedCash, countedCash: shift.countedCash, difference: shift.difference });
   return NextResponse.json(shift);
 }

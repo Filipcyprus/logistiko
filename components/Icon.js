@@ -187,6 +187,12 @@ const PATHS = {
       <path d="M8 11V7.3a4 4 0 0 1 8 0V11" />
     </>
   ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 15.5 14" />
+    </>
+  ),
   cart: (
     <>
       <circle cx="9.2" cy="20" r="1.3" />

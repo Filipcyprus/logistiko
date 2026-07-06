@@ -19,6 +19,7 @@ const nav = [
   { href: "/apothiki", key: "nav.stock", icon: "box" },
   { href: "/exoda", key: "nav.expenses", icon: "wallet" },
   { href: "/anafores", key: "nav.reports", icon: "report" },
+  { href: "/istoriko", key: "nav.activityLog", icon: "clock" },
   { href: "/rythmiseis", key: "nav.settings", icon: "settings" },
 ];
 

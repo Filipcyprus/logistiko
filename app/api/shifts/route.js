@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { list, insert } from "@/lib/db";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
+import { logActivity } from "@/lib/audit";
 
 export async function GET() {
   return NextResponse.json(list("shifts"));
@@ -28,5 +29,6 @@ export async function POST(request) {
     expectedCash: null,
     difference: null,
   });
+  await logActivity(request, "shift_open", { openingFloat: rec.openingFloat });
   return NextResponse.json(rec, { status: 201 });
 }

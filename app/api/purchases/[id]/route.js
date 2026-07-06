@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { computeTotals } from "@/lib/format";
 import { serverT } from "@/lib/i18n/server";
+import { logActivity } from "@/lib/audit";
 
 export async function GET(_req, { params }) {
   const rec = (readDB().purchases || []).find((x) => x.id === params.id);
@@ -18,7 +19,9 @@ export async function PUT(request, { params }) {
   // Παραλαβή: πρόσθεσε τα είδη με απόθεμα στην αποθήκη (μία φορά).
   // Αν σταλεί patch.items με receivedQty (λεπτομερής παραλαβή), χρησιμοποιείται αυτή η ποσότητα
   // αντί της αρχικά παραγγελθείσας — καλύπτει τις περιπτώσεις μερικής/διαφορετικής παραλαβής.
-  if (patch.status === "received" && !po.received) {
+  let receivedTotalQty = 0;
+  const justReceived = patch.status === "received" && !po.received;
+  if (justReceived) {
     const receivingItems = patch.items || po.items || [];
     for (const it of receivingItems) {
       if (!it.productId) continue;
@@ -26,6 +29,7 @@ export async function PUT(request, { params }) {
       const qty = Number(it.receivedQty ?? it.quantity ?? 0);
       if (p && p.trackStock !== false && qty > 0) {
         p.stock = Math.round((Number(p.stock || 0) + qty) * 1000) / 1000;
+        receivedTotalQty += qty;
         db.stockMovements.unshift({
           id: uid(), productId: p.id, productName: p.name, type: "in",
           quantity: qty,
@@ -44,6 +48,7 @@ export async function PUT(request, { params }) {
   }
   Object.assign(po, patch, { updatedAt: new Date().toISOString() });
   writeDB(db);
+  if (justReceived) await logActivity(request, "stock_receive", { number: po.number, totalQty: receivedTotalQty });
   return NextResponse.json(po);
 }
 

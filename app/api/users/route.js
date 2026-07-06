@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readDB, insert } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
+import { logActivity } from "@/lib/audit";
 
 const VALID_ROLES = ["manager", "cashier"];
 
@@ -47,5 +48,6 @@ export async function POST(request) {
     ...(role === "cashier" ? { canDiscount: !!body.canDiscount } : {}),
   });
   const { passwordHash, ...safe } = rec;
+  await logActivity(request, "staff_create", { targetUsername: username, role });
   return NextResponse.json(safe, { status: 201 });
 }
