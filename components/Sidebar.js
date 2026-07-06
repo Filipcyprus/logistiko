@@ -22,13 +22,21 @@ const nav = [
   { href: "/rythmiseis", key: "nav.settings", icon: "settings" },
 ];
 
-export default function Sidebar() {
+const staffNav = [{ href: "/tameio", key: "nav.pos", icon: "cart" }];
+
+export default function Sidebar({ role }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const { t } = useLanguage();
+  const items = role === "staff" ? staffNav : nav;
 
   const isActive = (href) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  const logout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/login";
+  };
 
   return (
     <>
@@ -59,7 +67,7 @@ export default function Sidebar() {
             </div>
           </div>
           <nav className="space-y-0.5 flex-1">
-            {nav.map((item) => (
+            {items.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -75,6 +83,10 @@ export default function Sidebar() {
               </Link>
             ))}
           </nav>
+          <button onClick={logout} className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 mb-1">
+            <Icon name="x" size={16} />
+            {t("nav.logout")}
+          </button>
           <div className="hidden md:flex px-2 pt-3 mt-3 border-t border-slate-800">
             <LanguageSwitcher />
           </div>
