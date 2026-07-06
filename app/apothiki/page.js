@@ -18,6 +18,7 @@ export default function StockPage() {
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState([]);
   const [catFilter, setCatFilter] = useState("");
+  const [deptFilter, setDeptFilter] = useState("");
 
   const load = () => {
     fetch("/api/products").then((r) => r.json()).then(setProducts);
@@ -33,11 +34,20 @@ export default function StockPage() {
   // Ενοποίηση κατηγοριών: από τη λίστα κατηγοριών + όσες υπάρχουν ήδη στα προϊόντα.
   const catNames = Array.from(new Set([...categories.map((c) => c.name), ...products.map((p) => p.category).filter(Boolean)])).sort();
   const filtered = products.filter((p) => {
+    if (deptFilter && (p.department || "") !== deptFilter) return false;
     if (catFilter && (p.category || "") !== catFilter) return false;
     if (!q) return true;
     const query = q.toLowerCase();
     return p.name.toLowerCase().includes(query) || (p.code || "").toLowerCase().includes(query) || (p.barcode || "").includes(query);
   });
+
+  const DEPARTMENTS = [
+    ["", "allDepartments"],
+    ["printShop", "deptPrintShop"],
+    ["kiosk", "deptKiosk"],
+    ["barber", "deptBarber"],
+    ["perfumes", "deptPerfumes"],
+  ];
 
   const delProduct = async (id) => {
     if (!confirm(t("stock.confirmDeleteProduct"))) return;
@@ -71,6 +81,17 @@ export default function StockPage() {
 
       {tab === "products" ? (
         <>
+          <div className="flex flex-wrap gap-2">
+            {DEPARTMENTS.map(([d, key]) => (
+              <button
+                key={d}
+                onClick={() => setDeptFilter(d)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${deptFilter === d ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+              >
+                {t(`stock.${key}`)}
+              </button>
+            ))}
+          </div>
           <div className="card p-4 flex flex-wrap gap-3 items-center">
             <div className="relative max-w-sm w-full">
               <Icon name="search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

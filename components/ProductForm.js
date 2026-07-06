@@ -15,6 +15,13 @@ const PRODUCT_TYPES = [
   ["printingMaterial", "typePrinting"],
 ];
 
+const DEPARTMENTS = [
+  ["printShop", "deptPrintShop"],
+  ["kiosk", "deptKiosk"],
+  ["barber", "deptBarber"],
+  ["perfumes", "deptPerfumes"],
+];
+
 function unitSuggestions(productType, t) {
   if (productType === "printingMaterial") {
     return [t("stock.unitSheet"), t("stock.unitRoll"), t("stock.unitPack"), t("stock.unitReam"), t("stock.unitPcs")];
@@ -97,6 +104,13 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
             <select className="input" value={form.supplierId || ""} onChange={(e) => upd({ supplierId: e.target.value })}>
               <option value="">{t("stock.noSupplier")}</option>
               {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">{t("stock.fieldDepartment")}</label>
+            <select className="input" value={form.department || ""} onChange={(e) => upd({ department: e.target.value })}>
+              <option value="">{t("stock.allDepartments")}</option>
+              {DEPARTMENTS.map(([d, key]) => <option key={d} value={d}>{t(`stock.${key}`)}</option>)}
             </select>
           </div>
           <div>

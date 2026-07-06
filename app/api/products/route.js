@@ -27,6 +27,7 @@ export async function POST(request) {
     brand: body.brand || "",
     category: body.category || "",
     supplierId: body.supplierId || "",
+    department: body.department || "",
     productType,
     image: body.image || "",
     unit: body.unit || serverT(db.settings.language, "common.unit"),
