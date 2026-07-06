@@ -5,7 +5,8 @@
 npm-debug.log*
 .DS_Store
 *.pem
+.env
 .env*.local
 
 # Τοπικά δεδομένα (κρατήστε αντίγραφο ασφαλείας ξεχωριστά)
-# /data
+/data
