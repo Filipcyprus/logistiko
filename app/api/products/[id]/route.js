@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { getById, update, remove } from "@/lib/db";
 import { generateBarcode } from "@/lib/barcode";
+import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
+
+async function getRole(request) {
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const session = await verifySessionToken(token);
+  return session?.role;
+}
 
 export async function GET(_req, { params }) {
   const rec = getById("products", params.id);
@@ -10,6 +17,12 @@ export async function GET(_req, { params }) {
 
 export async function PUT(request, { params }) {
   let patch = await request.json();
+  const role = await getRole(request);
+
+  // Manager/Cashier μπορούν να προσθέτουν απόθεμα μόνο μέσω παραλαβής/κίνησης αποθήκης,
+  // όχι επεξεργαζόμενοι απευθείας το πεδίο stock (θα παρέκαμπτε το ιστορικό κινήσεων).
+  if (["manager", "cashier"].includes(role)) delete patch.stock;
+
   // Καθαρισμός αριθμητικών πεδίων
   for (const k of ["price", "wholesalePrice", "cost", "vatRate", "stock", "lowStock"]) {
     if (patch[k] != null) patch[k] = Number(patch[k]);
@@ -28,7 +41,9 @@ export async function PUT(request, { params }) {
   return NextResponse.json(rec);
 }
 
-export async function DELETE(_req, { params }) {
+export async function DELETE(request, { params }) {
+  const role = await getRole(request);
+  if (["manager", "cashier"].includes(role)) return NextResponse.json({ error: "errors.forbidden" }, { status: 403 });
   remove("products", params.id);
   return NextResponse.json({ ok: true });
 }

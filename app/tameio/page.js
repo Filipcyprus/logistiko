@@ -20,12 +20,19 @@ export default function TillPage() {
   const [me, setMe] = useState(null);
   const [heldSales, setHeldSales] = useState([]);
   const [showHeld, setShowHeld] = useState(false);
+  const [shift, setShift] = useState(null);
+  const [openingFloat, setOpeningFloat] = useState("0");
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [countedCash, setCountedCash] = useState("");
+  const [closeResult, setCloseResult] = useState(null);
+  const [shiftBusy, setShiftBusy] = useState(false);
   const searchRef = useRef();
 
   const load = () => {
     fetch("/api/products").then((r) => r.json()).then(setProducts);
   };
   const loadHeld = () => fetch("/api/held-sales").then((r) => (r.ok ? r.json() : [])).then(setHeldSales);
+  const loadShift = () => fetch("/api/shifts").then((r) => (r.ok ? r.json() : [])).then((all) => setShift(all.find((s) => s.status === "open") || null));
 
   useEffect(() => {
     load();
@@ -33,11 +40,34 @@ export default function TillPage() {
     fetch("/api/customers").then((r) => r.json()).then(setCustomers);
     fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).then(setMe);
     loadHeld();
+    loadShift();
     searchRef.current?.focus();
   }, []);
 
   const cur = settings?.currency || "€";
   const canDiscount = me ? me.canDiscount : true;
+  const requiresShift = me?.role === "cashier";
+
+  const openShift = async () => {
+    setShiftBusy(true);
+    const res = await fetch("/api/shifts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ openingFloat: Number(openingFloat || 0) }) });
+    setShiftBusy(false);
+    if (res.ok) { setOpeningFloat("0"); loadShift(); }
+    else { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); }
+  };
+
+  const closeShift = async () => {
+    setShiftBusy(true);
+    const res = await fetch(`/api/shifts/${shift.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ countedCash: Number(countedCash || 0) }) });
+    setShiftBusy(false);
+    if (res.ok) { setCloseResult(await res.json()); }
+    else { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); }
+  };
+
+  const finishCloseShift = () => {
+    setCloseOpen(false); setCloseResult(null); setCountedCash("");
+    loadShift();
+  };
   const q = query.trim().toLowerCase();
   const matches = q
     ? products.filter((p) => p.name.toLowerCase().includes(q) || (p.code || "").toLowerCase().includes(q) || (p.barcode || "").includes(q)).slice(0, 8)
@@ -107,6 +137,7 @@ export default function TillPage() {
         customerId: customerId || null,
         paymentMethod,
         status: "paid",
+        shiftId: shift?.id || null,
         items: cart.map((c) => ({ productId: c.productId, description: c.name, quantity: c.qty, unit: c.unit, unitPrice: c.price, vatRate: c.vatRate, discount: c.discount || 0 })),
       }),
     });
@@ -124,13 +155,38 @@ export default function TillPage() {
     searchRef.current?.focus();
   };
 
-  if (!settings) return <div className="text-slate-400">{t("common.loading")}</div>;
+  if (!settings || !me) return <div className="text-slate-400">{t("common.loading")}</div>;
+
+  if (requiresShift && !shift) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center">
+        <div className="card p-8 w-full max-w-sm text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center mx-auto"><Icon name="box" size={22} /></div>
+          <h2 className="text-lg font-bold text-slate-800">{t("pos.openShiftTitle")}</h2>
+          <p className="text-sm text-slate-500">{t("pos.openShiftSub")}</p>
+          <div className="text-left">
+            <label className="label">{t("pos.openingFloat")}</label>
+            <input type="number" step="any" className="input" value={openingFloat} onChange={(e) => setOpeningFloat(e.target.value)} />
+          </div>
+          <button onClick={openShift} disabled={shiftBusy} className="btn-primary w-full">{shiftBusy ? t("common.saving") : t("pos.openShiftBtn")}</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-slate-800">{t("pos.title")}</h1>
-        <div className="relative">
+        <div className="flex items-center gap-2 flex-wrap">
+          {shift && (
+            <div className="flex items-center gap-2 text-sm bg-emerald-50 text-emerald-700 rounded-lg px-3 py-1.5">
+              <Icon name="check" size={14} />
+              {t("pos.shiftOpenSince", { time: new Date(shift.openedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) })}
+              {requiresShift && <button onClick={() => setCloseOpen(true)} className="ml-1 underline font-medium">{t("pos.closeShiftBtn")}</button>}
+            </div>
+          )}
+          <div className="relative">
           <button onClick={() => setShowHeld((v) => !v)} className="btn-secondary">
             <Icon name="box" size={15} /> {t("pos.heldOrders")} {heldSales.length > 0 && <span className="badge bg-amber-100 text-amber-700">{heldSales.length}</span>}
           </button>
@@ -149,6 +205,7 @@ export default function TillPage() {
               ))}
             </div>
           )}
+          </div>
         </div>
       </div>
 
@@ -284,6 +341,37 @@ export default function TillPage() {
           {lastSale && <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-2.5 text-center">{t("pos.saleCompleted", { number: lastSale })}</div>}
         </div>
       </div>
+
+      {closeOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => !closeResult && setCloseOpen(false)}>
+          <div className="card p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            {!closeResult ? (
+              <>
+                <h2 className="text-lg font-bold mb-1">{t("pos.closeShiftTitle")}</h2>
+                <p className="text-sm text-slate-500 mb-4">{t("pos.closeShiftSub")}</p>
+                <label className="label">{t("pos.countedCash")}</label>
+                <input type="number" step="any" className="input" value={countedCash} onChange={(e) => setCountedCash(e.target.value)} />
+                <div className="flex justify-end gap-2 mt-5">
+                  <button onClick={() => setCloseOpen(false)} className="btn-secondary">{t("common.cancel")}</button>
+                  <button onClick={closeShift} disabled={shiftBusy} className="btn-primary">{shiftBusy ? t("common.saving") : t("pos.closeShiftBtn")}</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold mb-4">{t("pos.shiftClosedTitle")}</h2>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-slate-500">{t("pos.expectedCash")}</span><span className="font-medium">{money(closeResult.expectedCash, cur)}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">{t("pos.countedCash")}</span><span className="font-medium">{money(closeResult.countedCash, cur)}</span></div>
+                  <div className={`flex justify-between border-t border-slate-200 pt-2 font-bold ${closeResult.difference === 0 ? "text-slate-800" : closeResult.difference > 0 ? "text-emerald-700" : "text-red-600"}`}>
+                    <span>{t("pos.difference")}</span><span>{closeResult.difference > 0 ? "+" : ""}{money(closeResult.difference, cur)}</span>
+                  </div>
+                </div>
+                <button onClick={finishCloseShift} className="btn-primary w-full mt-5">{t("common.close")}</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

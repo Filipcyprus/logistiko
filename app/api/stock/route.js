@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server";
+import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
 
 // Χειροκίνητη κίνηση αποθήκης (παραλαβή, απογραφή, καταστροφή κ.λπ.)
 export async function GET() {
@@ -10,12 +11,20 @@ export async function GET() {
 
 export async function POST(request) {
   const body = await request.json();
+  const type = body.type; // "in" | "out" | "set"
+
+  // Manager/Cashier μπορούν μόνο να προσθέτουν απόθεμα (παραλαβή), όχι να αφαιρούν ή να διορθώνουν προς τα κάτω.
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const session = await verifySessionToken(token);
+  if (["manager", "cashier"].includes(session?.role) && type !== "in") {
+    return NextResponse.json({ error: "errors.forbidden" }, { status: 403 });
+  }
+
   const db = readDB();
   const p = db.products.find((x) => x.id === body.productId);
   if (!p) return NextResponse.json({ error: "errors.productNotFound" }, { status: 404 });
 
   const qty = Number(body.quantity || 0);
-  const type = body.type; // "in" | "out" | "set"
 
   if (type === "set") {
     p.stock = qty;

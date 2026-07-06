@@ -22,7 +22,10 @@ const nav = [
   { href: "/rythmiseis", key: "nav.settings", icon: "settings" },
 ];
 
-const cashierNav = [{ href: "/tameio", key: "nav.pos", icon: "cart" }];
+const cashierNav = [
+  { href: "/tameio", key: "nav.pos", icon: "cart" },
+  { href: "/exoda?tab=purchases", key: "nav.receiving", icon: "box" },
+];
 
 const managerNav = [
   { href: "/apothiki", key: "nav.stock", icon: "box" },
@@ -37,8 +40,10 @@ export default function Sidebar({ role }) {
   const { t } = useLanguage();
   const items = role === "cashier" ? cashierNav : role === "manager" ? managerNav : nav;
 
-  const isActive = (href) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const isActive = (href) => {
+    const base = href.split("?")[0];
+    return base === "/" ? pathname === "/" : pathname.startsWith(base);
+  };
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });

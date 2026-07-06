@@ -3,16 +3,27 @@ import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
 
 const PUBLIC_EXACT = new Set(["/login", "/api/auth/login"]);
 
-// Cashier: μόνο Ταμείο (POS) + κρατημένες πωλήσεις.
+// Παραλαβή αποθέματος από προμηθευτή — κοινό και για Manager και για Cashier.
+function isReceivingAllowed(pathname) {
+  const pagePrefixes = ["/agores", "/exoda", "/promitheutes"];
+  if (pagePrefixes.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
+  const apiPrefixes = ["/api/purchases", "/api/suppliers", "/api/expenses", "/api/stock"];
+  if (apiPrefixes.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
+  return false;
+}
+
+// Cashier: Ταμείο (POS), κρατημένες πωλήσεις, βάρδιες + παραλαβή αποθέματος.
 function isCashierAllowed(pathname) {
   if (pathname === "/tameio") return true;
   if (pathname === "/api/auth/logout" || pathname === "/api/auth/me") return true;
   if (/^\/parastatika\/[^/]+$/.test(pathname) && pathname !== "/parastatika/neo") return true;
   if (pathname.startsWith("/api/held-sales")) return true;
+  if (pathname.startsWith("/api/shifts")) return true;
   if (pathname.startsWith("/api/products")) return true;
   if (pathname.startsWith("/api/invoices")) return true;
   if (pathname.startsWith("/api/customers")) return true;
   if (pathname === "/api/settings") return true;
+  if (isReceivingAllowed(pathname)) return true;
   return false;
 }
 

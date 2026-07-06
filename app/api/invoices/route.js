@@ -78,6 +78,7 @@ export async function POST(request) {
     notes: body.notes || "",
     sourceType: body.sourceType || null, // από ποιο έγγραφο προήλθε
     sourceId: body.sourceId || null,
+    shiftId: body.shiftId || null, // βάρδια ταμείου κατά την οποία έγινε η πώληση
     createdAt: new Date().toISOString(),
   };
 
