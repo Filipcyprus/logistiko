@@ -22,13 +22,20 @@ const nav = [
   { href: "/rythmiseis", key: "nav.settings", icon: "settings" },
 ];
 
-const staffNav = [{ href: "/tameio", key: "nav.pos", icon: "cart" }];
+const cashierNav = [{ href: "/tameio", key: "nav.pos", icon: "cart" }];
+
+const managerNav = [
+  { href: "/apothiki", key: "nav.stock", icon: "box" },
+  { href: "/paraggelies", key: "nav.orders", icon: "order" },
+  { href: "/promitheutes", key: "nav.suppliers", icon: "truck" },
+  { href: "/exoda", key: "nav.expenses", icon: "wallet" },
+];
 
 export default function Sidebar({ role }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const { t } = useLanguage();
-  const items = role === "staff" ? staffNav : nav;
+  const items = role === "cashier" ? cashierNav : role === "manager" ? managerNav : nav;
 
   const isActive = (href) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);

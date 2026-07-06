@@ -3,21 +3,23 @@ import { readDB, insert } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
 
+const VALID_ROLES = ["manager", "cashier"];
+
 async function requireOwner(request) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const session = await verifySessionToken(token);
   return session?.role === "owner";
 }
 
-// Λίστα λογαριασμών προσωπικού (μόνο ρόλος "staff", χωρίς τους κωδικούς).
+// Λίστα λογαριασμών προσωπικού (manager/cashier — όχι τον owner, χωρίς κωδικούς).
 export async function GET(request) {
   if (!(await requireOwner(request))) return NextResponse.json({ error: "errors.forbidden" }, { status: 403 });
   const db = readDB();
-  const users = (db.users || []).filter((u) => u.role === "staff").map(({ passwordHash, ...rest }) => rest);
+  const users = (db.users || []).filter((u) => u.role !== "owner").map(({ passwordHash, ...rest }) => rest);
   return NextResponse.json(users);
 }
 
-// Δημιουργία νέου λογαριασμού προσωπικού.
+// Δημιουργία νέου λογαριασμού προσωπικού (manager ή cashier).
 // Εξαίρεση bootstrap: αν δεν υπάρχει ΚΑΝΕΝΑΣ χρήστης ακόμα, επιτρέπεται η δημιουργία
 // του πρώτου λογαριασμού (owner) χωρίς σύνδεση — κλείνει αυτόματα μόλις υπάρξει ο πρώτος.
 export async function POST(request) {
@@ -37,10 +39,12 @@ export async function POST(request) {
     return NextResponse.json({ error: "errors.usernameTaken" }, { status: 400 });
   }
 
+  const role = isBootstrap ? "owner" : (VALID_ROLES.includes(body.role) ? body.role : "cashier");
   const rec = insert("users", {
     username,
     passwordHash: hashPassword(password),
-    role: isBootstrap ? "owner" : (body.role === "owner" ? "owner" : "staff"),
+    role,
+    ...(role === "cashier" ? { canDiscount: !!body.canDiscount } : {}),
   });
   const { passwordHash, ...safe } = rec;
   return NextResponse.json(safe, { status: 201 });

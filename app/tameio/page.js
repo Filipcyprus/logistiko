@@ -17,19 +17,27 @@ export default function TillPage() {
   const [tendered, setTendered] = useState("");
   const [saving, setSaving] = useState(false);
   const [lastSale, setLastSale] = useState(null);
+  const [me, setMe] = useState(null);
+  const [heldSales, setHeldSales] = useState([]);
+  const [showHeld, setShowHeld] = useState(false);
   const searchRef = useRef();
 
   const load = () => {
     fetch("/api/products").then((r) => r.json()).then(setProducts);
   };
+  const loadHeld = () => fetch("/api/held-sales").then((r) => (r.ok ? r.json() : [])).then(setHeldSales);
+
   useEffect(() => {
     load();
     fetch("/api/settings").then((r) => r.json()).then(setSettings);
     fetch("/api/customers").then((r) => r.json()).then(setCustomers);
+    fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).then(setMe);
+    loadHeld();
     searchRef.current?.focus();
   }, []);
 
   const cur = settings?.currency || "€";
+  const canDiscount = me ? me.canDiscount : true;
   const q = query.trim().toLowerCase();
   const matches = q
     ? products.filter((p) => p.name.toLowerCase().includes(q) || (p.code || "").toLowerCase().includes(q) || (p.barcode || "").includes(q)).slice(0, 8)
@@ -43,7 +51,7 @@ export default function TillPage() {
         next[idx] = { ...next[idx], qty: next[idx].qty + 1 };
         return next;
       }
-      return [...prev, { productId: p.id, name: p.name, unit: p.unit, price: Number(p.retailPrice ?? p.price ?? 0), vatRate: Number(p.vatRate || 0), qty: 1 }];
+      return [...prev, { productId: p.id, name: p.name, unit: p.unit, price: Number(p.retailPrice ?? p.price ?? 0), vatRate: Number(p.vatRate || 0), qty: 1, discount: 0 }];
     });
     setQuery("");
     setLastSale(null);
@@ -60,10 +68,34 @@ export default function TillPage() {
   const updateLine = (idx, patch) => setCart((prev) => prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
   const removeLine = (idx) => setCart((prev) => prev.filter((_, i) => i !== idx));
 
-  const lineItems = cart.map((c) => ({ quantity: c.qty, unitPrice: c.price, vatRate: c.vatRate, discount: 0 }));
+  const lineItems = cart.map((c) => ({ quantity: c.qty, unitPrice: c.price, vatRate: c.vatRate, discount: c.discount || 0 }));
   const totals = computeTotals(lineItems);
   const change = tendered !== "" ? Math.round((Number(tendered) - totals.total) * 100) / 100 : null;
   const insufficientCash = paymentMethod === "cash" && tendered !== "" && change < 0;
+
+  const holdSale = async () => {
+    if (cart.length === 0) { alert(t("pos.errEmptyCart")); return; }
+    const label = prompt(t("pos.holdLabelPrompt")) || "";
+    await fetch("/api/held-sales", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label, customerId, cart }) });
+    setCart([]); setCustomerId(""); setTendered(""); setQuery("");
+    loadHeld();
+    searchRef.current?.focus();
+  };
+
+  const resumeSale = async (h) => {
+    if (cart.length > 0 && !confirm(t("pos.confirmReplaceCart"))) return;
+    setCart(h.cart || []);
+    setCustomerId(h.customerId || "");
+    setShowHeld(false);
+    await fetch(`/api/held-sales/${h.id}`, { method: "DELETE" });
+    loadHeld();
+  };
+
+  const discardHeld = async (id) => {
+    if (!confirm(t("pos.confirmDiscardHeld"))) return;
+    await fetch(`/api/held-sales/${id}`, { method: "DELETE" });
+    loadHeld();
+  };
 
   const completeSale = async () => {
     if (cart.length === 0) { alert(t("pos.errEmptyCart")); return; }
@@ -75,7 +107,7 @@ export default function TillPage() {
         customerId: customerId || null,
         paymentMethod,
         status: "paid",
-        items: cart.map((c) => ({ productId: c.productId, description: c.name, quantity: c.qty, unit: c.unit, unitPrice: c.price, vatRate: c.vatRate, discount: 0 })),
+        items: cart.map((c) => ({ productId: c.productId, description: c.name, quantity: c.qty, unit: c.unit, unitPrice: c.price, vatRate: c.vatRate, discount: c.discount || 0 })),
       }),
     });
     if (res.ok) {
@@ -96,7 +128,29 @@ export default function TillPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-800">{t("pos.title")}</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-2xl font-bold text-slate-800">{t("pos.title")}</h1>
+        <div className="relative">
+          <button onClick={() => setShowHeld((v) => !v)} className="btn-secondary">
+            <Icon name="box" size={15} /> {t("pos.heldOrders")} {heldSales.length > 0 && <span className="badge bg-amber-100 text-amber-700">{heldSales.length}</span>}
+          </button>
+          {showHeld && (
+            <div className="absolute right-0 top-full mt-1 card p-2 z-30 w-72 max-h-80 overflow-y-auto">
+              {heldSales.length === 0 ? (
+                <div className="text-sm text-slate-400 p-3">{t("pos.noHeldOrders")}</div>
+              ) : heldSales.map((h) => (
+                <div key={h.id} className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-slate-50">
+                  <button onClick={() => resumeSale(h)} className="text-left flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{h.label || t("pos.heldUnnamed")}</div>
+                    <div className="text-xs text-slate-400">{(h.cart || []).length} {t("pos.heldItemsSuffix")}</div>
+                  </button>
+                  <button onClick={() => discardHeld(h.id)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Αναζήτηση / σάρωση */}
@@ -140,13 +194,14 @@ export default function TillPage() {
                     <th className="table-th">{t("pos.colProduct")}</th>
                     <th className="table-th text-right">{t("pos.colQty")}</th>
                     <th className="table-th text-right">{t("pos.colPrice")}</th>
+                    {canDiscount && <th className="table-th text-right">{t("pos.colDiscount")}</th>}
                     <th className="table-th text-right">{t("pos.colTotal")}</th>
                     <th className="table-th"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {cart.length === 0 ? (
-                    <tr><td className="table-td text-slate-400" colSpan={5}>{t("pos.emptyCart")}</td></tr>
+                    <tr><td className="table-td text-slate-400" colSpan={canDiscount ? 6 : 5}>{t("pos.emptyCart")}</td></tr>
                   ) : cart.map((c, idx) => {
                     const prod = products.find((p) => p.id === c.productId);
                     return (
@@ -167,7 +222,12 @@ export default function TillPage() {
                       <td className="table-td text-right">
                         <input type="number" step="any" className="input !w-24 !py-1 text-right ml-auto" value={c.price} onChange={(e) => updateLine(idx, { price: Number(e.target.value) })} />
                       </td>
-                      <td className="table-td text-right font-medium">{money(computeTotals([{ quantity: c.qty, unitPrice: c.price, vatRate: c.vatRate, discount: 0 }]).total, cur)}</td>
+                      {canDiscount && (
+                        <td className="table-td text-right">
+                          <input type="number" step="any" min="0" max="100" className="input !w-20 !py-1 text-right ml-auto" value={c.discount || 0} onChange={(e) => updateLine(idx, { discount: Number(e.target.value) })} />
+                        </td>
+                      )}
+                      <td className="table-td text-right font-medium">{money(computeTotals([{ quantity: c.qty, unitPrice: c.price, vatRate: c.vatRate, discount: c.discount || 0 }]).total, cur)}</td>
                       <td className="table-td text-right"><button onClick={() => removeLine(idx)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={15} /></button></td>
                     </tr>
                     );
@@ -214,9 +274,12 @@ export default function TillPage() {
             <div className="flex justify-between border-t border-slate-200 pt-2 text-lg font-bold text-slate-800"><span>{t("common.total")}</span><span>{money(totals.total, cur)}</span></div>
           </div>
 
-          <button onClick={completeSale} disabled={saving || cart.length === 0 || insufficientCash} className="btn-primary w-full">
-            {saving ? t("common.saving") : t("pos.completeSale")}
-          </button>
+          <div className="flex gap-2">
+            <button onClick={holdSale} disabled={cart.length === 0} className="btn-secondary flex-1"><Icon name="box" size={15} /> {t("pos.holdSale")}</button>
+            <button onClick={completeSale} disabled={saving || cart.length === 0 || insufficientCash} className="btn-primary flex-1">
+              {saving ? t("common.saving") : t("pos.completeSale")}
+            </button>
+          </div>
 
           {lastSale && <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-2.5 text-center">{t("pos.saleCompleted", { number: lastSale })}</div>}
         </div>

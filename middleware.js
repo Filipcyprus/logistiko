@@ -3,10 +3,12 @@ import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
 
 const PUBLIC_EXACT = new Set(["/login", "/api/auth/login"]);
 
-function isStaffAllowed(pathname) {
+// Cashier: μόνο Ταμείο (POS) + κρατημένες πωλήσεις.
+function isCashierAllowed(pathname) {
   if (pathname === "/tameio") return true;
-  if (pathname === "/api/auth/logout") return true;
+  if (pathname === "/api/auth/logout" || pathname === "/api/auth/me") return true;
   if (/^\/parastatika\/[^/]+$/.test(pathname) && pathname !== "/parastatika/neo") return true;
+  if (pathname.startsWith("/api/held-sales")) return true;
   if (pathname.startsWith("/api/products")) return true;
   if (pathname.startsWith("/api/invoices")) return true;
   if (pathname.startsWith("/api/customers")) return true;
@@ -14,12 +16,20 @@ function isStaffAllowed(pathname) {
   return false;
 }
 
+// Manager: αποθήκη, προϊόντα, παραγγελίες, προμηθευτές, αγορές/παραλαβή — όχι ρυθμίσεις.
+function isManagerAllowed(pathname) {
+  if (pathname === "/api/auth/logout" || pathname === "/api/auth/me") return true;
+  const pagePrefixes = ["/apothiki", "/paraggelies", "/promitheutes", "/agores", "/exoda"];
+  if (pagePrefixes.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
+  const apiPrefixes = ["/api/products", "/api/stock", "/api/categories", "/api/orders", "/api/suppliers", "/api/purchases", "/api/expenses", "/api/customers", "/api/settings"];
+  if (apiPrefixes.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
+  return false;
+}
+
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
   // Δημόσιες διαδρομές: B2B portal, login, στατικά αρχεία.
-  // Το /api/users επιτρέπεται πάντα να περάσει: το route handler κάνει τον δικό του
-  // έλεγχο owner-only (με εξαίρεση bootstrap όταν δεν υπάρχει ακόμα κανένας χρήστης).
   if (
     pathname.startsWith("/portal") ||
     pathname.startsWith("/api/portal") ||
@@ -41,11 +51,30 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (session.role === "staff" && !isStaffAllowed(pathname)) {
+  // Μόνο ο owner έχει πλήρη πρόσβαση από προεπιλογή. Κάθε άλλος ρόλος (γνωστός ή μη)
+  // περνάει από ρητό έλεγχο επιτρεπόμενων διαδρομών — άγνωστος ρόλος = καμία πρόσβαση.
+  if (session.role === "owner") {
+    return NextResponse.next();
+  }
+
+  let allowed;
+  let fallbackPage;
+  if (session.role === "cashier") {
+    allowed = isCashierAllowed(pathname);
+    fallbackPage = "/tameio";
+  } else if (session.role === "manager") {
+    allowed = isManagerAllowed(pathname);
+    fallbackPage = "/apothiki";
+  } else {
+    allowed = pathname === "/api/auth/logout" || pathname === "/api/auth/me";
+    fallbackPage = "/login";
+  }
+
+  if (!allowed) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "errors.forbidden" }, { status: 403 });
     }
-    return NextResponse.redirect(new URL("/tameio", request.url));
+    return NextResponse.redirect(new URL(fallbackPage, request.url));
   }
 
   return NextResponse.next();

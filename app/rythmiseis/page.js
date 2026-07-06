@@ -12,7 +12,7 @@ export default function SettingsPage() {
   const fileRef = useRef();
   const restoreRef = useRef();
   const [staff, setStaff] = useState([]);
-  const [newStaff, setNewStaff] = useState({ username: "", password: "" });
+  const [newStaff, setNewStaff] = useState({ username: "", password: "", role: "cashier", canDiscount: false });
   const [staffError, setStaffError] = useState("");
 
   const loadStaff = () => fetch("/api/users").then((r) => (r.ok ? r.json() : [])).then(setStaff);
@@ -25,8 +25,8 @@ export default function SettingsPage() {
   const addStaff = async () => {
     setStaffError("");
     if (!newStaff.username.trim() || !newStaff.password) { setStaffError(t("settings.errStaffFields")); return; }
-    const res = await fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...newStaff, role: "staff" }) });
-    if (res.ok) { setNewStaff({ username: "", password: "" }); loadStaff(); }
+    const res = await fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newStaff) });
+    if (res.ok) { setNewStaff({ username: "", password: "", role: "cashier", canDiscount: false }); loadStaff(); }
     else { const err = await res.json().catch(() => ({})); setStaffError(err.error === "errors.usernameTaken" ? t("settings.errUsernameTaken") : t("common.error")); }
   };
   const removeStaff = async (id) => {
@@ -158,16 +158,29 @@ export default function SettingsPage() {
         {staffError && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{staffError}</div>}
 
         <div className="flex flex-wrap gap-2 items-end">
-          <div className="flex-1 min-w-[160px]">
+          <div className="flex-1 min-w-[140px]">
             <label className="label">{t("settings.fieldUsername")}</label>
             <input className="input" value={newStaff.username} onChange={(e) => setNewStaff({ ...newStaff, username: e.target.value })} />
           </div>
-          <div className="flex-1 min-w-[160px]">
+          <div className="flex-1 min-w-[140px]">
             <label className="label">{t("settings.fieldPassword")}</label>
             <input type="password" className="input" value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })} />
           </div>
+          <div className="min-w-[140px]">
+            <label className="label">{t("settings.fieldRole")}</label>
+            <select className="input" value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}>
+              <option value="cashier">{t("settings.roleCashier")}</option>
+              <option value="manager">{t("settings.roleManager")}</option>
+            </select>
+          </div>
           <button onClick={addStaff} className="btn-secondary"><Icon name="plus" size={15} /> {t("settings.addStaff")}</button>
         </div>
+        {newStaff.role === "cashier" && (
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" checked={newStaff.canDiscount} onChange={(e) => setNewStaff({ ...newStaff, canDiscount: e.target.checked })} />
+            {t("settings.canDiscountLabel")}
+          </label>
+        )}
 
         {staff.length === 0 ? (
           <p className="text-sm text-slate-400">{t("settings.noStaff")}</p>
@@ -175,12 +188,13 @@ export default function SettingsPage() {
           <div className="card overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
-                <tr><th className="table-th">{t("settings.fieldUsername")}</th><th className="table-th"></th></tr>
+                <tr><th className="table-th">{t("settings.fieldUsername")}</th><th className="table-th">{t("settings.fieldRole")}</th><th className="table-th"></th></tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {staff.map((u) => (
                   <tr key={u.id}>
                     <td className="table-td font-medium">{u.username}</td>
+                    <td className="table-td text-slate-500">{u.role === "manager" ? t("settings.roleManager") : t("settings.roleCashier")}{u.role === "cashier" && u.canDiscount ? ` · ${t("settings.canDiscountBadge")}` : ""}</td>
                     <td className="table-td text-right"><button onClick={() => removeStaff(u.id)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button></td>
                   </tr>
                 ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { money, formatDate, computeTotals } from "@/lib/format";
@@ -20,11 +20,19 @@ export default function PurchaseView() {
   const [po, setPo] = useState(null);
   const [settings, setSettings] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [products, setProducts] = useState([]);
+  const fileRef = useRef();
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveItems, setReceiveItems] = useState([]);
+  const [scanCode, setScanCode] = useState("");
+  const [receiving, setReceiving] = useState(false);
+  const scanRef = useRef();
 
   const load = () => fetch(`/api/purchases/${id}`).then((r) => (r.ok ? r.json() : null)).then((d) => (d ? setPo(d) : setNotFound(true)));
   useEffect(() => {
     load();
     fetch("/api/settings").then((r) => r.json()).then(setSettings);
+    fetch("/api/products").then((r) => r.json()).then(setProducts);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -36,15 +44,50 @@ export default function PurchaseView() {
     await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     load();
   };
-  const markReceived = async () => {
-    if (!confirm(t("purchases.confirmReceive"))) return;
-    await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "received" }) });
-    load();
-  };
   const del = async () => {
     if (!confirm(t("purchases.confirmDelete"))) return;
     await fetch(`/api/purchases/${id}`, { method: "DELETE" });
     router.push("/exoda?tab=purchases");
+  };
+
+  const onAttach = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ attachment: { data: reader.result, name: file.name, type: file.type } }) });
+      load();
+    };
+    reader.readAsDataURL(file);
+  };
+  const removeAttachment = async () => {
+    await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ attachment: null }) });
+    load();
+  };
+
+  const openReceive = () => {
+    setReceiveItems((po.items || []).map((it) => ({ ...it, receivedQty: it.quantity })));
+    setReceiveOpen(true);
+    setTimeout(() => scanRef.current?.focus(), 50);
+  };
+  const updateReceiveQty = (idx, qty) => setReceiveItems((prev) => prev.map((it, i) => (i === idx ? { ...it, receivedQty: Math.max(0, Number(qty)) } : it)));
+  const onScan = (e) => {
+    if (e.key !== "Enter") return;
+    const code = scanCode.trim();
+    if (!code) return;
+    const prod = products.find((p) => p.barcode && p.barcode === code);
+    if (prod) {
+      setReceiveItems((prev) => prev.map((it) => (it.productId === prod.id ? { ...it, receivedQty: Number(it.receivedQty || 0) + 1 } : it)));
+    }
+    setScanCode("");
+  };
+  const confirmReceive = async () => {
+    setReceiving(true);
+    await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "received", items: receiveItems }) });
+    setReceiving(false);
+    setReceiveOpen(false);
+    load();
   };
 
   const st = STATUS[po.status] || STATUS.draft;
@@ -57,11 +100,22 @@ export default function PurchaseView() {
           <select className="input !py-2 max-w-[170px]" value={po.status} onChange={(e) => setStatus(e.target.value)} disabled={po.received}>
             {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{t(v.key)}</option>)}
           </select>
-          {!po.received && <button onClick={markReceived} className="btn-secondary"><Icon name="box" size={15} /> {t("purchases.markReceived")}</button>}
+          {!po.received && <button onClick={openReceive} className="btn-secondary"><Icon name="box" size={15} /> {t("purchases.markReceived")}</button>}
+          <button onClick={() => fileRef.current?.click()} className="btn-secondary"><Icon name="upload" size={15} /> {t("purchases.attachInvoice")}</button>
+          <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={onAttach} />
           <button onClick={() => window.print()} className="btn-secondary" title={t("purchases.print")}><Icon name="printer" size={15} /></button>
           <button onClick={del} className="btn-secondary text-red-600"><Icon name="trash" size={15} /></button>
         </div>
       </div>
+
+      {po.attachment && (
+        <div className="card p-3 no-print max-w-3xl mx-auto flex items-center justify-between gap-3">
+          <a href={po.attachment.data} download={po.attachment.name} className="text-sm text-brand-700 hover:underline flex items-center gap-2">
+            <Icon name="invoice" size={15} /> {po.attachment.name}
+          </a>
+          <button onClick={removeAttachment} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button>
+        </div>
+      )}
 
       {po.received && <div className="card p-3 no-print max-w-3xl mx-auto text-sm text-emerald-700 bg-emerald-50 border-emerald-200 flex items-center gap-2"><Icon name="check" size={15} /> {t("purchases.receivedNote")}</div>}
 
@@ -130,6 +184,46 @@ export default function PurchaseView() {
 
         {po.notes && <div className="mt-4 text-sm text-slate-600"><b>{t("purchases.notes")}:</b> {po.notes}</div>}
       </div>
+
+      {receiveOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => setReceiveOpen(false)}>
+          <div className="card p-6 w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-1">{t("purchases.receiveModalTitle")}</h2>
+            <p className="text-sm text-slate-500 mb-4">{t("purchases.receiveModalSub")}</p>
+
+            <div className="relative mb-4">
+              <Icon name="scan" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input ref={scanRef} className="input pl-9" placeholder={t("purchases.scanPlaceholder")} value={scanCode} onChange={(e) => setScanCode(e.target.value)} onKeyDown={onScan} />
+            </div>
+
+            <div className="max-h-72 overflow-y-auto border border-slate-100 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+                  <tr>
+                    <th className="table-th">{t("invoices.colDescription")}</th>
+                    <th className="table-th text-right">{t("purchases.ordered")}</th>
+                    <th className="table-th text-right">{t("purchases.received")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {receiveItems.map((it, idx) => (
+                    <tr key={idx}>
+                      <td className="table-td">{it.description}</td>
+                      <td className="table-td text-right text-slate-400">{it.quantity} {it.unit}</td>
+                      <td className="table-td text-right"><input type="number" step="any" min="0" className="input !w-24 !py-1 text-right ml-auto" value={it.receivedQty} onChange={(e) => updateReceiveQty(idx, e.target.value)} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setReceiveOpen(false)} className="btn-secondary">{t("common.cancel")}</button>
+              <button onClick={confirmReceive} disabled={receiving} className="btn-primary">{receiving ? t("common.saving") : t("purchases.confirmReceiveBtn")}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
