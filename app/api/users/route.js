@@ -4,7 +4,8 @@ import { hashPassword } from "@/lib/auth";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
 import { logActivity } from "@/lib/audit";
 
-const VALID_ROLES = ["manager", "cashier"];
+const VALID_ROLES = ["manager", "cashier", "partner", "consignment", "accountant"];
+const LINKED_ROLES = { partner: "partnerShops", consignment: "consignmentStores" };
 
 async function requireOwner(request) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
@@ -41,11 +42,23 @@ export async function POST(request) {
   }
 
   const role = isBootstrap ? "owner" : (VALID_ROLES.includes(body.role) ? body.role : "cashier");
+
+  let linkedId = null;
+  let linkedName = "";
+  if (LINKED_ROLES[role]) {
+    const collection = LINKED_ROLES[role];
+    const entity = (db[collection] || []).find((x) => x.id === body.linkedId);
+    if (!entity) return NextResponse.json({ error: "errors.linkedEntityRequired" }, { status: 400 });
+    linkedId = entity.id;
+    linkedName = entity.name;
+  }
+
   const rec = insert("users", {
     username,
     passwordHash: hashPassword(password),
     role,
     ...(role === "cashier" ? { canDiscount: !!body.canDiscount } : {}),
+    ...(LINKED_ROLES[role] ? { linkedId, linkedName } : {}),
   });
   const { passwordHash, ...safe } = rec;
   await logActivity(request, "staff_create", { targetUsername: username, role });

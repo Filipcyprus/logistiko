@@ -299,9 +299,12 @@ export default function CustomerProfile() {
                 <div className="flex flex-wrap gap-2 items-end">
                   <div className="flex-1 min-w-[200px]">
                     <label className="label">{t("customers.cpAddProduct")}</label>
-                    <select className="input" value={newCP.productId} onChange={(e) => setNewCP({ ...newCP, productId: e.target.value })}>
+                    <select className="input" value={newCP.productId} onChange={(e) => {
+                      const p = products.find((x) => x.id === e.target.value);
+                      setNewCP({ productId: e.target.value, price: p ? String(p.price) : "" });
+                    }}>
                       <option value="">{t("customers.cpAddProduct")}</option>
-                      {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      {products.map((p) => <option key={p.id} value={p.id}>{p.name} ({money(p.price, "€")})</option>)}
                     </select>
                   </div>
                   <div className="w-32">
@@ -365,7 +368,12 @@ export default function CustomerProfile() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2"><Field label={t("customers.fieldName")}><input className="input" value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} /></Field></div>
             <Field label={t("customers.fieldTaxId")}><input className="input" value={cust.afm} onChange={(e) => setCust({ ...cust, afm: e.target.value })} /></Field>
-            <Field label={t("customers.fieldProfession")}><input className="input" value={cust.profession} onChange={(e) => setCust({ ...cust, profession: e.target.value })} /></Field>
+            <Field label={t("customers.fieldProfession")}><select className="input" value={cust.profession} onChange={(e) => setCust({ ...cust, profession: e.target.value })}>
+              <option value="">Select profession</option>
+              <option value="Barber">Barber</option>
+              <option value="Print">Print</option>
+              <option value="Perfumes">Perfumes</option>
+            </select></Field>
             <Field label={t("customers.fieldPhone")}><input className="input" value={cust.phone} onChange={(e) => setCust({ ...cust, phone: e.target.value })} /></Field>
             <Field label={t("customers.fieldAddress")}><input className="input" value={cust.address} onChange={(e) => setCust({ ...cust, address: e.target.value })} /></Field>
             <Field label={t("customers.fieldCity")}><input className="input" value={cust.city} onChange={(e) => setCust({ ...cust, city: e.target.value })} /></Field>
@@ -418,7 +426,7 @@ function DocMini({ rows, href, empty, t }) {
 
 function Modal({ title, children, onClose, wide }) {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <div className={`card p-6 w-full ${wide ? "max-w-2xl" : "max-w-md"} max-h-[90vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-bold mb-4">{title}</h2>
         {children}

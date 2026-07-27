@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
+import { migrateInlineDesigns } from "@/lib/uploads";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -24,6 +25,10 @@ export async function POST(request) {
   if (body.customerId) {
     customerName = db.customers.find((c) => c.id === body.customerId)?.name || "";
   }
+  let partnerShopName = "";
+  if (body.partnerShopId) {
+    partnerShopName = db.partnerShops.find((p) => p.id === body.partnerShopId)?.name || "";
+  }
 
   const job = {
     id: uid(),
@@ -31,12 +36,15 @@ export async function POST(request) {
     title: body.title || "",
     customerId: body.customerId || null,
     customerName,
+    partnerShopId: body.partnerShopId || null,
+    partnerShopName,
+    messages: [],
     stageId,
     priority: body.priority || "normal",
     dueDate: body.dueDate || "",
     assignedTo: body.assignedTo || "",
-    quantity: body.quantity || "",
-    unit: body.unit || "",
+    items: Array.isArray(body.items) ? body.items.map((it) => ({ id: it.id || uid(), description: it.description || "", quantity: it.quantity || "", unit: it.unit || "", partnerUnitPrice: null, partnerVatRate: null })).filter((it) => it.description || it.quantity) : [],
+    designs: migrateInlineDesigns(body.designs),
     linkedType: body.linkedType || null,
     linkedId: body.linkedId || null,
     linkedNumber: body.linkedNumber || "",

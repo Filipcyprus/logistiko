@@ -7,10 +7,11 @@ import ProductForm from "@/components/ProductForm";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const emptyP = {
-  name: "", code: "", barcode: "", brand: "", category: "", supplierId: "", productType: "product", image: "",
-  cost: 0, wholesalePrice: 0, retailPrice: "", vatRate: 19,
-  stock: 0, unit: "pcs", lowStock: 0, warehouse: "", binLocation: "",
+  name: "", code: "", barcode: "", sku: "", hsCode: "", brand: "", category: "", supplierId: "", productType: "product", image: "",
+  cost: 0, costWithVat: undefined, wholesalePrice: 0, retailPrice: "", vatRate: 0, saleVatRate: 19,
+  stock: 0, unit: "pcs", lowStock: 0, warehouseStocks: [], volumeMl: "", weightG: "", shippingRate: 2.4,
   trackStock: true, trackSerial: false, trackBatch: false, trackExpiry: false,
+  targetProfessions: [], serialNumbers: [], customDiscountTiers: [],
   notes: "",
 };
 

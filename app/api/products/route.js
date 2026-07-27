@@ -21,30 +21,47 @@ export async function POST(request) {
   const trackStock = isService ? false : body.trackStock !== false;
   const initialStock = isService ? 0 : Number(body.stock || 0);
 
+  const warehouseStocks = Array.isArray(body.warehouseStocks) ? body.warehouseStocks.map((ws) => ({
+    location: ws.location || "",
+    stock: Number(ws.stock || 0),
+    binLocation: ws.binLocation || "",
+    expiryDate: ws.expiryDate || "",
+  })) : [];
+
   const rec = insert("products", {
     code: body.code || "",
     barcode: body.barcode?.trim() || generateBarcode(),
+    sku: body.sku || "",
+    hsCode: body.hsCode || "",
     name: body.name.trim(),
     brand: body.brand || "",
     category: body.category || "",
     supplierId: body.supplierId || "",
     department: body.department || "",
     productType,
+    targetProfessions: Array.isArray(body.targetProfessions) ? body.targetProfessions : [],
     image: body.image || "",
     unit: body.unit || serverT(db.settings.language, "common.unit"),
     price: wholesalePrice,
     wholesalePrice,
     retailPrice: body.retailPrice !== "" && body.retailPrice != null ? Number(body.retailPrice) : null,
     cost: Number(body.cost || 0),
-    vatRate: body.vatRate != null ? Number(body.vatRate) : defVat,
+    vatRate: body.vatRate != null ? Number(body.vatRate) : 0,
+    saleVatRate: body.saleVatRate != null ? Number(body.saleVatRate) : defVat,
     stock: initialStock,
     lowStock: Number(body.lowStock || 0),
-    warehouse: body.warehouse || "",
-    binLocation: body.binLocation || "",
+    warehouseStocks,
+    volumeMl: body.volumeMl !== "" && body.volumeMl != null ? Number(body.volumeMl) : null,
+    weightG: body.weightG !== "" && body.weightG != null ? Number(body.weightG) : null,
+    shippingRate: body.shippingRate !== "" && body.shippingRate != null ? Number(body.shippingRate) : 2.4,
     trackStock,
     trackSerial: !!body.trackSerial,
+    serialNumbers: Array.isArray(body.serialNumbers) ? body.serialNumbers.map((s) => String(s).trim()).filter(Boolean) : [],
     trackBatch: !!body.trackBatch,
     trackExpiry: !!body.trackExpiry,
+    customDiscountTiers: Array.isArray(body.customDiscountTiers)
+      ? body.customDiscountTiers.map((t) => ({ min: Number(t.min || 0), percent: Number(t.percent || 0) }))
+      : [],
     notes: body.notes || "",
   });
 

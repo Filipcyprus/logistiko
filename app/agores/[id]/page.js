@@ -186,7 +186,7 @@ export default function PurchaseView() {
       </div>
 
       {receiveOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => setReceiveOpen(false)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="card p-6 w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-1">{t("purchases.receiveModalTitle")}</h2>
             <p className="text-sm text-slate-500 mb-4">{t("purchases.receiveModalSub")}</p>

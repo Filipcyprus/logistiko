@@ -23,7 +23,7 @@ export default function LoginPage() {
     setLoading(false);
     if (res.ok) {
       const data = await res.json();
-      window.location.href = data.role === "staff" ? "/tameio" : "/";
+      window.location.href = data.redirectPath || (data.role === "staff" ? "/tameio" : "/");
     } else {
       const err = await res.json().catch(() => ({}));
       setError(err.error === "errors.invalidCredentials" ? "Invalid username or password." : "Something went wrong.");

@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
-import { readDB, writeDB } from "@/lib/db";
+import { readDB, writeDB, uid } from "@/lib/db";
+import { migrateInlineDesigns } from "@/lib/uploads";
 
 export async function GET(_req, { params }) {
   const job = (readDB().jobs || []).find((x) => x.id === params.id);
   if (!job) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
   return NextResponse.json(job);
+}
+
+function addSystemMessage(job, author, text) {
+  job.messages = [...(job.messages || []), { id: uid(), author, authorName: "", text, system: true, createdAt: new Date().toISOString() }];
 }
 
 export async function PUT(request, { params }) {
@@ -13,20 +18,47 @@ export async function PUT(request, { params }) {
   const job = db.jobs.find((x) => x.id === params.id);
   if (!job) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
 
-  // Αλλαγή σταδίου → κατέγραψε στο ιστορικό
+  // Τα μηνύματα/ιστορικό διαχειρίζονται αποκλειστικά εδώ (server-side) — ποτέ από ολόκληρη φόρμα εργασίας
+  // που έστειλε ο χρήστης, αλλιώς μια παλιά (stale) αντιγραφή θα έσβηνε μηνύματα που ήρθαν στο μεταξύ.
+  delete patch.messages;
+  delete patch.history;
+
+  // Άμυνα κατά της διόγκωσης της βάσης: αν ο client (π.χ. παλιό/μη ανανεωμένο tab)
+  // στείλει σχέδια με ενσωματωμένο base64 αντί για url, μετέτρεψέ τα σε αρχεία στο δίσκο.
+  if (Array.isArray(patch.designs)) {
+    patch.designs = migrateInlineDesigns(patch.designs);
+  }
+
+  const notifyPartner = !!(job.partnerShopId || patch.partnerShopId);
+
+  // Αλλαγή σταδίου → κατέγραψε στο ιστορικό + ειδοποίηση συνεργάτη
   if (patch.stageId && patch.stageId !== job.stageId) {
     job.history = [...(job.history || []), { stageId: patch.stageId, at: new Date().toISOString() }];
+    if (notifyPartner) {
+      const stageName = (db.stages || []).find((s) => s.id === patch.stageId)?.name || patch.stageId;
+      addSystemMessage(job, "owner", `Stage changed to: ${stageName}`);
+    }
   }
   // Ενημέρωση ονόματος πελάτη αν άλλαξε ο πελάτης
   if (patch.customerId !== undefined) {
     job.customerName = patch.customerId ? (db.customers.find((c) => c.id === patch.customerId)?.name || "") : "";
   }
+  // Ενημέρωση ονόματος συνεργάτη αν άλλαξε το partner shop
+  if (patch.partnerShopId !== undefined) {
+    const wasAssigned = !!job.partnerShopId;
+    job.partnerShopName = patch.partnerShopId ? (db.partnerShops.find((p) => p.id === patch.partnerShopId)?.name || "") : "";
+    if (patch.partnerShopId && patch.partnerShopId !== job.partnerShopId && !wasAssigned) {
+      addSystemMessage(job, "owner", "Job assigned to you.");
+    }
+  }
   // Ολοκλήρωση
   if (patch.status === "done" && job.status !== "done") {
     job.completedAt = new Date().toISOString();
+    if (notifyPartner) addSystemMessage(job, "owner", "Marked job as done.");
   }
-  if (patch.status === "active") {
+  if (patch.status === "active" && job.status !== "active") {
     job.completedAt = null;
+    if (notifyPartner) addSystemMessage(job, "owner", "Reopened job.");
   }
 
   Object.assign(job, patch);

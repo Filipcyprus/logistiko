@@ -70,7 +70,7 @@ export default function SuppliersPage() {
       </div>
 
       {form && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => setForm(null)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="card p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-4">{form.id ? t("suppliers.modalEdit") : t("suppliers.modalNew")}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

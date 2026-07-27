@@ -92,6 +92,7 @@ export default function DocView({ collection, kind, label, statusMap, canConvert
         <div className="flex justify-between items-start gap-6 border-b border-slate-200 pb-5">
           <div>
             {settings.logo ? <img src={settings.logo} alt="logo" className="h-14 mb-2" /> : <div className="text-2xl font-bold text-brand-700">{settings.companyName}</div>}
+            {doc.shopName && <div className="text-sm font-medium text-slate-500">{doc.shopName}</div>}
             <div className="text-sm text-slate-600 mt-1 space-y-0.5">
               {settings.logo && <div className="font-semibold text-slate-800">{settings.companyName}</div>}
               {(settings.address || settings.city) && <div>{settings.address}{settings.city ? `, ${settings.city}` : ""} {settings.postalCode}</div>}

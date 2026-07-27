@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { unreadCountForJobs } from "@/lib/jobNotifications";
+import { playNotifySound } from "@/lib/notifySound";
 
 const nav = [
   { href: "/", key: "nav.dashboard", icon: "dashboard" },
@@ -17,7 +19,9 @@ const nav = [
   { href: "/pelates", key: "nav.customers", icon: "users" },
   { href: "/promitheutes", key: "nav.suppliers", icon: "truck" },
   { href: "/apothiki", key: "nav.stock", icon: "box" },
+  { href: "/consignment", key: "nav.consignment", icon: "layers" },
   { href: "/exoda", key: "nav.expenses", icon: "wallet" },
+  { href: "/shifts-summary", key: "nav.shiftSummary", icon: "report" },
   { href: "/anafores", key: "nav.reports", icon: "report" },
   { href: "/istoriko", key: "nav.activityLog", icon: "clock" },
   { href: "/rythmiseis", key: "nav.settings", icon: "settings" },
@@ -35,11 +39,43 @@ const managerNav = [
   { href: "/exoda", key: "nav.expenses", icon: "wallet" },
 ];
 
+const accountantNav = [
+  { href: "/logistis", key: "nav.accountant", icon: "report" },
+];
+
 export default function Sidebar({ role }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [unreadJobs, setUnreadJobs] = useState(0);
   const { t } = useLanguage();
-  const items = role === "cashier" ? cashierNav : role === "manager" ? managerNav : nav;
+  const items = role === "cashier" ? cashierNav : role === "manager" ? managerNav : role === "accountant" ? accountantNav : nav;
+  const hasJobsNav = items.some((item) => item.href === "/ergasies");
+  const prevUnreadRef = useRef(0);
+  const firstPollRef = useRef(true);
+
+  // Περιοδικός έλεγχος για νέα μηνύματα από συνεργάτες τυπογραφεία σε εργασίες — ήχος + badge.
+  useEffect(() => {
+    if (!hasJobsNav) return;
+    let cancelled = false;
+    const poll = () => {
+      fetch("/api/jobs?status=active")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((jobs) => {
+          if (cancelled) return;
+          const count = unreadCountForJobs(jobs);
+          if (!firstPollRef.current && count > prevUnreadRef.current) {
+            playNotifySound();
+          }
+          firstPollRef.current = false;
+          prevUnreadRef.current = count;
+          setUnreadJobs(count);
+        })
+        .catch(() => {});
+    };
+    poll();
+    const interval = setInterval(poll, 20000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [hasJobsNav]);
 
   const isActive = (href) => {
     const base = href.split("?")[0];
@@ -58,8 +94,9 @@ export default function Sidebar({ role }) {
         <span className="font-semibold text-sm tracking-wide">{t("common.appName")}</span>
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
-          <button onClick={() => setOpen(!open)} className="text-slate-300 hover:text-white">
+          <button onClick={() => setOpen(!open)} className="relative text-slate-300 hover:text-white">
             <Icon name="menu" size={20} />
+            {unreadJobs > 0 && <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-[16px] px-0.5 flex items-center justify-center">{unreadJobs}</span>}
           </button>
         </div>
       </div>
@@ -93,6 +130,9 @@ export default function Sidebar({ role }) {
               >
                 <Icon name={item.icon} size={16} />
                 {t(item.key)}
+                {item.href === "/ergasies" && unreadJobs > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">{unreadJobs}</span>
+                )}
               </Link>
             ))}
           </nav>

@@ -44,7 +44,6 @@ export default function StockPage() {
   const DEPARTMENTS = [
     ["", "allDepartments"],
     ["printShop", "deptPrintShop"],
-    ["kiosk", "deptKiosk"],
     ["barber", "deptBarber"],
     ["perfumes", "deptPerfumes"],
   ];
@@ -108,18 +107,20 @@ export default function StockPage() {
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     <th className="table-th"></th>
-                    <th className="table-th">{t("stock.colCode")}</th>
+                    <th className="table-th">{t("stock.fieldSku")}</th>
                     <th className="table-th">{t("stock.colName")}</th>
                     <th className="table-th">{t("stock.colBrand")}</th>
                     <th className="table-th text-right">{t("stock.colPrice")}</th>
                     <th className="table-th text-right">{t("stock.colVat")}</th>
                     <th className="table-th text-right">{t("stock.colStock")}</th>
+                    <th className="table-th text-center">{t("stock.colExpiry")}</th>
+                    <th className="table-th text-center">{t("stock.colSerial")}</th>
                     <th className="table-th"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filtered.length === 0 ? (
-                    <tr><td className="table-td text-slate-400" colSpan={8}>{t("stock.noItems")}</td></tr>
+                    <tr><td className="table-td text-slate-400" colSpan={10}>{t("stock.noItems")}</td></tr>
                   ) : filtered.map((p) => {
                     const low = p.trackStock !== false && Number(p.stock) <= Number(p.lowStock || 0);
                     return (
@@ -127,7 +128,7 @@ export default function StockPage() {
                         <td className="table-td">
                           {p.image ? <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover" /> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300"><Icon name="image" size={16} /></div>}
                         </td>
-                        <td className="table-td text-slate-400">{p.code || "—"}</td>
+                        <td className="table-td text-slate-500 text-sm">{p.sku || "—"}</td>
                         <td className="table-td font-medium">{p.name}{p.category && <div className="text-xs text-slate-400">{p.category}</div>}</td>
                         <td className="table-td text-slate-500">{p.brand || "—"}</td>
                         <td className="table-td text-right">{money(p.price, cur)}</td>
@@ -135,6 +136,26 @@ export default function StockPage() {
                         <td className="table-td text-right">
                           {p.trackStock === false ? <span className="text-slate-400 text-xs">{t("stock.serviceLabel")}</span> :
                             <span className={`badge ${low ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>{p.stock} {p.unit}</span>}
+                        </td>
+                        <td className="table-td text-center text-sm">
+                          {p.department === "perfumes" && p.trackExpiry && p.warehouseStocks?.length > 0 ? (
+                            <div className="space-y-1">
+                              {p.warehouseStocks.map((ws, i) => ws.expiryDate && (
+                                <div key={i} className={`text-xs px-2 py-1 rounded ${new Date(ws.expiryDate) < new Date() ? "bg-red-100 text-red-700" : new Date(ws.expiryDate) < new Date(Date.now() + 30*24*60*60*1000) ? "bg-yellow-100 text-yellow-700" : "bg-slate-100 text-slate-600"}`}>
+                                  {ws.expiryDate}
+                                </div>
+                              ))}
+                            </div>
+                          ) : "—"}
+                        </td>
+                        <td className="table-td text-center text-sm">
+                          {p.productType === "equipment" && p.trackSerial && p.serialNumbers?.length > 0 ? (
+                            <div className="space-y-1">
+                              {p.serialNumbers.map((s, i) => (
+                                <div key={i} className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-600">{s}</div>
+                              ))}
+                            </div>
+                          ) : "—"}
                         </td>
                         <td className="table-td text-right whitespace-nowrap">
                           {p.trackStock !== false && <button onClick={() => { setMoveFor(p); setMove({ type: "in", quantity: 0, reason: "" }); }} className="btn-ghost !px-2 !py-1" title={t("stock.moveModalTitle")}><Icon name="box" size={15} /></button>}
@@ -186,7 +207,7 @@ export default function StockPage() {
 
       {/* Modal κίνησης αποθήκης */}
       {moveFor && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => setMoveFor(null)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="card p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-1">{t("stock.moveModalTitle")}</h2>
             <p className="text-sm text-slate-500 mb-4">{t("stock.moveModalSub", { name: moveFor.name, stock: moveFor.stock, unit: moveFor.unit })}</p>

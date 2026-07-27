@@ -33,7 +33,7 @@ export default function InvoiceView() {
   const isCredit = inv.type === "credit";
   const isTim = inv.type === "timologio";
   const balance = Math.round((Number(inv.total) - Number(inv.paidAmount || 0)) * 100) / 100;
-  const docTitle = isCredit ? t("invoices.docCredit") : isTim ? t("invoices.docInvoice") : t("invoices.docReceipt");
+  const docTitle = isCredit ? t("invoices.docCredit") : isTim ? t("invoices.docInvoice") : inv.isPaymentReceipt ? t("invoices.docPaymentReceipt") : t("invoices.docReceipt");
 
   const createCreditNote = async () => {
     if (!confirm(t("invoices.confirmCreditNote"))) return;
@@ -56,8 +56,12 @@ export default function InvoiceView() {
   const savePayment = async () => {
     if (!inv.customerId) { alert(t("invoices.errPayRequiresCustomer")); return; }
     if (Number(pay.amount) <= 0) { alert(t("invoices.errNeedAmount")); return; }
-    await fetch("/api/payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerId: inv.customerId, invoiceId: inv.id, ...pay }) });
+    const res = await fetch("/api/payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerId: inv.customerId, invoiceId: inv.id, ...pay }) });
     setPayOpen(false);
+    if (res.ok) {
+      const result = await res.json();
+      if (result.receipt) { router.push(`/parastatika/${result.receipt.id}`); return; }
+    }
     load();
   };
 
@@ -70,6 +74,9 @@ export default function InvoiceView() {
           {!isCredit && inv.status === "unpaid" && <button onClick={() => { setPay({ ...pay, amount: balance }); setPayOpen(true); }} className="btn-secondary"><Icon name="money" size={15} /> {t("invoices.registerPayment")}</button>}
           {!isCredit && !inv.creditNoteId && <button onClick={createCreditNote} disabled={busy} className="btn-secondary"><Icon name="invoice" size={15} /> {t("invoices.createCreditNote")}</button>}
           {inv.creditNoteId && <Link href={`/parastatika/${inv.creditNoteId}`} className="btn-secondary text-red-600">{t("invoices.creditNoteLink", { number: inv.creditNoteNumber })}</Link>}
+          {(inv.paymentReceipts || []).map((r) => (
+            <Link key={r.id} href={`/parastatika/${r.id}`} className="btn-secondary text-emerald-600">{t("invoices.paymentReceiptLink", { number: r.number })}</Link>
+          ))}
           {inv.customerId && <EmailButton kind={isCredit ? "credit" : "invoice"} id={inv.id} defaultEmail={inv.customer?.email || ""} />}
           <button onClick={() => window.print()} className="btn-primary"><Icon name="printer" size={15} /> {t("invoices.printPdf")}</button>
         </div>
@@ -90,7 +97,7 @@ export default function InvoiceView() {
           <div className="text-right">
             <div className={`text-lg font-bold ${isCredit ? "text-red-600" : "text-slate-800"}`}>{docTitle}</div>
             <div className="text-2xl font-extrabold text-brand-700">{inv.number}</div>
-            {isCredit && inv.relatedNumber && <div className="text-xs text-slate-500 mt-0.5">{t("invoices.relatedInvoice", { number: inv.relatedNumber })}</div>}
+            {inv.relatedNumber && <div className="text-xs text-slate-500 mt-0.5">{t("invoices.relatedInvoice", { number: inv.relatedNumber })}</div>}
             <div className="text-sm text-slate-500 mt-1">{t("invoices.dateLabel", { date: formatDate(inv.date) })}</div>
             <div className="text-xs text-slate-400">{t("invoices.seriesAA", { series: inv.series, aa: inv.aa })}</div>
             {!isCredit && <span className={`badge mt-2 ${inv.status === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{inv.status === "paid" ? t("invoices.statusPaid") : t("invoices.statusUnpaid")}</span>}
@@ -153,13 +160,28 @@ export default function InvoiceView() {
         </div>
 
         <div className="mt-5 pt-4 border-t border-slate-100 text-sm text-slate-600">{t("invoices.paymentMethodLine", { method: inv.paymentMethod })}</div>
+        {settings.bankIban && !isCredit && inv.status === "unpaid" && (
+          <div className="mt-3 bg-slate-50 rounded-lg p-3 text-sm text-slate-600 space-y-0.5">
+            <div className="font-semibold text-slate-700 text-xs uppercase tracking-wide mb-1">{t("invoices.bankDetailsTitle")}</div>
+            {settings.bankName && <div>{settings.bankName}</div>}
+            {settings.bankAccountHolder && <div>{t("invoices.bankAccountHolder")}: {settings.bankAccountHolder}</div>}
+            <div>IBAN: {settings.bankIban}</div>
+            {settings.bankSwift && <div>SWIFT/BIC: {settings.bankSwift}</div>}
+            {settings.bankConfirmationEmail && <div className="pt-1">{t("invoices.bankConfirmationEmailLine")}: {settings.bankConfirmationEmail}</div>}
+          </div>
+        )}
         {inv.notes && <div className="mt-2 text-sm text-slate-600"><b>{t("documents.notes")}:</b> {inv.notes}</div>}
-        {settings.footerNote && <div className="mt-6 text-center text-sm text-slate-500 italic">{settings.footerNote}</div>}
+        {inv.shopName && (
+          <div className="mt-6 text-center">
+            <div className="inline-block px-4 py-1.5 border border-slate-200 rounded-full text-xs font-semibold tracking-wide text-slate-600 uppercase">{inv.shopName}</div>
+          </div>
+        )}
+        {settings.footerNote && <div className="mt-3 text-center text-sm text-slate-500 italic">{settings.footerNote}</div>}
       </div>
 
       {/* Modal είσπραξης */}
       {payOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 no-print" onClick={() => setPayOpen(false)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 no-print">
           <div className="card p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-1">{t("invoices.payModalTitle")}</h2>
             <p className="text-sm text-slate-500 mb-4">{t("invoices.payModalSub", { number: inv.number, balance: money(balance, cur) })}</p>

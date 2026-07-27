@@ -27,6 +27,15 @@ function isCashierAllowed(pathname) {
   return false;
 }
 
+// Accountant: μόνο ανάγνωση — δικό της portal + αναφορές ΦΠΑ, καμία πρόσβαση αλλού.
+function isAccountantAllowed(pathname) {
+  if (pathname === "/logistis") return true;
+  if (pathname === "/api/auth/logout" || pathname === "/api/auth/me") return true;
+  if (pathname === "/api/accountant" || pathname.startsWith("/api/accountant/")) return true;
+  if (pathname === "/api/reports") return true;
+  return false;
+}
+
 // Manager: αποθήκη, προϊόντα, παραγγελίες, προμηθευτές, αγορές/παραλαβή — όχι ρυθμίσεις.
 function isManagerAllowed(pathname) {
   if (pathname === "/api/auth/logout" || pathname === "/api/auth/me") return true;
@@ -40,14 +49,22 @@ function isManagerAllowed(pathname) {
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
-  // Δημόσιες διαδρομές: B2B portal, login, στατικά αρχεία.
+  // Δημόσιες διαδρομές: B2B portal, partner portal, login, στατικά αρχεία.
   if (
     pathname.startsWith("/portal") ||
     pathname.startsWith("/api/portal") ||
+    pathname.startsWith("/partner-portal") ||
+    pathname.startsWith("/api/partner-portal") ||
+    pathname.startsWith("/consignment-portal") ||
+    pathname.startsWith("/api/consignment-portal") ||
     pathname.startsWith("/api/users") ||
+    pathname.startsWith("/uploads") ||
     PUBLIC_EXACT.has(pathname) ||
     pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico"
+    pathname === "/favicon.ico" ||
+    pathname === "/manifest.json" ||
+    pathname === "/icon-192.png" ||
+    pathname === "/icon-512.png"
   ) {
     return NextResponse.next();
   }
@@ -76,6 +93,9 @@ export async function middleware(request) {
   } else if (session.role === "manager") {
     allowed = isManagerAllowed(pathname);
     fallbackPage = "/apothiki";
+  } else if (session.role === "accountant") {
+    allowed = isAccountantAllowed(pathname);
+    fallbackPage = "/logistis";
   } else {
     allowed = pathname === "/api/auth/logout" || pathname === "/api/auth/me";
     fallbackPage = "/login";

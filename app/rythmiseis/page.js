@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { DEFAULT_QUANTITY_DISCOUNT_TIERS } from "@/lib/pricing";
+
+const QTY_DISCOUNT_PRODUCT_TYPES = [
+  ["cosmetic", "typeCosmetic"],
+  ["consumable", "typeConsumable"],
+];
 
 export default function SettingsPage() {
   const { t, lang } = useLanguage();
@@ -12,22 +18,30 @@ export default function SettingsPage() {
   const fileRef = useRef();
   const restoreRef = useRef();
   const [staff, setStaff] = useState([]);
-  const [newStaff, setNewStaff] = useState({ username: "", password: "", role: "cashier", canDiscount: false });
+  const [newStaff, setNewStaff] = useState({ username: "", password: "", role: "cashier", canDiscount: false, linkedId: "" });
   const [staffError, setStaffError] = useState("");
+  const [qtyDiscountType, setQtyDiscountType] = useState("cosmetic");
+  const [partnerShops, setPartnerShops] = useState([]);
+  const [consignmentStores, setConsignmentStores] = useState([]);
 
   const loadStaff = () => fetch("/api/users").then((r) => (r.ok ? r.json() : [])).then(setStaff);
 
   useEffect(() => {
     fetch("/api/settings").then((r) => r.json()).then(setS);
     loadStaff();
+    fetch("/api/partner-shops").then((r) => (r.ok ? r.json() : [])).then(setPartnerShops);
+    fetch("/api/consignment-stores").then((r) => (r.ok ? r.json() : [])).then(setConsignmentStores);
   }, []);
+
+  const LINKED_ENTITIES = { partner: partnerShops, consignment: consignmentStores };
 
   const addStaff = async () => {
     setStaffError("");
     if (!newStaff.username.trim() || !newStaff.password) { setStaffError(t("settings.errStaffFields")); return; }
+    if (LINKED_ENTITIES[newStaff.role] && !newStaff.linkedId) { setStaffError(t("settings.errLinkedEntityRequired")); return; }
     const res = await fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newStaff) });
-    if (res.ok) { setNewStaff({ username: "", password: "", role: "cashier", canDiscount: false }); loadStaff(); }
-    else { const err = await res.json().catch(() => ({})); setStaffError(err.error === "errors.usernameTaken" ? t("settings.errUsernameTaken") : t("common.error")); }
+    if (res.ok) { setNewStaff({ username: "", password: "", role: "cashier", canDiscount: false, linkedId: "" }); loadStaff(); }
+    else { const err = await res.json().catch(() => ({})); setStaffError(err.error === "errors.usernameTaken" ? t("settings.errUsernameTaken") : err.error === "errors.linkedEntityRequired" ? t("settings.errLinkedEntityRequired") : t("common.error")); }
   };
   const removeStaff = async (id) => {
     if (!confirm(t("settings.confirmRemoveStaff"))) return;
@@ -44,10 +58,44 @@ export default function SettingsPage() {
   const upd = (patch) => setS((prev) => ({ ...prev, ...patch }));
   const updMail = (patch) => setS((prev) => ({ ...prev, mail: { ...(prev.mail || {}), ...patch } }));
 
+  const getTiers = (type) => {
+    const custom = s?.quantityDiscounts?.[type];
+    if (Array.isArray(custom)) return custom;
+    return DEFAULT_QUANTITY_DISCOUNT_TIERS[type] || [];
+  };
+  const setTiers = (type, tiers) => {
+    setS((prev) => ({ ...prev, quantityDiscounts: { ...(prev.quantityDiscounts || {}), [type]: tiers } }));
+  };
+  const addTier = (type) => {
+    const tiers = [...getTiers(type), { min: 0, percent: 0 }];
+    setTiers(type, tiers);
+  };
+  const updTier = (type, idx, patch) => {
+    const tiers = getTiers(type).map((t, i) => (i === idx ? { ...t, ...patch } : t));
+    setTiers(type, tiers);
+  };
+  const removeTier = (type, idx) => {
+    const tiers = getTiers(type).filter((_, i) => i !== idx);
+    setTiers(type, tiers);
+  };
+
+  const [saveError, setSaveError] = useState("");
   const save = async () => {
-    await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaveError("");
+    try {
+      const res = await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setSaveError(err.error ? t(err.error) : `${t("common.error")} (HTTP ${res.status})`);
+        return;
+      }
+      const fresh = await res.json();
+      setS(fresh);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setSaveError(e?.message || t("common.error"));
+    }
   };
 
   const onLogo = (e) => {
@@ -118,6 +166,18 @@ export default function SettingsPage() {
       </div>
 
       <div className="card p-6 space-y-4">
+        <h2 className="font-semibold text-slate-700">{t("settings.bankSection")}</h2>
+        <p className="text-sm text-slate-500">{t("settings.bankDescription")}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2"><label className="label">{t("settings.fieldBankName")}</label><input className="input" value={s.bankName || ""} onChange={(e) => upd({ bankName: e.target.value })} /></div>
+          <div><label className="label">{t("settings.fieldBankAccountHolder")}</label><input className="input" value={s.bankAccountHolder || ""} onChange={(e) => upd({ bankAccountHolder: e.target.value })} /></div>
+          <div><label className="label">{t("settings.fieldBankIban")}</label><input className="input" value={s.bankIban || ""} onChange={(e) => upd({ bankIban: e.target.value })} placeholder="CY00 0000 0000 0000 0000 0000 0000" /></div>
+          <div><label className="label">{t("settings.fieldBankSwift")}</label><input className="input" value={s.bankSwift || ""} onChange={(e) => upd({ bankSwift: e.target.value })} /></div>
+          <div className="sm:col-span-2"><label className="label">{t("settings.fieldBankConfirmationEmail")}</label><input type="email" className="input" value={s.bankConfirmationEmail || ""} onChange={(e) => upd({ bankConfirmationEmail: e.target.value })} placeholder="payments@yourcompany.com" /></div>
+        </div>
+      </div>
+
+      <div className="card p-6 space-y-4">
         <h2 className="font-semibold text-slate-700">{t("settings.invoiceSection")}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div><label className="label">{t("settings.fieldDefaultVat")}</label><input type="number" step="any" className="input" value={s.vatRate} onChange={(e) => upd({ vatRate: Number(e.target.value) })} /></div>
@@ -168,11 +228,25 @@ export default function SettingsPage() {
           </div>
           <div className="min-w-[140px]">
             <label className="label">{t("settings.fieldRole")}</label>
-            <select className="input" value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}>
+            <select className="input" value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value, linkedId: "" })}>
               <option value="cashier">{t("settings.roleCashier")}</option>
               <option value="manager">{t("settings.roleManager")}</option>
+              <option value="partner">{t("settings.rolePartner")}</option>
+              <option value="consignment">{t("settings.roleConsignment")}</option>
+              <option value="accountant">{t("settings.roleAccountant")}</option>
             </select>
           </div>
+          {LINKED_ENTITIES[newStaff.role] && (
+            <div className="min-w-[160px]">
+              <label className="label">{t("settings.fieldLinkedEntity")}</label>
+              <select className="input" value={newStaff.linkedId} onChange={(e) => setNewStaff({ ...newStaff, linkedId: e.target.value })}>
+                <option value="">{t("settings.selectLinkedEntity")}</option>
+                {LINKED_ENTITIES[newStaff.role].map((entity) => (
+                  <option key={entity.id} value={entity.id}>{entity.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <button onClick={addStaff} className="btn-secondary"><Icon name="plus" size={15} /> {t("settings.addStaff")}</button>
         </div>
         {newStaff.role === "cashier" && (
@@ -191,17 +265,67 @@ export default function SettingsPage() {
                 <tr><th className="table-th">{t("settings.fieldUsername")}</th><th className="table-th">{t("settings.fieldRole")}</th><th className="table-th"></th></tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {staff.map((u) => (
+                {staff.map((u) => {
+                  const roleLabel = u.role === "manager" ? t("settings.roleManager")
+                    : u.role === "partner" ? t("settings.rolePartner")
+                    : u.role === "consignment" ? t("settings.roleConsignment")
+                    : u.role === "accountant" ? t("settings.roleAccountant")
+                    : t("settings.roleCashier");
+                  return (
                   <tr key={u.id}>
                     <td className="table-td font-medium">{u.username}</td>
-                    <td className="table-td text-slate-500">{u.role === "manager" ? t("settings.roleManager") : t("settings.roleCashier")}{u.role === "cashier" && u.canDiscount ? ` · ${t("settings.canDiscountBadge")}` : ""}</td>
+                    <td className="table-td text-slate-500">
+                      {roleLabel}{u.role === "cashier" && u.canDiscount ? ` · ${t("settings.canDiscountBadge")}` : ""}
+                      {u.linkedName ? ` · ${u.linkedName}` : ""}
+                    </td>
                     <td className="table-td text-right"><button onClick={() => removeStaff(u.id)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button></td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
+      </div>
+
+      <div className="card p-6 space-y-4">
+        <div>
+          <h2 className="font-semibold text-slate-700">{t("settings.qtyDiscountSection")}</h2>
+          <p className="text-sm text-slate-500 mt-1">{t("settings.qtyDiscountSectionDesc")}</p>
+        </div>
+
+        <div className="flex gap-2 border-b border-slate-200">
+          {QTY_DISCOUNT_PRODUCT_TYPES.map(([type, key]) => (
+            <button
+              key={type}
+              onClick={() => setQtyDiscountType(type)}
+              className={`px-3 py-2 text-sm font-medium border-b-2 ${qtyDiscountType === type ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500"}`}
+            >
+              {t(`stock.${key}`)}
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          {getTiers(qtyDiscountType).map((tier, idx) => (
+            <div key={idx} className="flex gap-2 items-end bg-slate-50 p-3 rounded-lg">
+              <div className="flex-1">
+                <label className="label">{t("settings.qtyDiscountMinLabel")}</label>
+                <input type="number" step="1" min="0" className="input" value={tier.min} onChange={(e) => updTier(qtyDiscountType, idx, { min: Number(e.target.value) })} />
+              </div>
+              <div className="flex-1">
+                <label className="label">{t("settings.qtyDiscountPercentLabel")}</label>
+                <input type="number" step="any" min="0" max="100" className="input" value={tier.percent} onChange={(e) => updTier(qtyDiscountType, idx, { percent: Number(e.target.value) })} />
+              </div>
+              <button onClick={() => removeTier(qtyDiscountType, idx)} className="btn-ghost text-red-600"><Icon name="trash" size={16} /></button>
+            </div>
+          ))}
+          {getTiers(qtyDiscountType).length === 0 && (
+            <p className="text-sm text-slate-400 italic">{t("settings.qtyDiscountNoTiers")}</p>
+          )}
+        </div>
+
+        <button onClick={() => addTier(qtyDiscountType)} className="btn-secondary"><Icon name="plus" size={15} /> {t("settings.qtyDiscountAddTier")}</button>
       </div>
 
       <div className="card p-6 space-y-3">
@@ -214,9 +338,10 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 sticky bottom-4">
+      <div className="flex items-center gap-3 sticky bottom-4 flex-wrap">
         <button onClick={save} className="btn-primary">{t("settings.saveSettings")}</button>
         {saved && <span className="text-emerald-600 text-sm font-medium flex items-center gap-1"><Icon name="check" size={15} /> {t("common.saved")}</span>}
+        {saveError && <span className="text-red-600 text-sm font-medium bg-red-50 rounded-lg px-3 py-1.5">{saveError}</span>}
       </div>
     </div>
   );

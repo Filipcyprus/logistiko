@@ -97,8 +97,8 @@ export default function InvoicesPage() {
                       <Link href={`/parastatika/${i.id}`} className="text-brand-700 hover:underline">{i.number}</Link>
                     </td>
                     <td className="table-td">
-                      <span className={`badge ${i.type === "credit" ? "bg-red-100 text-red-700" : i.type === "timologio" ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700"}`}>
-                        {i.type === "credit" ? t("invoices.typeCredit") : i.type === "timologio" ? t("invoices.typeInvoice") : t("invoices.typeReceipt")}
+                      <span className={`badge ${i.type === "credit" ? "bg-red-100 text-red-700" : i.type === "timologio" ? "bg-violet-100 text-violet-700" : i.isPaymentReceipt ? "bg-emerald-100 text-emerald-700" : "bg-sky-100 text-sky-700"}`}>
+                        {i.type === "credit" ? t("invoices.typeCredit") : i.type === "timologio" ? t("invoices.typeInvoice") : i.isPaymentReceipt ? t("invoices.kindPaymentReceipt") : t("invoices.typeReceipt")}
                       </span>
                     </td>
                     <td className="table-td">{formatDate(i.date)}</td>

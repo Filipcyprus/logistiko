@@ -6,6 +6,7 @@ import { money, computeTotals, todayISO } from "@/lib/format";
 import LineItems, { emptyLine } from "@/components/LineItems";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { shippingCostForWeightKg, boxNowCostWithVat } from "@/lib/shipping";
 
 function NewInvoiceInner() {
   const router = useRouter();
@@ -20,6 +21,7 @@ function NewInvoiceInner() {
 
   const [kind, setKind] = useState("apodeixi");
   const [series, setSeries] = useState("A");
+  const [shopName, setShopName] = useState("");
   const [date, setDate] = useState(todayISO());
   const [customerId, setCustomerId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
@@ -27,6 +29,8 @@ function NewInvoiceInner() {
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState([emptyLine()]);
   const [saving, setSaving] = useState(false);
+  const [shippingEnabled, setShippingEnabled] = useState(false);
+  const [shippingMethod, setShippingMethod] = useState("p2d");
 
   useEffect(() => {
     Promise.all([
@@ -56,6 +60,25 @@ function NewInvoiceInner() {
   const totals = computeTotals(items);
   const cur = settings?.currency || "€";
 
+  // Κατά προσέγγιση βάρος από τα προϊόντα της γραμμής (μόνο για είδη συνδεδεμένα με προϊόν αποθήκης).
+  const itemsWeightG = items.reduce((sum, it) => {
+    if (!it.productId) return sum;
+    const p = products.find((x) => x.id === it.productId);
+    return sum + (Number(p?.weightG) || 0) * (Number(it.quantity) || 0);
+  }, 0);
+  const itemsWeightKg = itemsWeightG / 1000;
+  const vatRate = settings?.vatRate ?? 19;
+  const shippingCostWithVat = itemsWeightG > 0
+    ? (shippingMethod === "boxnow" ? boxNowCostWithVat() : shippingCostForWeightKg(itemsWeightKg, shippingMethod))
+    : 0;
+
+  const addShippingLine = () => {
+    if (shippingCostWithVat <= 0) return;
+    const shippingNet = Math.round((shippingCostWithVat / (1 + vatRate / 100)) * 100) / 100;
+    const methodLabel = shippingMethod === "p2p" ? t("portal.shippingP2P") : shippingMethod === "p2d" ? t("portal.shippingP2D") : t("portal.shippingBoxNow");
+    setItems([...items, { productId: null, description: `${t("portal.shippingLineLabel")} (${methodLabel})`, quantity: 1, unit: t("common.unit"), unitPrice: shippingNet, vatRate, discount: 0 }]);
+  };
+
   const save = async () => {
     const valid = items.filter((it) => it.description && Number(it.quantity) > 0);
     if (valid.length === 0) { alert(t("invoices.errNeedLine")); return; }
@@ -64,7 +87,9 @@ function NewInvoiceInner() {
     const res = await fetch("/api/invoices", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        type: kind, series, date, customerId: customerId || null,
+        type: kind === "payment_receipt" ? "apodeixi" : kind,
+        isPaymentReceipt: kind === "payment_receipt",
+        series, shopName, date, customerId: customerId || null,
         paymentMethod, status, notes, items: valid,
         sourceType: fromColl || null, sourceId: fromId || null,
       }),
@@ -88,14 +113,29 @@ function NewInvoiceInner() {
       <div className="card p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div>
           <label className="label">{t("invoices.kind")}</label>
-          <select className="input" value={kind} onChange={(e) => setKind(e.target.value)}>
+          <select
+            className="input"
+            value={kind}
+            onChange={(e) => {
+              const v = e.target.value;
+              setKind(v);
+              if (v === "payment_receipt" && items.length === 1 && !items[0].description) {
+                setItems([{ productId: null, description: t("invoices.paymentReceiptDefaultDesc"), quantity: 1, unit: t("common.unit"), unitPrice: 0, vatRate: 0, discount: 0 }]);
+              }
+            }}
+          >
             <option value="apodeixi">{t("invoices.kindReceipt")}</option>
             <option value="timologio">{t("invoices.kindInvoice")}</option>
+            <option value="payment_receipt">{t("invoices.kindPaymentReceipt")}</option>
           </select>
         </div>
         <div>
           <label className="label">{t("invoices.series")}</label>
           <input className="input" value={series} onChange={(e) => setSeries(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">{t("invoices.shopName")}</label>
+          <input className="input" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder={t("invoices.shopNamePlaceholder")} />
         </div>
         <div>
           <label className="label">{t("invoices.date")}</label>
@@ -120,6 +160,57 @@ function NewInvoiceInner() {
       </div>
 
       <LineItems items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.vatRate ?? 19} />
+
+      {itemsWeightG > 0 && (
+        <div className="card p-5 space-y-3">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+            <input type="checkbox" checked={shippingEnabled} onChange={(e) => setShippingEnabled(e.target.checked)} />
+            {t("invoices.needsShippingToggle")}
+          </label>
+          {shippingEnabled && (
+            <>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="text-sm text-slate-600">
+                  {t("portal.totalWeight")} (≈): <span className="font-semibold text-slate-800">{itemsWeightG >= 1000 ? `${itemsWeightKg.toFixed(2)} kg` : `${itemsWeightG} g/ml`}</span>
+                </div>
+              </div>
+              <div>
+                <label className="label">{t("portal.shippingMethod")}</label>
+                <div className="grid grid-cols-3 gap-2 max-w-md">
+                  <button
+                    type="button"
+                    onClick={() => setShippingMethod("p2p")}
+                    className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "p2p" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+                  >
+                    {t("portal.shippingP2P")}
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingP2PDesc")}</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShippingMethod("p2d")}
+                    className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "p2d" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+                  >
+                    {t("portal.shippingP2D")}
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingP2DDesc")}</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShippingMethod("boxnow")}
+                    className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "boxnow" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+                  >
+                    {t("portal.shippingBoxNow")}
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingBoxNowDesc")}</div>
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+                <div className="text-sm text-slate-600">{t("portal.shippingLineLabel")}: <span className="font-bold text-slate-800">{money(shippingCostWithVat, cur)}</span></div>
+                <button onClick={addShippingLine} className="btn-secondary text-sm"><Icon name="plus" size={14} /> {t("invoices.addShippingLine")}</button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">

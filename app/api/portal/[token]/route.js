@@ -17,15 +17,23 @@ export async function GET(_req, { params }) {
     const hasCustomPrice = customPriceMap.has(p.id);
     const finalPrice = hasCustomPrice ? customPriceMap.get(p.id) : Math.round(p.price * (1 - disc / 100) * 100) / 100;
     return {
-      id: p.id, code: p.code, name: p.name, category: p.category,
-      unit: p.unit, price: p.price, vatRate: p.vatRate,
+      id: p.id, code: p.code, name: p.name, category: p.category, brand: p.brand || "",
+      unit: p.unit, price: p.price, retailPrice: p.retailPrice, vatRate: p.vatRate,
       stock: p.stock, trackStock: p.trackStock, image: p.image || "",
+      targetProfessions: p.targetProfessions || [],
+      productType: p.productType || "",
+      customDiscountTiers: p.customDiscountTiers || [],
+      weightG: p.weightG || 0,
       finalPrice, hasCustomPrice,
     };
   });
-  // Αν έχουν οριστεί ειδικές τιμές, ο κατάλογος του πελάτη περιορίζεται ΜΟΝΟ σε αυτά τα προϊόντα.
+  // Αν έχουν οριστεί ειδικές τιμές, ο κατάλογος του πελάτη περιορίζεται ΜΟΝΟ σε αυτά τα προϊόντα
+  // (οι ειδικές τιμές υπερισχύουν του φίλτρου επαγγέλματος).
   if (hasCustomPrices) {
     products = products.filter((p) => p.hasCustomPrice);
+  } else if (c.profession) {
+    // Φιλτράρισμα προϊόντων βάσει επαγγέλματος πελάτη
+    products = products.filter((p) => p.targetProfessions.length === 0 || p.targetProfessions.includes(c.profession));
   }
 
   const orders = (db.orders || [])
@@ -36,15 +44,17 @@ export async function GET(_req, { params }) {
   return NextResponse.json({
     company: {
       name: s.companyName, logo: s.logo, phone: s.phone, email: s.email,
-      address: s.address, city: s.city, currency: s.currency,
+      address: s.address, city: s.city, currency: s.currency, vatRate: s.vatRate ?? 19,
     },
     customer: {
       id: c.id, name: c.name, priceListName: c.priceListName || "",
       defaultDiscount: disc,
       hasCustomPrices,
       requirePin: c.requirePin !== false,
+      address: c.address || "", city: c.city || "",
     },
     categories: Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort(),
+    quantityDiscounts: s.quantityDiscounts || null,
     products,
     orders,
   });

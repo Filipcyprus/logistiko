@@ -68,9 +68,10 @@ export default function TillPage() {
     setCloseOpen(false); setCloseResult(null); setCountedCash("");
     loadShift();
   };
+  const tillProducts = products.filter((p) => p.department === "printShop");
   const q = query.trim().toLowerCase();
   const matches = q
-    ? products.filter((p) => p.name.toLowerCase().includes(q) || (p.code || "").toLowerCase().includes(q) || (p.barcode || "").includes(q)).slice(0, 8)
+    ? tillProducts.filter((p) => p.name.toLowerCase().includes(q) || (p.code || "").toLowerCase().includes(q) || (p.barcode || "").includes(q)).slice(0, 8)
     : [];
 
   const addToCart = (p) => {
@@ -81,7 +82,12 @@ export default function TillPage() {
         next[idx] = { ...next[idx], qty: next[idx].qty + 1 };
         return next;
       }
-      return [...prev, { productId: p.id, name: p.name, unit: p.unit, price: Number(p.retailPrice ?? p.price ?? 0), vatRate: Number(p.vatRate || 0), qty: 1, discount: 0 }];
+      // Retail price already includes Sales VAT, so back it out to net for correct VAT display.
+      // Round to 4 decimals (not 2) so net + VAT recombines to the exact retail price after final rounding.
+      const saleVat = Number(p.saleVatRate ?? p.vatRate ?? 19);
+      const retail = Number(p.retailPrice || 0);
+      const netPrice = retail > 0 ? Math.round((retail / (1 + saleVat / 100)) * 10000) / 10000 : Number(p.price || 0);
+      return [...prev, { productId: p.id, name: p.name, unit: p.unit, price: netPrice, vatRate: saleVat, qty: 1, discount: 0 }];
     });
     setQuery("");
     setLastSale(null);
@@ -90,7 +96,7 @@ export default function TillPage() {
 
   const onSearchKeyDown = (e) => {
     if (e.key !== "Enter") return;
-    const exactBarcode = products.find((p) => p.barcode && p.barcode === query.trim());
+    const exactBarcode = tillProducts.find((p) => p.barcode && p.barcode === query.trim());
     if (exactBarcode) { addToCart(exactBarcode); return; }
     if (matches.length === 1) addToCart(matches[0]);
   };
@@ -157,7 +163,7 @@ export default function TillPage() {
 
   if (!settings || !me) return <div className="text-slate-400">{t("common.loading")}</div>;
 
-  if (requiresShift && !shift) {
+  if (!shift) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center">
         <div className="card p-8 w-full max-w-sm text-center space-y-4">
@@ -183,7 +189,7 @@ export default function TillPage() {
             <div className="flex items-center gap-2 text-sm bg-emerald-50 text-emerald-700 rounded-lg px-3 py-1.5">
               <Icon name="check" size={14} />
               {t("pos.shiftOpenSince", { time: new Date(shift.openedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) })}
-              {requiresShift && <button onClick={() => setCloseOpen(true)} className="ml-1 underline font-medium">{t("pos.closeShiftBtn")}</button>}
+              <button onClick={() => setCloseOpen(true)} className="ml-1 underline font-medium">{t("pos.closeShiftBtn")}</button>
             </div>
           )}
           <div className="relative">
@@ -343,7 +349,7 @@ export default function TillPage() {
       </div>
 
       {closeOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => !closeResult && setCloseOpen(false)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="card p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             {!closeResult ? (
               <>

@@ -7,7 +7,9 @@ export async function GET(_req, { params }) {
   const customer = db.customers.find((x) => x.id === params.id);
   if (!customer) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
 
-  const invoices = db.invoices.filter((i) => i.customerId === params.id);
+  // Μόνο οι αποδείξεις πληρωμής που όντως συνδέονται με τιμολόγιο εξαιρούνται (η πληρωμή
+  // τους καταγράφεται ήδη ως πίστωση μέσω του payments). Χωρίς σύνδεση είναι κανονική χρέωση.
+  const invoices = db.invoices.filter((i) => i.customerId === params.id && !(i.isPaymentReceipt && i.relatedInvoiceId));
   const payments = db.payments.filter((p) => p.customerId === params.id);
   const quotes = db.quotes.filter((q) => q.customerId === params.id);
   const orders = db.orders.filter((o) => o.customerId === params.id);

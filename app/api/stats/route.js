@@ -13,7 +13,10 @@ export async function GET() {
   };
   const inYear = (iso) => new Date(iso).getFullYear() === y;
 
-  const invoices = db.invoices || [];
+  // Μόνο οι αποδείξεις πληρωμής που όντως συνδέονται με τιμολόγιο εξαιρούνται από τα έσοδα
+  // (το ποσό τους έχει ήδη μετρηθεί εκεί). Μια απόδειξη με τη σήμανση "πληρωμή" αλλά χωρίς
+  // σύνδεση με τιμολόγιο είναι κανονική, ανεξάρτητη πώληση και πρέπει να μετράει κανονικά.
+  const invoices = (db.invoices || []).filter((i) => !(i.isPaymentReceipt && i.relatedInvoiceId));
   const expenses = db.expenses || [];
 
   const sum = (arr, f) => arr.reduce((a, x) => a + Number(f(x) || 0), 0);

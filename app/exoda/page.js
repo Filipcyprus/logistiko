@@ -7,7 +7,7 @@ import { money, formatDate, todayISO } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-const CATEGORY_KEYS = ["rawMaterials", "ink", "rent", "utilities", "payroll", "equipment", "shipping", "marketing", "general"];
+const CATEGORY_KEYS = ["rawMaterials", "ink", "rent", "utilities", "payroll", "equipment", "shipping", "marketing", "general", "purchaseOrder"];
 const empty = { date: todayISO(), category: "general", description: "", supplier: "", net: 0, vat: 0, amount: 0, paymentMethod: "cash" };
 
 const PO_STATUS = {
@@ -124,6 +124,12 @@ function ExpensesInner() {
                       <td className="table-td text-right">{money(e.vat)}</td>
                       <td className="table-td text-right font-semibold">{money(e.amount)}</td>
                       <td className="table-td text-right whitespace-nowrap">
+                        {e.attachment && (
+                          <a href={e.attachment.data} download={e.attachment.name} title={t("expenses.viewInvoice")} className="btn-ghost !px-2 !py-1 inline-flex"><Icon name="download" size={15} /></a>
+                        )}
+                        {e.purchaseOrderId && (
+                          <Link href={`/agores/${e.purchaseOrderId}`} title={t("expenses.viewPO")} className="btn-ghost !px-2 !py-1 inline-flex"><Icon name="external" size={15} /></Link>
+                        )}
                         <button onClick={() => setForm({ ...empty, ...e })} className="btn-ghost !px-2 !py-1"><Icon name="edit" size={15} /></button>
                         <button onClick={() => del(e.id)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={15} /></button>
                       </td>
@@ -174,7 +180,7 @@ function ExpensesInner() {
       )}
 
       {form && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => setForm(null)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="card p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-4">{form.id ? t("expenses.modalEdit") : t("expenses.modalNew")}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

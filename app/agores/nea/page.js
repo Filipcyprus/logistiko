@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { money, computeTotals, todayISO } from "@/lib/format";
 import LineItems, { emptyLine } from "@/components/LineItems";
@@ -20,6 +20,9 @@ export default function NewPurchasePage() {
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState([emptyLine()]);
   const [saving, setSaving] = useState(false);
+  const [pdfParsing, setPdfParsing] = useState(false);
+  const [pdfNote, setPdfNote] = useState("");
+  const pdfInputRef = useRef();
 
   useEffect(() => {
     Promise.all([
@@ -35,6 +38,67 @@ export default function NewPurchasePage() {
 
   const totals = computeTotals(items);
   const cur = settings?.currency || "€";
+
+  const onPdfSelected = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPdfNote("");
+    setPdfParsing(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/purchases/parse-pdf", { method: "POST", body: formData });
+    setPdfParsing(false);
+    if (!res.ok) { setPdfNote(t("purchases.pdfParseError")); return; }
+    const { items: extracted, source } = await res.json();
+    if (!extracted || extracted.length === 0) { setPdfNote(t("purchases.pdfParseEmpty")); return; }
+
+    const normalizeName = (s) => (s || "")
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/['".,\-–—]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const findByName = (description) => {
+      const normDesc = normalizeName(description);
+      if (!normDesc) return null;
+      const exact = products.find((p) => normalizeName(p.name) === normDesc);
+      if (exact) return exact;
+      if (normDesc.length < 8) return null;
+      return products.find((p) => {
+        const normName = normalizeName(p.name);
+        return normName.length >= 8 && (normDesc.includes(normName) || normName.includes(normDesc));
+      }) || null;
+    };
+
+    const defaultVat = settings?.vatRate ?? 19;
+    let matchedCount = 0;
+    const newLines = extracted.map((it) => {
+      const byCode = it.barcode ? products.find((p) =>
+        (p.barcode && p.barcode === it.barcode) ||
+        (p.sku && p.sku === it.barcode) ||
+        (p.hsCode && p.hsCode === it.barcode)
+      ) : null;
+      const matched = byCode || findByName(it.description);
+      if (matched) matchedCount++;
+      return {
+        productId: matched ? matched.id : null,
+        description: matched ? matched.name : it.description,
+        quantity: it.quantity,
+        unit: matched ? matched.unit : t("common.unit"),
+        unitPrice: it.unitPrice,
+        vatRate: matched ? (matched.saleVatRate ?? matched.vatRate ?? defaultVat) : defaultVat,
+        discount: 0,
+      };
+    });
+    setItems((prev) => {
+      const nonEmpty = prev.filter((l) => l.description);
+      return [...nonEmpty, ...newLines];
+    });
+    const baseKey = source === "table" ? "purchases.pdfParseSuccessTable" : "purchases.pdfParseSuccessText";
+    const note = t(baseKey, { count: extracted.length });
+    setPdfNote(matchedCount > 0 ? `${note} ${t("purchases.pdfParseMatched", { count: matchedCount })}` : note);
+  };
 
   const save = async () => {
     const valid = items.filter((it) => it.description && Number(it.quantity) > 0);
@@ -52,8 +116,16 @@ export default function NewPurchasePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-slate-800">{t("purchases.newPOTitle")}</h1>
-        <button onClick={() => router.push("/exoda?tab=purchases")} className="btn-secondary"><Icon name="arrowLeft" size={15} /> {t("purchases.back")}</button>
+        <div className="flex items-center gap-2">
+          <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={onPdfSelected} />
+          <button onClick={() => pdfInputRef.current?.click()} disabled={pdfParsing} className="btn-secondary">
+            <Icon name="upload" size={15} /> {pdfParsing ? t("common.loading") : t("purchases.uploadPdf")}
+          </button>
+          <button onClick={() => router.push("/exoda?tab=purchases")} className="btn-secondary"><Icon name="arrowLeft" size={15} /> {t("purchases.back")}</button>
+        </div>
       </div>
+
+      {pdfNote && <div className="text-sm rounded-lg px-3 py-2 bg-brand-50 text-brand-700">{pdfNote}</div>}
 
       <div className="card p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
@@ -73,7 +145,7 @@ export default function NewPurchasePage() {
         </div>
       </div>
 
-      <LineItems items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.vatRate ?? 19} />
+      <LineItems items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.vatRate ?? 19} discountTiers={settings.quantityDiscounts} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 card p-5">

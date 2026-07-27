@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
+import { decrementWarehouseStocks, incrementWarehouseStocks } from "@/lib/stockHelpers";
 
 // Χειροκίνητη κίνηση αποθήκης (παραλαβή, απογραφή, καταστροφή κ.λπ.)
 export async function GET() {
@@ -30,8 +31,10 @@ export async function POST(request) {
     p.stock = qty;
   } else if (type === "out") {
     p.stock = Math.round((Number(p.stock || 0) - qty) * 1000) / 1000;
+    decrementWarehouseStocks(p, qty);
   } else {
     p.stock = Math.round((Number(p.stock || 0) + qty) * 1000) / 1000;
+    incrementWarehouseStocks(p, qty);
   }
 
   const movement = {

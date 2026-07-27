@@ -12,6 +12,7 @@ export async function GET(request) {
   return NextResponse.json({
     username: session.username,
     role: session.role,
+    linkedId: session.linkedId ?? null,
     canDiscount: user?.canDiscount ?? session.role !== "cashier",
   });
 }

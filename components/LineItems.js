@@ -1,14 +1,15 @@
 "use client";
 
 import { money, computeTotals } from "@/lib/format";
+import { quantityDiscountPercentForProduct } from "@/lib/pricing";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-export function emptyLine(vatRate = 24, unit = "pcs") {
+export function emptyLine(vatRate = 19, unit = "pcs") {
   return { productId: null, description: "", quantity: 1, unit, unitPrice: 0, vatRate, discount: 0 };
 }
 
-export default function LineItems({ items, onChange, products = [], currency = "€", defaultVat = 24 }) {
+export default function LineItems({ items, onChange, products = [], currency = "€", defaultVat = 24, discountTiers }) {
   const { t } = useLanguage();
   const setLine = (idx, patch) => onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   const addLine = () => onChange([...items, emptyLine(defaultVat, t("common.unit"))]);
@@ -17,7 +18,14 @@ export default function LineItems({ items, onChange, products = [], currency = "
   const pickProduct = (idx, productId) => {
     if (!productId) return setLine(idx, { productId: null });
     const p = products.find((x) => x.id === productId);
-    if (p) setLine(idx, { productId: p.id, description: p.name, unit: p.unit, unitPrice: p.price, vatRate: p.vatRate });
+    if (!p) return;
+    // If Retail Price is set, use it (VAT already included). Otherwise use Wholesale Price + VAT
+    const unitPrice = p.retailPrice && p.retailPrice > 0 ? p.retailPrice : p.price;
+    const vatRate = p.retailPrice && p.retailPrice > 0 ? 0 : (p.saleVatRate != null ? p.saleVatRate : 19);
+    const patch = { productId: p.id, description: p.name, unit: p.unit, unitPrice, vatRate };
+    const hasDiscount = ["cosmetic", "consumable"].includes(p.productType) || (p.customDiscountTiers || []).length > 0;
+    if (hasDiscount) patch.discount = quantityDiscountPercentForProduct(items[idx].quantity, p, discountTiers);
+    setLine(idx, patch);
   };
 
   return (
@@ -30,7 +38,7 @@ export default function LineItems({ items, onChange, products = [], currency = "
               <th className="table-th">{t("lineItems.colQty")}</th>
               <th className="table-th">{t("lineItems.colUnit")}</th>
               <th className="table-th text-right">{t("lineItems.colPrice", { currency })}</th>
-              <th className="table-th text-right">{t("lineItems.colDiscount")}</th>
+              <th className="table-th text-right" title={t("lineItems.discountTiersHint")}>{t("lineItems.colDiscount")}</th>
               <th className="table-th text-right">{t("lineItems.colVat")}</th>
               <th className="table-th text-right">{t("lineItems.colTotal")}</th>
               <th className="table-th"></th>
@@ -60,7 +68,23 @@ export default function LineItems({ items, onChange, products = [], currency = "
                       </div>
                     </div>
                   </td>
-                  <td className="table-td"><input type="number" step="any" min="0" className="input !py-1 w-24" value={it.quantity} onChange={(e) => setLine(idx, { quantity: e.target.value })} /></td>
+                  <td className="table-td">
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      className="input !py-1 w-24"
+                      value={it.quantity}
+                      onChange={(e) => {
+                        const quantity = e.target.value;
+                        const p = products.find((x) => x.id === it.productId);
+                        const patch = { quantity };
+                        const hasDiscount = p && (["cosmetic", "consumable"].includes(p.productType) || (p.customDiscountTiers || []).length > 0);
+                        if (hasDiscount) patch.discount = quantityDiscountPercentForProduct(quantity, p, discountTiers);
+                        setLine(idx, patch);
+                      }}
+                    />
+                  </td>
                   <td className="table-td"><input className="input !py-1 w-16" value={it.unit} onChange={(e) => setLine(idx, { unit: e.target.value })} /></td>
                   <td className="table-td"><input type="number" step="any" min="0" className="input !py-1 w-24 text-right" value={it.unitPrice} onChange={(e) => setLine(idx, { unitPrice: e.target.value })} /></td>
                   <td className="table-td"><input type="number" step="any" min="0" max="100" className="input !py-1 w-20 text-right" value={it.discount} onChange={(e) => setLine(idx, { discount: e.target.value })} /></td>

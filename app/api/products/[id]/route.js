@@ -31,6 +31,15 @@ export async function PUT(request, { params }) {
   if (patch.retailPrice != null) {
     patch.retailPrice = patch.retailPrice === "" ? null : Number(patch.retailPrice);
   }
+  if (patch.volumeMl != null) {
+    patch.volumeMl = patch.volumeMl === "" ? null : Number(patch.volumeMl);
+  }
+  if (patch.weightG != null) {
+    patch.weightG = patch.weightG === "" ? null : Number(patch.weightG);
+  }
+  if (patch.shippingRate != null) {
+    patch.shippingRate = patch.shippingRate === "" ? 2.4 : Number(patch.shippingRate);
+  }
   // Η "τιμή" που χρησιμοποιείται σε παραστατικά/προσφορές ταυτίζεται με τη χονδρική τιμή.
   if (patch.wholesalePrice != null) patch.price = patch.wholesalePrice;
   if (!patch.barcode || !patch.barcode.trim()) {

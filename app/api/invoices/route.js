@@ -3,6 +3,7 @@ import { readDB, writeDB, uid } from "@/lib/db";
 import { computeTotals } from "@/lib/format";
 import { serverT } from "@/lib/i18n/server";
 import { logActivity } from "@/lib/audit";
+import { decrementWarehouseStocks } from "@/lib/stockHelpers";
 
 export async function GET() {
   const db = readDB();
@@ -56,7 +57,9 @@ export async function POST(request) {
     id: uid(),
     number,
     type,
+    isPaymentReceipt: !!body.isPaymentReceipt,
     series,
+    shopName: body.shopName || "",
     aa: seq,
     date: body.date || new Date().toISOString().slice(0, 10),
     customerId: body.customerId || null,
@@ -89,6 +92,7 @@ export async function POST(request) {
     const p = db.products.find((x) => x.id === it.productId);
     if (p && p.trackStock !== false) {
       p.stock = Math.round((Number(p.stock || 0) - it.quantity) * 1000) / 1000;
+      decrementWarehouseStocks(p, it.quantity);
       db.stockMovements.unshift({
         id: uid(),
         productId: p.id,

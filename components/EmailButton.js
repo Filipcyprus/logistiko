@@ -23,7 +23,7 @@ export default function EmailButton({ kind, id, defaultEmail = "" }) {
     <>
       <button onClick={() => { setTo(defaultEmail); setOpen(true); }} className="btn-secondary"><Icon name="external" size={15} /> {t("email.button")}</button>
       {open && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 no-print" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 no-print">
           <div className="card p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-4">{t("email.title")}</h2>
             <label className="label">{t("email.recipient")}</label>

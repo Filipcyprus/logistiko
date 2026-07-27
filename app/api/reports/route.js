@@ -10,7 +10,10 @@ export async function GET(request) {
   const to = searchParams.get("to") || "9999-12-31";
 
   const inRange = (d) => d >= from && d <= to;
-  const invoices = (db.invoices || []).filter((i) => inRange(i.date));
+  // Μόνο οι αποδείξεις πληρωμής που όντως συνδέονται με τιμολόγιο εξαιρούνται από τα έσοδα
+  // (το ποσό τους έχει ήδη μετρηθεί εκεί). Μια απόδειξη με τη σήμανση "πληρωμή" αλλά χωρίς
+  // σύνδεση με τιμολόγιο είναι κανονική, ανεξάρτητη πώληση και πρέπει να μετράει κανονικά.
+  const invoices = (db.invoices || []).filter((i) => inRange(i.date) && !(i.isPaymentReceipt && i.relatedInvoiceId));
   const expenses = (db.expenses || []).filter((e) => inRange(e.date));
 
   const sum = (arr, f) => Math.round(arr.reduce((a, x) => a + Number(f(x) || 0), 0) * 100) / 100;

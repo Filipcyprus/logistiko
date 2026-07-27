@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server";
+import { incrementWarehouseStocks } from "@/lib/stockHelpers";
 
 // Έκδοση πιστωτικού τιμολογίου για ολόκληρο το αρχικό παραστατικό.
 export async function POST(_req, { params }) {
@@ -44,6 +45,7 @@ export async function POST(_req, { params }) {
     const p = db.products.find((x) => x.id === it.productId);
     if (p && p.trackStock !== false) {
       p.stock = Math.round((Number(p.stock || 0) + Number(it.quantity)) * 1000) / 1000;
+      incrementWarehouseStocks(p, Number(it.quantity));
       db.stockMovements.unshift({
         id: uid(), productId: p.id, productName: p.name, type: "in",
         quantity: Number(it.quantity),
