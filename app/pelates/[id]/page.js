@@ -93,7 +93,6 @@ export default function CustomerProfile() {
     { k: "ledger", label: t("customers.tabLedger") },
     { k: "invoices", label: t("customers.tabInvoices"), badge: data.counts.invoices },
     { k: "orders", label: t("customers.tabOrders"), badge: data.counts.orders },
-    { k: "quotes", label: t("customers.tabQuotes"), badge: data.counts.quotes },
     { k: "b2b", label: t("customers.tabB2b") },
   ];
 
@@ -236,7 +235,6 @@ export default function CustomerProfile() {
       {/* --- ΛΙΣΤΕΣ ΕΓΓΡΑΦΩΝ --- */}
       {tab === "invoices" && <DocMini rows={data.invoices} href="/parastatika" empty={t("customers.noInvoicesDoc")} t={t} />}
       {tab === "orders" && <DocMini rows={data.orders} href="/paraggelies" empty={t("customers.noOrdersDoc")} t={t} />}
-      {tab === "quotes" && <DocMini rows={data.quotes} href="/prosfores" empty={t("customers.noQuotesDoc")} t={t} />}
 
       {tab === "b2b" && (
         <div className="card p-6 space-y-4">

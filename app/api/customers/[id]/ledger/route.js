@@ -11,7 +11,6 @@ export async function GET(_req, { params }) {
   // τους καταγράφεται ήδη ως πίστωση μέσω του payments). Χωρίς σύνδεση είναι κανονική χρέωση.
   const invoices = db.invoices.filter((i) => i.customerId === params.id && !(i.isPaymentReceipt && i.relatedInvoiceId));
   const payments = db.payments.filter((p) => p.customerId === params.id);
-  const quotes = db.quotes.filter((q) => q.customerId === params.id);
   const orders = db.orders.filter((o) => o.customerId === params.id);
 
   // Το ref/desc μεταφράζονται στο client (kind/invoiceKind/method περνιούνται ως δεδομένα, όχι έτοιμο κείμενο).
@@ -54,9 +53,8 @@ export async function GET(_req, { params }) {
     grossIncome: Math.round(totalCharged * 100) / 100,
     debitDays,
     creditDays: Number(customer.creditDays || 0),
-    counts: { invoices: invoices.length, quotes: quotes.length, orders: orders.length },
+    counts: { invoices: invoices.length, orders: orders.length },
     invoices,
-    quotes,
     orders,
   });
 }
