@@ -325,7 +325,7 @@ export default function ConsignmentPage() {
                       <span className="text-xs text-slate-400">{formatDate(o.createdAt)}</span>
                     </div>
                     <div className="text-sm text-slate-600 mt-1">
-                      {o.items.map((it) => `${it.productName} × ${it.quantity}`).join(", ")}
+                      {o.items.map((it) => `${it.productName} × ${it.quantity}${it.isTester ? ` (${t("consignment.tester")})` : ""}`).join(", ")}
                     </div>
                     {o.notes && <div className="text-xs text-slate-400 mt-1">{o.notes}</div>}
                   </div>

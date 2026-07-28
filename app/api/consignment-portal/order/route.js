@@ -11,7 +11,7 @@ export async function POST(request) {
 
   const body = await request.json();
   const items = (Array.isArray(body.items) ? body.items : [])
-    .map((it) => ({ productId: it.productId, quantity: Number(it.quantity || 0) }))
+    .map((it) => ({ productId: it.productId, quantity: Number(it.quantity || 0), isTester: !!it.isTester }))
     .filter((it) => it.productId && it.quantity > 0);
   if (items.length === 0) return NextResponse.json({ error: "errors.needLine" }, { status: 400 });
 
@@ -21,7 +21,7 @@ export async function POST(request) {
 
   const itemsWithNames = items.map((it) => {
     const p = db.products.find((x) => x.id === it.productId);
-    return { productId: it.productId, productName: p?.name || "", quantity: it.quantity };
+    return { productId: it.productId, productName: p?.name || "", quantity: it.quantity, isTester: it.isTester };
   });
 
   const order = {

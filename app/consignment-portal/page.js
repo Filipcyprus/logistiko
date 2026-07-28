@@ -61,14 +61,17 @@ export default function ConsignmentPortalPage() {
     const n = { ...prev };
     const v = Math.max(0, Number(qty) || 0);
     if (v === 0) delete n[productId];
-    else n[productId] = v;
+    else n[productId] = { ...(n[productId] || { isTester: false }), quantity: v };
     return n;
   });
+  const setOrderTester = (productId, isTester) => setOrderLines((prev) => (
+    prev[productId] ? { ...prev, [productId]: { ...prev[productId], isTester } } : prev
+  ));
 
   const submitOrder = async (e) => {
     e.preventDefault();
     setOrderMsg("");
-    const items = Object.entries(orderLines).map(([productId, quantity]) => ({ productId, quantity }));
+    const items = Object.entries(orderLines).map(([productId, line]) => ({ productId, quantity: line.quantity, isTester: !!line.isTester }));
     if (items.length === 0) return;
     setOrderSubmitting(true);
     const res = await fetch("/api/consignment-portal/order", {
@@ -141,9 +144,12 @@ export default function ConsignmentPortalPage() {
             ) : (
               <div className="divide-y divide-slate-100">
                 {stockProducts.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between py-2 text-sm">
-                    <div className="font-medium text-slate-700">{p.name}</div>
-                    <div className="text-slate-500">{p.myStock} {p.unit}</div>
+                  <div key={p.id} className="flex items-center justify-between py-2 text-sm gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {p.image ? <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" /> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={16} /></div>}
+                      <div className="font-medium text-slate-700 truncate">{p.name}</div>
+                    </div>
+                    <div className="text-slate-500 shrink-0">{p.myStock} {p.unit}</div>
                   </div>
                 ))}
               </div>
@@ -157,12 +163,18 @@ export default function ConsignmentPortalPage() {
             {saleMsg && <div className="text-sm rounded-lg px-3 py-2 bg-brand-50 text-brand-700">{saleMsg}</div>}
             <div>
               <label className="label">{t("consignmentPortal.sellProduct")}</label>
-              <select className="input" value={saleProductId} onChange={(e) => setSaleProductId(e.target.value)}>
-                <option value="">{t("consignmentPortal.selectProduct")}</option>
-                {stockProducts.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.myStock} {p.unit})</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2.5">
+                {saleProductId && (() => {
+                  const p = stockProducts.find((x) => x.id === saleProductId);
+                  return p?.image ? <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" /> : null;
+                })()}
+                <select className="input" value={saleProductId} onChange={(e) => setSaleProductId(e.target.value)}>
+                  <option value="">{t("consignmentPortal.selectProduct")}</option>
+                  {stockProducts.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.myStock} {p.unit})</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -187,14 +199,25 @@ export default function ConsignmentPortalPage() {
             <div className="divide-y divide-slate-100">
               {orderableProducts.map((p) => (
                 <div key={p.id} className="flex items-center justify-between py-2 gap-3">
-                  <div className="text-sm font-medium text-slate-700">{p.name}</div>
-                  <input
-                    type="number" min="0" step="any"
-                    className="input w-24 text-right"
-                    value={orderLines[p.id] || ""}
-                    onChange={(e) => setOrderQty(p.id, e.target.value)}
-                    placeholder="0"
-                  />
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {p.image ? <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" /> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={16} /></div>}
+                    <div className="text-sm font-medium text-slate-700 truncate">{p.name}</div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {orderLines[p.id]?.quantity > 0 && (
+                      <label className="flex items-center gap-1 text-xs text-slate-500 whitespace-nowrap">
+                        <input type="checkbox" checked={!!orderLines[p.id]?.isTester} onChange={(e) => setOrderTester(p.id, e.target.checked)} />
+                        {t("consignmentPortal.requestTester")}
+                      </label>
+                    )}
+                    <input
+                      type="number" min="0" step="any"
+                      className="input w-20 text-right"
+                      value={orderLines[p.id]?.quantity || ""}
+                      onChange={(e) => setOrderQty(p.id, e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -243,7 +266,7 @@ export default function ConsignmentPortalPage() {
                         </span>
                       </div>
                       <div className="text-slate-600 mt-1">
-                        {o.items.map((it) => `${it.productName} × ${it.quantity}`).join(", ")}
+                        {o.items.map((it) => `${it.productName} × ${it.quantity}${it.isTester ? ` (${t("consignmentPortal.tester")})` : ""}`).join(", ")}
                       </div>
                     </div>
                   ))}
