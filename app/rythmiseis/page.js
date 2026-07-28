@@ -185,7 +185,6 @@ export default function SettingsPage() {
           <div><label className="label">{t("settings.fieldReceiptPrefix")}</label><input className="input" value={s.receiptPrefix} onChange={(e) => upd({ receiptPrefix: e.target.value })} /></div>
           <div><label className="label">{t("settings.fieldInvoicePrefix")}</label><input className="input" value={s.invoicePrefix} onChange={(e) => upd({ invoicePrefix: e.target.value })} /></div>
           <div><label className="label">{t("settings.fieldCreditPrefix")}</label><input className="input" value={s.creditPrefix} onChange={(e) => upd({ creditPrefix: e.target.value })} /></div>
-          <div><label className="label">{t("settings.fieldQuotePrefix")}</label><input className="input" value={s.quotePrefix} onChange={(e) => upd({ quotePrefix: e.target.value })} /></div>
           <div><label className="label">{t("settings.fieldOrderPrefix")}</label><input className="input" value={s.orderPrefix} onChange={(e) => upd({ orderPrefix: e.target.value })} /></div>
           <div><label className="label">{t("settings.fieldPurchasePrefix")}</label><input className="input" value={s.purchasePrefix} onChange={(e) => upd({ purchasePrefix: e.target.value })} /></div>
           <div><label className="label">{t("settings.fieldSeries")}</label><input className="input" value={s.series} onChange={(e) => upd({ series: e.target.value })} /></div>
