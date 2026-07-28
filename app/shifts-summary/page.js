@@ -83,13 +83,16 @@ export default function ShiftSummaryPage() {
                 <th className="table-th text-right">Sales</th>
                 <th className="table-th text-right">Expenses</th>
                 <th className="table-th text-right">Profit</th>
+                <th className="table-th text-right">Opening Float</th>
+                <th className="table-th text-right">Counted Cash</th>
+                <th className="table-th text-right">Difference</th>
                 <th className="table-th">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {summary.length === 0 ? (
                 <tr>
-                  <td className="table-td text-slate-400" colSpan={7}>
+                  <td className="table-td text-slate-400" colSpan={10}>
                     No shifts
                   </td>
                 </tr>
@@ -105,6 +108,11 @@ export default function ShiftSummaryPage() {
                     <td className="table-td text-right font-semibold text-green-600">{money(s.sales, "€")}</td>
                     <td className="table-td text-right text-red-600">{money(s.expenses, "€")}</td>
                     <td className="table-td text-right font-bold text-emerald-600">{money(s.profit, "€")}</td>
+                    <td className="table-td text-right">{s.openingFloat != null ? money(s.openingFloat, "€") : "—"}</td>
+                    <td className="table-td text-right">{s.countedCash != null ? money(s.countedCash, "€") : "—"}</td>
+                    <td className={`table-td text-right font-medium ${s.difference > 0 ? "text-emerald-700" : s.difference < 0 ? "text-red-600" : ""}`}>
+                      {s.difference != null ? `${s.difference > 0 ? "+" : ""}${money(s.difference, "€")}` : "—"}
+                    </td>
                     <td className="table-td">
                       <span className={`badge ${s.status === "closed" ? "bg-emerald-100 text-emerald-700" : "bg-yellow-100 text-yellow-700"}`}>
                         {s.status}

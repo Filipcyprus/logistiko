@@ -42,6 +42,10 @@ export async function GET(request) {
         sales: Math.round(sales * 100) / 100,
         expenses: Math.round(expenses * 100) / 100,
         profit: Math.round((sales - expenses) * 100) / 100,
+        openingFloat: s.openingFloat ?? null,
+        countedCash: s.countedCash ?? null,
+        expectedCash: s.expectedCash ?? null,
+        difference: s.difference ?? null,
       };
     })
     .sort((a, b) => (b.openedAt || "").localeCompare(a.openedAt || ""));
