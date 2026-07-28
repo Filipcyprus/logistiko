@@ -27,5 +27,5 @@ export async function POST(request) {
   const buffer = Buffer.from(await file.arrayBuffer());
   fs.writeFileSync(path.join(UPLOAD_DIR, filename), buffer);
 
-  return NextResponse.json({ url: `/uploads/${filename}`, name: file.name, type: file.type, size: buffer.length });
+  return NextResponse.json({ url: `/api/uploads/${filename}`, name: file.name, type: file.type, size: buffer.length });
 }
