@@ -20,6 +20,7 @@ const nav = [
   { href: "/apothiki", key: "nav.stock", icon: "box" },
   { href: "/consignment", key: "nav.consignment", icon: "layers" },
   { href: "/exoda", key: "nav.expenses", icon: "wallet" },
+  { href: "/trapeza", key: "nav.bankRecon", icon: "money" },
   { href: "/shifts-summary", key: "nav.shiftSummary", icon: "report" },
   { href: "/anafores", key: "nav.reports", icon: "report" },
   { href: "/istoriko", key: "nav.activityLog", icon: "clock" },
