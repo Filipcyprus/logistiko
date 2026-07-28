@@ -50,7 +50,7 @@ export default function TillPage() {
 
   const openShift = async () => {
     setShiftBusy(true);
-    const res = await fetch("/api/shifts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ openingFloat: Number(openingFloat || 0) }) });
+    const res = await fetch("/api/shifts", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ openingFloat: Number(openingFloat || 0) }) });
     setShiftBusy(false);
     if (res.ok) { setOpeningFloat("0"); loadShift(); }
     else { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); }
@@ -58,7 +58,7 @@ export default function TillPage() {
 
   const closeShift = async () => {
     setShiftBusy(true);
-    const res = await fetch(`/api/shifts/${shift.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ countedCash: Number(countedCash || 0) }) });
+    const res = await fetch(`/api/shifts/${shift.id}`, { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ countedCash: Number(countedCash || 0) }) });
     setShiftBusy(false);
     if (res.ok) { setCloseResult(await res.json()); }
     else { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); }

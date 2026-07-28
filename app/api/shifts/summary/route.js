@@ -13,6 +13,16 @@ export async function GET(request) {
     return d >= from && d <= to;
   });
 
+  // Ένα έξοδο ανήκει στη βάρδια που ήταν ανοιχτή τη στιγμή που καταχωρήθηκε.
+  // Φιλτράρισμα με ημερομηνία (e.date) θα χρέωνε ΚΑΘΕ βάρδια της ημέρας με τα
+  // έξοδα ΟΛΗΣ της ημέρας — ίδια νούμερα σε κάθε γραμμή και λάθος κέρδος.
+  const expenseInShift = (e, shift) => {
+    const at = e.createdAt;
+    if (!at) return false;
+    if (at < shift.openedAt) return false;
+    return shift.closedAt ? at <= shift.closedAt : true;
+  };
+
   const summary = shifts
     .map((s) => {
       const date = (s.openedAt || "").slice(0, 10);
@@ -20,7 +30,7 @@ export async function GET(request) {
         .filter((inv) => inv.shiftId === s.id)
         .reduce((sum, inv) => sum + Number(inv.total || 0), 0);
       const expenses = (db.expenses || [])
-        .filter((e) => e.date === date)
+        .filter((e) => expenseInShift(e, s))
         .reduce((sum, e) => sum + Number(e.amount || 0), 0);
       return {
         id: s.id,
