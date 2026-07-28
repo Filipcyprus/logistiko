@@ -185,7 +185,7 @@ export default function PortalPage() {
               const tiers = hasQtyDiscount ? effectiveDiscountTiers(p, data.quantityDiscounts) : [];
               return (
                 <div key={p.id} className="card p-3 flex gap-3">
-                  {p.image ? <img src={p.image} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" /> : <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={20} /></div>}
+                  {p.image ? <div className="w-16 h-16 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden shrink-0"><img src={p.image} alt="" className="w-full h-full object-contain" /></div> : <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={20} /></div>}
                   <div className="flex-1 min-w-0 flex flex-col">
                     <div className="flex-1">
                       <div className="font-semibold text-slate-800 truncate">{p.name}</div>
@@ -268,7 +268,7 @@ export default function PortalPage() {
                 {cartLines.map((l) => (
                   <div key={l.productId} className="flex justify-between items-center text-sm gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      {l.image ? <img src={l.image} alt="" className="w-8 h-8 rounded object-cover shrink-0" /> : <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={12} /></div>}
+                      {l.image ? <div className="w-8 h-8 rounded bg-slate-50 flex items-center justify-center overflow-hidden shrink-0"><img src={l.image} alt="" className="w-full h-full object-contain" /></div> : <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={12} /></div>}
                       <div className="min-w-0"><div className="truncate">{l.description}</div><div className="text-xs text-slate-400">{l.quantity} × {money(l.unitPrice, cur)}</div></div>
                     </div>
                     <button onClick={() => setQty(l.productId, 0)} className="text-red-500 shrink-0"><Icon name="x" size={14} /></button>

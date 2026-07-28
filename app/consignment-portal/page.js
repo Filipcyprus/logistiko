@@ -146,7 +146,7 @@ export default function ConsignmentPortalPage() {
                 {stockProducts.map((p) => (
                   <div key={p.id} className="flex items-center justify-between py-2 text-sm gap-3">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      {p.image ? <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" /> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={16} /></div>}
+                      {p.image ? <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden shrink-0"><img src={p.image} alt="" className="w-full h-full object-contain" /></div> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={16} /></div>}
                       <div className="font-medium text-slate-700 truncate">{p.name}</div>
                     </div>
                     <div className="text-slate-500 shrink-0">{p.myStock} {p.unit}</div>
@@ -166,7 +166,7 @@ export default function ConsignmentPortalPage() {
               <div className="flex items-center gap-2.5">
                 {saleProductId && (() => {
                   const p = stockProducts.find((x) => x.id === saleProductId);
-                  return p?.image ? <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" /> : null;
+                  return p?.image ? <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden shrink-0"><img src={p.image} alt="" className="w-full h-full object-contain" /></div> : null;
                 })()}
                 <select className="input" value={saleProductId} onChange={(e) => setSaleProductId(e.target.value)}>
                   <option value="">{t("consignmentPortal.selectProduct")}</option>
@@ -200,7 +200,7 @@ export default function ConsignmentPortalPage() {
               {orderableProducts.map((p) => (
                 <div key={p.id} className="flex items-center justify-between py-2 gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    {p.image ? <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" /> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={16} /></div>}
+                    {p.image ? <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden shrink-0"><img src={p.image} alt="" className="w-full h-full object-contain" /></div> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={16} /></div>}
                     <div className="text-sm font-medium text-slate-700 truncate">{p.name}</div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

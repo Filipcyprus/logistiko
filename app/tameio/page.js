@@ -237,7 +237,7 @@ export default function TillPage() {
                   <div className="text-sm text-slate-400 p-3">{t("pos.noMatches")}</div>
                 ) : matches.map((p) => (
                   <button key={p.id} onClick={() => addToCart(p)} className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 text-left">
-                    {p.image ? <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" /> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={16} /></div>}
+                    {p.image ? <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden shrink-0"><img src={p.image} alt="" className="w-full h-full object-contain" /></div> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={16} /></div>}
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-sm truncate">{p.name}</div>
                       <div className="text-xs text-slate-400">{p.code || p.barcode || ""}</div>
@@ -271,7 +271,7 @@ export default function TillPage() {
                     <tr key={idx}>
                       <td className="table-td font-medium">
                         <div className="flex items-center gap-2">
-                          {prod?.image ? <img src={prod.image} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" /> : <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={14} /></div>}
+                          {prod?.image ? <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden shrink-0"><img src={prod.image} alt="" className="w-full h-full object-contain" /></div> : <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={14} /></div>}
                           <span>{c.name}</span>
                         </div>
                       </td>

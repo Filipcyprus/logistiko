@@ -164,7 +164,7 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
             <label className="label">{t("stock.fieldImage")}</label>
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden bg-slate-50 shrink-0">
-                {form.image ? <img src={form.image} alt="" className="w-full h-full object-cover" /> : <Icon name="image" size={26} className="text-slate-300" />}
+                {form.image ? <img src={form.image} alt="" className="w-full h-full object-contain" /> : <Icon name="image" size={26} className="text-slate-300" />}
               </div>
               <div className="flex gap-2">
                 <button type="button" onClick={() => imgRef.current?.click()} className="btn-secondary">{t("stock.uploadImage")}</button>

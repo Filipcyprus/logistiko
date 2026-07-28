@@ -54,7 +54,7 @@ export default function LineItems({ items, onChange, products = [], currency = "
                       {(() => {
                         const p = products.find((x) => x.id === it.productId);
                         return p?.image
-                          ? <img src={p.image} alt="" className="w-8 h-8 rounded object-cover shrink-0 mt-0.5" />
+                          ? <div className="w-8 h-8 rounded bg-slate-50 flex items-center justify-center overflow-hidden shrink-0 mt-0.5"><img src={p.image} alt="" className="w-full h-full object-contain" /></div>
                           : <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-300 shrink-0 mt-0.5"><Icon name="image" size={13} /></div>;
                       })()}
                       <div className="space-y-1 flex-1 min-w-0">
