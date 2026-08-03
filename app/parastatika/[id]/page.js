@@ -43,6 +43,13 @@ export default function InvoiceView() {
     else { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); setBusy(false); }
   };
 
+  const issuePaymentReceipt = async () => {
+    setBusy(true);
+    const res = await fetch(`/api/invoices/${id}/receipt`, { method: "POST" });
+    if (res.ok) { const r = await res.json(); router.push(`/parastatika/${r.id}`); }
+    else { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); setBusy(false); }
+  };
+
   const sign = isCredit ? -1 : 1;
   // Η σταθερή έκπτωση επιμερίζεται αναλογικά, ώστε η ανάλυση ανά συντελεστή ΦΠΑ να
   // αθροίζει στο ίδιο καθαρό ποσό με το σύνολο του παραστατικού.
@@ -80,6 +87,9 @@ export default function InvoiceView() {
         <div className="flex flex-wrap gap-2">
           {inv.customerId && <Link href={`/pelates/${inv.customerId}`} className="btn-secondary"><Icon name="users" size={15} /> {t("invoices.customerCard")}</Link>}
           {!isCredit && inv.status === "unpaid" && <button onClick={() => { setPay({ ...pay, amount: balance }); setPayOpen(true); }} className="btn-secondary"><Icon name="money" size={15} /> {t("invoices.registerPayment")}</button>}
+          {!isCredit && inv.status === "paid" && !inv.isPaymentReceipt && (inv.paymentReceipts || []).length === 0 && (
+            <button onClick={issuePaymentReceipt} disabled={busy} className="btn-secondary"><Icon name="money" size={15} /> {t("invoices.issuePaymentReceipt")}</button>
+          )}
           {!isCredit && !isTim && !inv.isPaymentReceipt && !inv.creditNoteId && (
             <Link href={`/parastatika/neo?from=invoices&id=${inv.id}&replaces=${inv.id}`} className="btn-secondary">
               <Icon name="invoice" size={15} /> {t("invoices.reissueAsInvoice")}
