@@ -13,6 +13,7 @@ export default function TillPage() {
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState([]);
   const [customerId, setCustomerId] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [tendered, setTendered] = useState("");
   const [saving, setSaving] = useState(false);
@@ -113,7 +114,7 @@ export default function TillPage() {
     if (cart.length === 0) { alert(t("pos.errEmptyCart")); return; }
     const label = prompt(t("pos.holdLabelPrompt")) || "";
     await fetch("/api/held-sales", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label, customerId, cart }) });
-    setCart([]); setCustomerId(""); setTendered(""); setQuery("");
+    setCart([]); setCustomerId(""); setCustomerName(""); setTendered(""); setQuery("");
     loadHeld();
     searchRef.current?.focus();
   };
@@ -122,6 +123,7 @@ export default function TillPage() {
     if (cart.length > 0 && !confirm(t("pos.confirmReplaceCart"))) return;
     setCart(h.cart || []);
     setCustomerId(h.customerId || "");
+    setCustomerName("");
     setShowHeld(false);
     await fetch(`/api/held-sales/${h.id}`, { method: "DELETE" });
     loadHeld();
@@ -141,6 +143,7 @@ export default function TillPage() {
       body: JSON.stringify({
         type: "apodeixi",
         customerId: customerId || null,
+        customerName: customerId ? "" : customerName,
         paymentMethod,
         status: "paid",
         shiftId: shift?.id || null,
@@ -151,7 +154,7 @@ export default function TillPage() {
       const inv = await res.json();
       window.open(`/parastatika/${inv.id}`, "_blank");
       setLastSale(inv.number);
-      setCart([]); setTendered(""); setCustomerId(""); setQuery("");
+      setCart([]); setTendered(""); setCustomerId(""); setCustomerName(""); setQuery("");
       load();
     } else {
       const err = await res.json().catch(() => ({}));
@@ -305,10 +308,18 @@ export default function TillPage() {
         <div className="card p-5 h-fit space-y-4">
           <div>
             <label className="label">{t("pos.customerOptional")}</label>
-            <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+            <select className="input" value={customerId} onChange={(e) => { setCustomerId(e.target.value); if (e.target.value) setCustomerName(""); }}>
               <option value="">{t("pos.walkIn")}</option>
               {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+            {!customerId && (
+              <input
+                className="input mt-2"
+                placeholder={t("invoices.customerNamePlaceholder")}
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+              />
+            )}
           </div>
           <div>
             <label className="label">{t("invoices.paymentMethod")}</label>

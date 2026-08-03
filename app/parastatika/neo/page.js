@@ -29,6 +29,7 @@ function NewInvoiceInner() {
   const [shopName, setShopName] = useState("");
   const [date, setDate] = useState(todayISO());
   const [customerId, setCustomerId] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [status, setStatus] = useState("paid");
   const [notes, setNotes] = useState("");
@@ -101,7 +102,7 @@ function NewInvoiceInner() {
   const save = async () => {
     const valid = items.filter((it) => it.description && Number(it.quantity) > 0);
     if (valid.length === 0) { alert(t("invoices.errNeedLine")); return; }
-    if (kind === "timologio" && !customerId) { alert(t("invoices.errNeedCustomer")); return; }
+    if (kind === "timologio" && !customerId && !customerName.trim()) { alert(t("invoices.errNeedCustomer")); return; }
     setSaving(true);
     const res = await fetch("/api/invoices", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -109,6 +110,7 @@ function NewInvoiceInner() {
         type: kind === "payment_receipt" ? "apodeixi" : kind,
         isPaymentReceipt: kind === "payment_receipt",
         series, shopName, date, customerId: customerId || null,
+        customerName: customerId ? "" : customerName,
         paymentMethod, status, notes, items: valid,
         invoiceDiscount: Number(invoiceDiscount || 0),
         sourceType: fromColl || null, sourceId: fromId || null,
@@ -180,10 +182,18 @@ function NewInvoiceInner() {
         </div>
         <div>
           <label className="label">{t("invoices.customer")} {kind === "timologio" && <span className="text-red-500">*</span>}</label>
-          <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+          <select className="input" value={customerId} onChange={(e) => { setCustomerId(e.target.value); if (e.target.value) setCustomerName(""); }}>
             <option value="">{t("invoices.customerRetailOption")}</option>
             {customers.map((c) => <option key={c.id} value={c.id}>{c.name}{c.afm ? ` (${t("customers.fieldTaxId")} ${c.afm})` : ""}</option>)}
           </select>
+          {!customerId && (
+            <input
+              className="input mt-2"
+              placeholder={t("invoices.customerNamePlaceholder")}
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+            />
+          )}
         </div>
         <div>
           <label className="label">{t("invoices.paymentMethod")}</label>

@@ -36,7 +36,9 @@ export async function POST(request) {
   const invoiceDiscount = Math.max(Number(body.invoiceDiscount || 0), 0);
   const totals = computeTotals(items, invoiceDiscount);
 
-  // Στιγμιότυπο πελάτη (ώστε να μη χαλάει αν αλλάξουν τα στοιχεία αργότερα)
+  // Στιγμιότυπο πελάτη (ώστε να μη χαλάει αν αλλάξουν τα στοιχεία αργότερα).
+  // Χωρίς επιλεγμένο πελάτη, επιτρέπεται ένα ελεύθερο όνομα (π.χ. περιστασιακή πώληση
+  // λιανικής) — εμφανίζεται στο παραστατικό αλλά δεν συνδέεται με καρτέλα/αναφορές πελάτη.
   let customerSnapshot = null;
   if (body.customerId) {
     const c = db.customers.find((x) => x.id === body.customerId);
@@ -52,6 +54,8 @@ export async function POST(request) {
         profession: c.profession,
       };
     }
+  } else if (body.customerName && body.customerName.trim()) {
+    customerSnapshot = { name: body.customerName.trim() };
   }
 
   const invoice = {
