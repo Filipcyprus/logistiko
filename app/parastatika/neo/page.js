@@ -63,7 +63,17 @@ function NewInvoiceInner() {
       // Επανέκδοση: πάντα τιμολόγιο (αυτό είναι το ζητούμενο της διόρθωσης).
       if (replacesId || doc.customerId) setKind("timologio");
       setItems(doc.items.map((it) => ({ ...it })));
+      // Πιστωτικό υπόλοιπο που καταναλώθηκε ήδη στην παραγγελία (B2B portal) περνάει
+      // αυτόματα ως έκπτωση, ώστε να μη χρεωθεί ξανά στο τιμολόγιο. Το creditApplied είναι
+      // ποσό ΜΕ ΦΠΑ (τελικό ποσό παραγγελίας) ενώ η έκπτωση τιμολογίου υπολογίζεται επί του
+      // καθαρού — μετατρέπεται εδώ με τον πραγματικό συντελεστή ΦΠΑ της παραγγελίας, αλλιώς
+      // η έκπτωση θα ήταν μικρότερη απ' όσο πρέπει και θα έμενε λάθος υπόλοιπο για πληρωμή.
       if (doc.invoiceDiscount > 0) setInvoiceDiscount(String(doc.invoiceDiscount));
+      else if (doc.creditApplied > 0) {
+        const effectiveVatRate = Number(doc.net) > 0 ? Number(doc.vat) / Number(doc.net) : 0;
+        const netEquivalent = Math.round((doc.creditApplied / (1 + effectiveVatRate)) * 100) / 100;
+        setInvoiceDiscount(String(netEquivalent));
+      }
       if (asCredit) { setStatus("unpaid"); setPaymentMethod("bank"); }
       if (replacesId) {
         setReplacedDoc(doc);

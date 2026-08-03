@@ -52,6 +52,7 @@ export async function GET(_req, { params }) {
       hasCustomPrices,
       requirePin: c.requirePin !== false,
       address: c.address || "", city: c.city || "",
+      creditBalance: Math.round((Number(c.creditBalance) || 0) * 100) / 100,
     },
     categories: Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort(),
     quantityDiscounts: s.quantityDiscounts || null,

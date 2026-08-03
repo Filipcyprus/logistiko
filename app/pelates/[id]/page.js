@@ -32,6 +32,8 @@ export default function CustomerProfile() {
   const [editOpen, setEditOpen] = useState(false);
   const [cust, setCust] = useState(emptyCust);
   const [actForm, setActForm] = useState(null);
+  const [creditForm, setCreditForm] = useState({ amount: "", notes: "" });
+  const [creditBusy, setCreditBusy] = useState(false);
 
   const loadLedger = () => fetch(`/api/customers/${id}/ledger`).then((r) => (r.ok ? r.json() : null)).then((d) => (d ? setData(d) : setNotFound(true)));
   const loadActs = () => fetch(`/api/activities?customerId=${id}`).then((r) => r.json()).then(setActivities);
@@ -45,6 +47,16 @@ export default function CustomerProfile() {
     if (Number(pay.amount) <= 0) { alert(t("customers.errNeedAmount")); return; }
     await fetch("/api/payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerId: id, ...pay }) });
     setPayOpen(false); setPay({ amount: 0, method: "cash", date: new Date().toISOString().slice(0, 10), notes: "" });
+    loadLedger();
+  };
+
+  const addCredit = async () => {
+    const amount = Number(creditForm.amount);
+    if (!amount) { alert(t("customers.errNeedAmount")); return; }
+    setCreditBusy(true);
+    await fetch(`/api/customers/${id}/credit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount, notes: creditForm.notes }) });
+    setCreditBusy(false);
+    setCreditForm({ amount: "", notes: "" });
     loadLedger();
   };
 
@@ -286,6 +298,44 @@ export default function CustomerProfile() {
                 >
                   <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out ${c.requirePin ? "translate-x-5" : "translate-x-0"}`} />
                 </button>
+              </div>
+
+              <div className="border-t border-slate-100 pt-4 space-y-3">
+                <div>
+                  <h3 className="font-semibold text-slate-700">{t("customers.creditTitle")}</h3>
+                  <p className="text-sm text-slate-500 mt-1 max-w-xl">{t("customers.creditDescription")}</p>
+                </div>
+                <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-lg">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><Icon name="money" size={16} /></div>
+                  <div>
+                    <div className="text-xs text-slate-500">{t("customers.creditBalance")}</div>
+                    <div className="text-xl font-bold text-slate-800">{money(c.creditBalance || 0)}</div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div>
+                    <label className="label">{t("customers.creditAddAmount")}</label>
+                    <input type="number" step="any" className="input !w-32" value={creditForm.amount} onChange={(e) => setCreditForm({ ...creditForm, amount: e.target.value })} placeholder="0" />
+                  </div>
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="label">{t("customers.creditAddNotes")}</label>
+                    <input className="input" value={creditForm.notes} onChange={(e) => setCreditForm({ ...creditForm, notes: e.target.value })} placeholder={t("customers.creditAddNotesPlaceholder")} />
+                  </div>
+                  <button onClick={addCredit} disabled={creditBusy} className="btn-primary"><Icon name="plus" size={15} /> {t("customers.creditAddButton")}</button>
+                </div>
+                {(c.creditHistory || []).length > 0 && (
+                  <div className="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden">
+                    {c.creditHistory.slice(0, 10).map((h) => (
+                      <div key={h.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                        <div>
+                          <div className="text-slate-700">{h.notes || "—"}</div>
+                          <div className="text-xs text-slate-400">{formatDate(h.date)}</div>
+                        </div>
+                        <div className={`font-semibold ${h.amount > 0 ? "text-emerald-600" : "text-red-500"}`}>{h.amount > 0 ? "+" : ""}{money(h.amount)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="border-t border-slate-100 pt-4 space-y-3">

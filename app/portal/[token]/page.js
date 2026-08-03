@@ -142,6 +142,7 @@ export default function PortalPage() {
             <div className="text-right text-sm">
               <div className="font-semibold">{data.customer.name}</div>
               {data.customer.priceListName && <div className="text-brand-100 text-xs">{t("customers.fieldPriceList")}: {data.customer.priceListName}{disc && !data.customer.hasCustomPrices ? ` (−${disc}%)` : ""}</div>}
+              {data.customer.creditBalance > 0 && <div className="text-emerald-200 text-xs font-medium mt-0.5">{t("portal.creditBalance")}: {money(data.customer.creditBalance, cur)}</div>}
             </div>
             <LanguageSwitcher />
           </div>
@@ -155,6 +156,9 @@ export default function PortalPage() {
             <div className="card p-5 bg-emerald-50 border-emerald-200">
               <div className="font-semibold text-emerald-800 flex items-center gap-1.5"><Icon name="check" size={16} /> {t("portal.orderSuccess")}</div>
               <div className="text-sm text-emerald-700">{t("portal.orderSuccessSub", { number: done.number })}</div>
+              {done.creditApplied > 0 && (
+                <div className="text-sm text-emerald-700 mt-1">{t("portal.creditAppliedNote", { amount: money(done.creditApplied, cur), remaining: money(done.remainingCredit, cur) })}</div>
+              )}
               <button onClick={() => setDone(null)} className="btn-secondary mt-3">{t("portal.newOrder")}</button>
             </div>
           )}
