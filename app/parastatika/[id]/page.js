@@ -44,10 +44,18 @@ export default function InvoiceView() {
   };
 
   const sign = isCredit ? -1 : 1;
+  // Η σταθερή έκπτωση επιμερίζεται αναλογικά, ώστε η ανάλυση ανά συντελεστή ΦΠΑ να
+  // αθροίζει στο ίδιο καθαρό ποσό με το σύνολο του παραστατικού.
+  const grossNet = inv.items.reduce(
+    (a, it) => a + Number(it.quantity) * Number(it.unitPrice) * (1 - Number(it.discount || 0) / 100),
+    0
+  );
+  const discountFactor = grossNet > 0 ? 1 - Number(inv.invoiceDiscount || 0) / grossNet : 1;
+
   const vatGroups = {};
   for (const it of inv.items) {
     const r = Number(it.vatRate || 0);
-    const net = sign * Number(it.quantity) * Number(it.unitPrice) * (1 - Number(it.discount || 0) / 100);
+    const net = sign * Number(it.quantity) * Number(it.unitPrice) * (1 - Number(it.discount || 0) / 100) * discountFactor;
     if (!vatGroups[r]) vatGroups[r] = { net: 0, vat: 0 };
     vatGroups[r].net += net;
     vatGroups[r].vat += net * (r / 100);
@@ -147,6 +155,12 @@ export default function InvoiceView() {
             {Object.entries(vatGroups).map(([rate, g]) => (
               <div key={rate} className="flex justify-between text-slate-500"><span>{t("invoices.netVatRate", { rate })}</span><span>{money(g.net, cur)}</span></div>
             ))}
+            {inv.invoiceDiscount > 0 && !isCredit && (
+              <>
+                <div className="flex justify-between"><span className="text-slate-500">{t("invoices.subtotalBeforeDiscount")}</span><span className="font-medium">{money(inv.subtotal ?? 0, cur)}</span></div>
+                <div className="flex justify-between text-emerald-700"><span>{t("invoices.discountLabel")}</span><span className="font-medium">− {money(inv.invoiceDiscount, cur)}</span></div>
+              </>
+            )}
             <div className="flex justify-between"><span className="text-slate-500">{t("invoices.netTotal")}</span><span className="font-medium">{money(inv.net, cur)}</span></div>
             <div className="flex justify-between"><span className="text-slate-500">{t("invoices.vatTotal")}</span><span className="font-medium">{money(inv.vat, cur)}</span></div>
             <div className="flex justify-between border-t border-slate-300 pt-2 text-lg font-bold text-slate-800"><span>{t("invoices.payable")}</span><span>{money(inv.total, cur)}</span></div>

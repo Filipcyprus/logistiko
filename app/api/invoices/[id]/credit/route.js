@@ -32,6 +32,9 @@ export async function POST(_req, { params }) {
     net: -Number(orig.net),
     vat: -Number(orig.vat),
     total: -Number(orig.total),
+    // Μεταφέρεται ώστε η ανάλυση ανά συντελεστή ΦΠΑ να αθροίζει σωστά στο καθαρό ποσό.
+    invoiceDiscount: Number(orig.invoiceDiscount || 0),
+    subtotal: Number(orig.subtotal || 0),
     paymentMethod: orig.paymentMethod,
     status: "paid",
     paidAmount: -Number(orig.total),

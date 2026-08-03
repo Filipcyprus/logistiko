@@ -33,7 +33,8 @@ export async function POST(request) {
   const series = body.series || db.settings.series || "A";
   const number = `${prefix}${series}-${String(seq).padStart(5, "0")}`;
 
-  const totals = computeTotals(items);
+  const invoiceDiscount = Math.max(Number(body.invoiceDiscount || 0), 0);
+  const totals = computeTotals(items, invoiceDiscount);
 
   // Στιγμιότυπο πελάτη (ώστε να μη χαλάει αν αλλάξουν τα στοιχεία αργότερα)
   let customerSnapshot = null;
@@ -76,6 +77,9 @@ export async function POST(request) {
     net: totals.net,
     vat: totals.vat,
     total: totals.total,
+    // Σταθερή έκπτωση επί του συνόλου (0 = καμία). Το subtotal κρατιέται για εμφάνιση.
+    invoiceDiscount: totals.discountAmount,
+    subtotal: totals.subtotal,
     paymentMethod: body.paymentMethod || "cash",
     status: body.status || "paid",
     paidAmount: body.status === "unpaid" ? 0 : totals.total,

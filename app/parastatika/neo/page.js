@@ -29,6 +29,7 @@ function NewInvoiceInner() {
   const [status, setStatus] = useState("paid");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState([emptyLine()]);
+  const [invoiceDiscount, setInvoiceDiscount] = useState("");
   const [saving, setSaving] = useState(false);
   const [shippingEnabled, setShippingEnabled] = useState(false);
   const [shippingMethod, setShippingMethod] = useState("p2d");
@@ -59,7 +60,7 @@ function NewInvoiceInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromColl, fromId]);
 
-  const totals = computeTotals(items);
+  const totals = computeTotals(items, invoiceDiscount);
   const cur = settings?.currency || "€";
 
   // Κατά προσέγγιση βάρος από τα προϊόντα της γραμμής (μόνο για είδη συνδεδεμένα με προϊόν αποθήκης).
@@ -93,6 +94,7 @@ function NewInvoiceInner() {
         isPaymentReceipt: kind === "payment_receipt",
         series, shopName, date, customerId: customerId || null,
         paymentMethod, status, notes, items: valid,
+        invoiceDiscount: Number(invoiceDiscount || 0),
         sourceType: fromColl || null, sourceId: fromId || null,
       }),
     });
@@ -230,7 +232,24 @@ function NewInvoiceInner() {
         </div>
 
         <div className="card p-5 h-fit">
-          <div className="space-y-2 text-sm">
+          <div className="mb-3">
+            <label className="label">{t("invoices.fieldInvoiceDiscount", { currency: cur })}</label>
+            <input
+              type="number" step="any" min="0"
+              className="input text-right"
+              value={invoiceDiscount}
+              onChange={(e) => setInvoiceDiscount(e.target.value)}
+              placeholder="0"
+            />
+            <p className="text-xs text-slate-400 mt-1">{t("invoices.invoiceDiscountHint")}</p>
+          </div>
+          <div className="space-y-2 text-sm border-t border-slate-200 pt-3">
+            {totals.discountAmount > 0 && (
+              <>
+                <div className="flex justify-between"><span className="text-slate-500">{t("invoices.subtotalBeforeDiscount")}</span><span className="font-medium">{money(totals.subtotal, cur)}</span></div>
+                <div className="flex justify-between text-emerald-700"><span>{t("invoices.discountLabel")}</span><span className="font-medium">− {money(totals.discountAmount, cur)}</span></div>
+              </>
+            )}
             <div className="flex justify-between"><span className="text-slate-500">{t("common.net")}</span><span className="font-medium">{money(totals.net, cur)}</span></div>
             <div className="flex justify-between"><span className="text-slate-500">{t("common.vat")}</span><span className="font-medium">{money(totals.vat, cur)}</span></div>
             <div className="flex justify-between border-t border-slate-200 pt-2 text-lg font-bold text-slate-800"><span>{t("common.total")}</span><span>{money(totals.total, cur)}</span></div>
