@@ -12,9 +12,13 @@ function NewInvoiceInner() {
   const router = useRouter();
   const params = useSearchParams();
   const { t } = useLanguage();
-  const fromColl = params.get("from"); // "tenders" | "orders"
+  const fromColl = params.get("from"); // "tenders" | "orders" | "invoices"
   const fromId = params.get("id");
   const asCredit = params.get("credit") === "1";
+  // Επανέκδοση λάθος παραστατικού ως τιμολόγιο: το αρχικό πιστώνεται αυτόματα μόλις
+  // εκδοθεί το νέο, ώστε η ίδια πώληση να μη μετρηθεί δύο φορές.
+  const replacesId = params.get("replaces");
+  const [replacedDoc, setReplacedDoc] = useState(null);
 
   const [settings, setSettings] = useState(null);
   const [customers, setCustomers] = useState([]);
@@ -42,7 +46,9 @@ function NewInvoiceInner() {
     ]).then(([s, c, p]) => {
       setSettings(s); setCustomers(c); setProducts(p);
       setSeries(s.series || "A");
-      setItems([emptyLine(s.vatRate ?? 19, t("common.unit"))]);
+      // Μην αρχικοποιείς κενή γραμμή όταν το παραστατικό προσυμπληρώνεται από άλλο έγγραφο:
+      // τα δύο effects τρέχουν παράλληλα και η κενή γραμμή έσβηνε τις γραμμές που ήρθαν.
+      if (!fromColl || !fromId) setItems([emptyLine(s.vatRate ?? 19, t("common.unit"))]);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -52,10 +58,20 @@ function NewInvoiceInner() {
     if (!fromColl || !fromId) return;
     fetch(`/api/${fromColl}/${fromId}`).then((r) => (r.ok ? r.json() : null)).then((doc) => {
       if (!doc) return;
-      if (doc.customerId) { setCustomerId(doc.customerId); setKind("timologio"); }
+      if (doc.customerId) { setCustomerId(doc.customerId); }
+      // Επανέκδοση: πάντα τιμολόγιο (αυτό είναι το ζητούμενο της διόρθωσης).
+      if (replacesId || doc.customerId) setKind("timologio");
       setItems(doc.items.map((it) => ({ ...it })));
+      if (doc.invoiceDiscount > 0) setInvoiceDiscount(String(doc.invoiceDiscount));
       if (asCredit) { setStatus("unpaid"); setPaymentMethod("bank"); }
-      setNotes(t("invoices.prefillNote", { source: fromColl === "tenders" ? t("invoices.fromTender") : t("invoices.fromOrder"), number: doc.number }));
+      if (replacesId) {
+        setReplacedDoc(doc);
+        setPaymentMethod(doc.paymentMethod || "cash");
+        setStatus(doc.status || "paid");
+        setNotes(t("invoices.replacesNote", { number: doc.number }));
+      } else {
+        setNotes(t("invoices.prefillNote", { source: fromColl === "tenders" ? t("invoices.fromTender") : t("invoices.fromOrder"), number: doc.number }));
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromColl, fromId]);
@@ -98,7 +114,17 @@ function NewInvoiceInner() {
         sourceType: fromColl || null, sourceId: fromId || null,
       }),
     });
-    if (res.ok) { const inv = await res.json(); router.push(`/parastatika/${inv.id}`); }
+    if (res.ok) {
+      const inv = await res.json();
+      // Το αρχικό πιστώνεται ΜΟΝΟ αφού εκδοθεί επιτυχώς το νέο παραστατικό.
+      if (replacesId) {
+        const creditRes = await fetch(`/api/invoices/${replacesId}/credit`, { method: "POST" });
+        if (!creditRes.ok) {
+          alert(t("invoices.errReplaceCreditFailed", { number: replacedDoc?.number || "" }));
+        }
+      }
+      router.push(`/parastatika/${inv.id}`);
+    }
     else { const err = await res.json(); alert(err.error ? t(err.error) : t("common.error")); setSaving(false); }
   };
 
@@ -109,10 +135,17 @@ function NewInvoiceInner() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-slate-800">
           {t("invoices.newTitle")}
-          {fromColl && <span className="text-sm font-normal text-slate-400">{t("invoices.fromSuffix", { source: fromColl === "tenders" ? t("invoices.fromTender") : t("invoices.fromOrder") })}</span>}
+          {fromColl && !replacesId && <span className="text-sm font-normal text-slate-400">{t("invoices.fromSuffix", { source: fromColl === "tenders" ? t("invoices.fromTender") : t("invoices.fromOrder") })}</span>}
         </h1>
         <button onClick={() => router.push("/parastatika")} className="btn-secondary"><Icon name="arrowLeft" size={15} /> {t("invoices.backToList")}</button>
       </div>
+
+      {replacedDoc && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="font-semibold mb-1">{t("invoices.replaceBannerTitle", { number: replacedDoc.number })}</div>
+          <p>{t("invoices.replaceBannerBody", { number: replacedDoc.number })}</p>
+        </div>
+      )}
 
       <div className="card p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div>

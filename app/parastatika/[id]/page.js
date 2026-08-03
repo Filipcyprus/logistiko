@@ -80,6 +80,11 @@ export default function InvoiceView() {
         <div className="flex flex-wrap gap-2">
           {inv.customerId && <Link href={`/pelates/${inv.customerId}`} className="btn-secondary"><Icon name="users" size={15} /> {t("invoices.customerCard")}</Link>}
           {!isCredit && inv.status === "unpaid" && <button onClick={() => { setPay({ ...pay, amount: balance }); setPayOpen(true); }} className="btn-secondary"><Icon name="money" size={15} /> {t("invoices.registerPayment")}</button>}
+          {!isCredit && !isTim && !inv.isPaymentReceipt && !inv.creditNoteId && (
+            <Link href={`/parastatika/neo?from=invoices&id=${inv.id}&replaces=${inv.id}`} className="btn-secondary">
+              <Icon name="invoice" size={15} /> {t("invoices.reissueAsInvoice")}
+            </Link>
+          )}
           {!isCredit && !inv.creditNoteId && <button onClick={createCreditNote} disabled={busy} className="btn-secondary"><Icon name="invoice" size={15} /> {t("invoices.createCreditNote")}</button>}
           {inv.creditNoteId && <Link href={`/parastatika/${inv.creditNoteId}`} className="btn-secondary text-red-600">{t("invoices.creditNoteLink", { number: inv.creditNoteNumber })}</Link>}
           {(inv.paymentReceipts || []).map((r) => (
