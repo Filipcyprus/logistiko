@@ -26,6 +26,15 @@ export default function InvoiceView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Οι browsers προτείνουν το document.title ως όνομα αρχείου στο "Αποθήκευση ως PDF"
+  // από τον εκτυπωτή — έτσι το PDF παίρνει αυτόματα τον αριθμό του παραστατικού.
+  useEffect(() => {
+    if (!inv) return;
+    const prevTitle = document.title;
+    document.title = inv.number;
+    return () => { document.title = prevTitle; };
+  }, [inv]);
+
   if (notFound) return <div className="text-slate-500">{t("invoices.viewNotFound")} <Link href="/parastatika" className="text-brand-600">{t("common.returnLink")}</Link></div>;
   if (!inv || !settings) return <div className="text-slate-400">{t("common.loading")}</div>;
 

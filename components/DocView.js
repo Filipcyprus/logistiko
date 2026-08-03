@@ -26,6 +26,15 @@ export default function DocView({ collection, kind, label, statusMap, canConvert
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Οι browsers προτείνουν το document.title ως όνομα αρχείου στο "Αποθήκευση ως PDF"
+  // από τον εκτυπωτή — έτσι το PDF παίρνει αυτόματα τον αριθμό του παραστατικού.
+  useEffect(() => {
+    if (!doc) return;
+    const prevTitle = document.title;
+    document.title = doc.number;
+    return () => { document.title = prevTitle; };
+  }, [doc]);
+
   if (notFound) return <div className="text-slate-500">{t("common.notFound")} <Link href={backHref} className="text-brand-600">{t("common.returnLink")}</Link></div>;
   if (!doc || !settings) return <div className="text-slate-400">{t("common.loading")}</div>;
   const cur = settings.currency || "€";

@@ -36,6 +36,15 @@ export default function PurchaseView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Οι browsers προτείνουν το document.title ως όνομα αρχείου στο "Αποθήκευση ως PDF"
+  // από τον εκτυπωτή — έτσι το PDF παίρνει αυτόματα τον αριθμό της παραγγελίας αγοράς.
+  useEffect(() => {
+    if (!po) return;
+    const prevTitle = document.title;
+    document.title = po.number;
+    return () => { document.title = prevTitle; };
+  }, [po]);
+
   if (notFound) return <div className="text-slate-500">{t("common.notFound")} <Link href="/exoda?tab=purchases" className="text-brand-600">{t("common.returnLink")}</Link></div>;
   if (!po || !settings) return <div className="text-slate-400">{t("common.loading")}</div>;
   const cur = settings.currency || "€";
