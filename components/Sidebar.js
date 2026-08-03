@@ -12,6 +12,7 @@ import { playNotifySound } from "@/lib/notifySound";
 const nav = [
   { href: "/", key: "nav.dashboard", icon: "dashboard" },
   { href: "/tameio", key: "nav.pos", icon: "cart" },
+  { href: "/prosfores", key: "nav.tenders", icon: "quote" },
   { href: "/paraggelies", key: "nav.orders", icon: "order" },
   { href: "/ergasies", key: "nav.jobs", icon: "jobs" },
   { href: "/parastatika", key: "nav.invoices", icon: "invoice" },

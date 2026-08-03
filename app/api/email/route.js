@@ -11,7 +11,7 @@ export async function POST(request) {
   if (!mail.host) return NextResponse.json({ error: "errors.emailNotConfigured" }, { status: 400 });
 
   const kind = body.kind; // invoice | credit | quote | order
-  const coll = kind === "quote" ? db.quotes : kind === "order" ? db.orders : db.invoices;
+  const coll = kind === "tender" ? db.tenders : kind === "order" ? db.orders : db.invoices;
   const doc = (coll || []).find((x) => x.id === body.id);
   if (!doc) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
 

@@ -112,7 +112,7 @@ export async function POST(request) {
 
   // Αν προήλθε από προσφορά/παραγγελία, σημείωσέ το ως τιμολογημένο.
   if (body.sourceType && body.sourceId) {
-    const coll = body.sourceType === "quote" ? db.quotes : db.orders;
+    const coll = body.sourceType === "tenders" ? db.tenders : db.orders;
     const src = coll?.find((x) => x.id === body.sourceId);
     if (src) {
       src.status = "invoiced";

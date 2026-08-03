@@ -12,8 +12,9 @@ function NewInvoiceInner() {
   const router = useRouter();
   const params = useSearchParams();
   const { t } = useLanguage();
-  const fromColl = params.get("from"); // "quotes" | "orders"
+  const fromColl = params.get("from"); // "tenders" | "orders"
   const fromId = params.get("id");
+  const asCredit = params.get("credit") === "1";
 
   const [settings, setSettings] = useState(null);
   const [customers, setCustomers] = useState([]);
@@ -52,7 +53,8 @@ function NewInvoiceInner() {
       if (!doc) return;
       if (doc.customerId) { setCustomerId(doc.customerId); setKind("timologio"); }
       setItems(doc.items.map((it) => ({ ...it })));
-      setNotes(t("invoices.prefillNote", { source: fromColl === "quotes" ? t("invoices.fromQuote") : t("invoices.fromOrder"), number: doc.number }));
+      if (asCredit) { setStatus("unpaid"); setPaymentMethod("bank"); }
+      setNotes(t("invoices.prefillNote", { source: fromColl === "tenders" ? t("invoices.fromTender") : t("invoices.fromOrder"), number: doc.number }));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromColl, fromId]);
@@ -105,7 +107,7 @@ function NewInvoiceInner() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-slate-800">
           {t("invoices.newTitle")}
-          {fromColl && <span className="text-sm font-normal text-slate-400">{t("invoices.fromSuffix", { source: fromColl === "quotes" ? t("invoices.fromQuote") : t("invoices.fromOrder") })}</span>}
+          {fromColl && <span className="text-sm font-normal text-slate-400">{t("invoices.fromSuffix", { source: fromColl === "tenders" ? t("invoices.fromTender") : t("invoices.fromOrder") })}</span>}
         </h1>
         <button onClick={() => router.push("/parastatika")} className="btn-secondary"><Icon name="arrowLeft" size={15} /> {t("invoices.backToList")}</button>
       </div>

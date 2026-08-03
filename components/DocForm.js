@@ -36,7 +36,7 @@ export default function DocForm({ collection, title, dateFieldLabel, backHref })
 
   const totals = computeTotals(items);
   const cur = settings?.currency || "€";
-  const isQuote = collection === "quotes";
+  const isTender = collection === "tenders";
 
   const save = async () => {
     const valid = items.filter((it) => it.description && Number(it.quantity) > 0);
@@ -44,7 +44,7 @@ export default function DocForm({ collection, title, dateFieldLabel, backHref })
     setSaving(true);
     const body = {
       date, customerId: customerId || null, notes, items: valid,
-      ...(isQuote ? { validUntil: secondDate } : { deliveryDate: secondDate }),
+      ...(isTender ? { validUntil: secondDate } : { deliveryDate: secondDate }),
     };
     const res = await fetch(`/api/${collection}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (res.ok) {

@@ -5,5 +5,15 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 export default function OrderView() {
   const { t } = useLanguage();
-  return <DocView collection="orders" kind="order" label={t("documents.orderLabel")} statusMap={getOrderStatusMap(t)} canConvertToOrder={false} backHref="/paraggelies" />;
+  return (
+    <DocView
+      collection="orders"
+      kind="order"
+      label={t("documents.orderLabel")}
+      statusMap={getOrderStatusMap(t)}
+      canConvertToOrder={false}
+      requireApproval
+      backHref="/paraggelies"
+    />
+  );
 }

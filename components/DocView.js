@@ -8,7 +8,7 @@ import Icon from "@/components/Icon";
 import EmailButton from "@/components/EmailButton";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-export default function DocView({ collection, kind, label, statusMap, canConvertToOrder, backHref }) {
+export default function DocView({ collection, kind, label, statusMap, canConvertToOrder, backHref, requireApproval, hideDirectInvoice }) {
   const { id } = useParams();
   const router = useRouter();
   const { t } = useLanguage();
@@ -30,23 +30,50 @@ export default function DocView({ collection, kind, label, statusMap, canConvert
   if (!doc || !settings) return <div className="text-slate-400">{t("common.loading")}</div>;
   const cur = settings.currency || "€";
 
+  // Η έγκριση ξεκλειδώνει το επόμενο βήμα της ροής. Μόλις εγκριθεί, προτείνεται αμέσως
+  // η μετάβαση — με επιβεβαίωση, ώστε να μη δημιουργείται λογιστικό έγγραφο κατά λάθος.
+  const isApproved = doc.status === "approved";
+  const canAdvance = !requireApproval || isApproved;
+
   const setStatus = async (status) => {
     await fetch(`/api/${collection}/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     load();
+    if (status === "approved" && requireApproval) {
+      const promptKey = canConvertToOrder ? "documents.approvedPromptOrder" : "documents.approvedPromptInvoice";
+      if (confirm(t(promptKey))) {
+        if (canConvertToOrder) toOrder();
+        else toInvoice();
+      }
+    }
   };
 
   const toOrder = async () => {
     setBusy(true);
-    const res = await fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: new Date().toISOString().slice(0, 10), customerId: doc.customerId, items: doc.items, notes: t("documents.fromQuoteNote", { number: doc.number }) }) });
+    const res = await fetch("/api/orders", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: new Date().toISOString().slice(0, 10),
+        customerId: doc.customerId,
+        items: doc.items,
+        tenderId: doc.id,
+        tenderNumber: doc.number,
+        notes: t("documents.fromTenderNote", { number: doc.number }),
+      }),
+    });
     if (res.ok) {
       const order = await res.json();
-      await fetch(`/api/quotes/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "ordered" }) });
+      await fetch(`/api/tenders/${id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "ordered", orderId: order.id, orderNumber: order.number }),
+      });
       router.push(`/paraggelies/${order.id}`);
     } else setBusy(false);
   };
 
+  // Τιμολόγιο από εγκεκριμένη παραγγελία εκδίδεται επί πιστώσει (ανεξόφλητο) — η εξόφληση
+  // καταχωρείται μετά ως πληρωμή, που παράγει αυτόματα απόδειξη είσπραξης.
   const toInvoice = () => {
-    router.push(`/parastatika/neo?from=${collection}&id=${id}`);
+    router.push(`/parastatika/neo?from=${collection}&id=${id}${requireApproval ? "&credit=1" : ""}`);
   };
 
   const reorder = async () => {
@@ -75,15 +102,33 @@ export default function DocView({ collection, kind, label, statusMap, canConvert
           <select className="input !py-2 max-w-[180px]" value={doc.status} onChange={(e) => setStatus(e.target.value)}>
             {Object.entries(statusMap).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
+          {doc.tenderId && <Link href={`/prosfores/${doc.tenderId}`} className="btn-secondary"><Icon name="quote" size={15} /> {doc.tenderNumber}</Link>}
           <button onClick={reorder} disabled={busy} className="btn-secondary"><Icon name="refresh" size={15} /> {t("documents.reorder")}</button>
           {doc.customerId && <EmailButton kind={kind} id={doc.id} defaultEmail={doc.customer?.email || ""} />}
           {!canConvertToOrder && <button onClick={toJob} disabled={busy} className="btn-secondary"><Icon name="jobs" size={15} /> {t("documents.toJob")}</button>}
-          {canConvertToOrder && <button onClick={toOrder} disabled={busy || doc.status === "invoiced"} className="btn-secondary">{t("documents.toOrder")} <Icon name="arrowRight" size={15} /></button>}
-          {doc.invoiceId ? (
+          {canConvertToOrder && (
+            <button
+              onClick={toOrder}
+              disabled={busy || !canAdvance || doc.status === "ordered"}
+              title={!canAdvance ? t("documents.needApprovalOrder") : undefined}
+              className={canAdvance ? "btn-primary" : "btn-secondary"}
+            >
+              {t("documents.toOrder")} <Icon name="arrowRight" size={15} />
+            </button>
+          )}
+          {doc.orderId && <Link href={`/paraggelies/${doc.orderId}`} className="btn-secondary"><Icon name="order" size={15} /> {doc.orderNumber}</Link>}
+          {!hideDirectInvoice && (doc.invoiceId ? (
             <Link href={`/parastatika/${doc.invoiceId}`} className="btn-secondary"><Icon name="invoice" size={15} /> {doc.invoiceNumber}</Link>
           ) : (
-            <button onClick={toInvoice} disabled={busy} className="btn-primary">{t("documents.toInvoice")} <Icon name="arrowRight" size={15} /></button>
-          )}
+            <button
+              onClick={toInvoice}
+              disabled={busy || !canAdvance}
+              title={!canAdvance ? t("documents.needApprovalInvoice") : undefined}
+              className={canAdvance ? "btn-primary" : "btn-secondary"}
+            >
+              {t("documents.toInvoice")} <Icon name="arrowRight" size={15} />
+            </button>
+          ))}
           <button onClick={() => window.print()} className="btn-secondary" title={t("common.print")}><Icon name="printer" size={15} /></button>
         </div>
       </div>
