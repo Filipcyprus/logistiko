@@ -99,7 +99,7 @@ export default function InvoiceView() {
           {!isCredit && inv.status === "paid" && !inv.isPaymentReceipt && (inv.paymentReceipts || []).length === 0 && (
             <button onClick={issuePaymentReceipt} disabled={busy} className="btn-secondary"><Icon name="money" size={15} /> {t("invoices.issuePaymentReceipt")}</button>
           )}
-          {!isCredit && !isTim && !inv.isPaymentReceipt && !inv.creditNoteId && (
+          {!isCredit && !isTim && !(inv.isPaymentReceipt && inv.relatedInvoiceId) && !inv.creditNoteId && (
             <Link href={`/parastatika/neo?from=invoices&id=${inv.id}&replaces=${inv.id}`} className="btn-secondary">
               <Icon name="invoice" size={15} /> {t("invoices.reissueAsInvoice")}
             </Link>
