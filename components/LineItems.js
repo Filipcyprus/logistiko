@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { money, computeTotals } from "@/lib/format";
 import { quantityDiscountPercentForProduct } from "@/lib/pricing";
 import Icon from "@/components/Icon";
@@ -16,6 +17,31 @@ export default function LineItems({ items, onChange, products = [], currency = "
   // ανοιχτή τη λίστα προτάσεων (openIdx) — αντικαθιστά το select που απαιτούσε scroll.
   const [query, setQuery] = useState({});
   const [openIdx, setOpenIdx] = useState(null);
+  // Η λίστα προτάσεων ζωγραφίζεται σε portal (document.body), όχι μέσα στον πίνακα — αλλιώς
+  // το overflow-x-auto του πίνακα την έκοβε/έκρυβε πίσω από τις επόμενες γραμμές.
+  const [menuPos, setMenuPos] = useState(null);
+  const inputRefs = useRef({});
+
+  useEffect(() => {
+    if (openIdx == null) return;
+    const close = () => setOpenIdx(null);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [openIdx]);
+
+  const openMenu = (idx) => {
+    const el = inputRefs.current[idx];
+    if (el) {
+      const r = el.getBoundingClientRect();
+      setMenuPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    }
+    setOpenIdx(idx);
+    setQuery((prev) => ({ ...prev, [idx]: "" }));
+  };
 
   const setLine = (idx, patch) => onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   const addLine = () => onChange([...items, emptyLine(defaultVat, t("common.unit"))]);
@@ -83,31 +109,31 @@ export default function LineItems({ items, onChange, products = [], currency = "
                           : <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-300 shrink-0 mt-0.5"><Icon name="image" size={13} /></div>;
                       })()}
                       <div className="space-y-1 flex-1 min-w-0">
-                        <div className="relative">
-                          <input
-                            className="input !py-1 text-xs"
-                            placeholder={t("lineItems.searchProductPlaceholder")}
-                            value={openIdx === idx ? (query[idx] || "") : (products.find((x) => x.id === it.productId)?.name || "")}
-                            onFocus={() => { setOpenIdx(idx); setQuery((prev) => ({ ...prev, [idx]: "" })); }}
-                            onChange={(e) => setQuery((prev) => ({ ...prev, [idx]: e.target.value }))}
-                            onBlur={() => setTimeout(() => setOpenIdx((cur) => (cur === idx ? null : cur)), 150)}
-                          />
-                          {openIdx === idx && (
-                            <div className="absolute z-20 left-0 right-0 top-full mt-1 card p-1 max-h-56 overflow-y-auto">
-                              <button type="button" onMouseDown={() => clearProduct(idx)} className="w-full text-left px-2 py-1.5 rounded hover:bg-slate-50 text-xs text-slate-500">
-                                {t("lineItems.freeText")}
+                        <input
+                          ref={(el) => { inputRefs.current[idx] = el; }}
+                          className="input !py-1 text-xs"
+                          placeholder={t("lineItems.searchProductPlaceholder")}
+                          value={openIdx === idx ? (query[idx] || "") : (products.find((x) => x.id === it.productId)?.name || "")}
+                          onFocus={() => openMenu(idx)}
+                          onChange={(e) => setQuery((prev) => ({ ...prev, [idx]: e.target.value }))}
+                          onBlur={() => setTimeout(() => setOpenIdx((cur) => (cur === idx ? null : cur)), 150)}
+                        />
+                        {openIdx === idx && menuPos && createPortal(
+                          <div className="fixed z-[9999] card p-1 max-h-56 overflow-y-auto" style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}>
+                            <button type="button" onMouseDown={() => clearProduct(idx)} className="w-full text-left px-2 py-1.5 rounded hover:bg-slate-50 text-xs text-slate-500">
+                              {t("lineItems.freeText")}
+                            </button>
+                            {matchesFor(idx).length === 0 ? (
+                              <div className="text-xs text-slate-400 p-2">{t("lineItems.noProductMatches")}</div>
+                            ) : matchesFor(idx).map((p) => (
+                              <button key={p.id} type="button" onMouseDown={() => selectProduct(idx, p)} className="w-full text-left px-2 py-1.5 rounded hover:bg-slate-50 text-xs flex items-center justify-between gap-2">
+                                <span className="truncate">{p.name}</span>
+                                {p.trackStock !== false && <span className="text-slate-400 shrink-0 whitespace-nowrap">{t("lineItems.stockSuffix", { stock: p.stock })}</span>}
                               </button>
-                              {matchesFor(idx).length === 0 ? (
-                                <div className="text-xs text-slate-400 p-2">{t("lineItems.noProductMatches")}</div>
-                              ) : matchesFor(idx).map((p) => (
-                                <button key={p.id} type="button" onMouseDown={() => selectProduct(idx, p)} className="w-full text-left px-2 py-1.5 rounded hover:bg-slate-50 text-xs flex items-center justify-between gap-2">
-                                  <span className="truncate">{p.name}</span>
-                                  {p.trackStock !== false && <span className="text-slate-400 shrink-0 whitespace-nowrap">{t("lineItems.stockSuffix", { stock: p.stock })}</span>}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                            ))}
+                          </div>,
+                          document.body
+                        )}
                         <input className="input !py-1" placeholder={t("lineItems.descriptionPlaceholder")} value={it.description} onChange={(e) => setLine(idx, { description: e.target.value })} />
                       </div>
                     </div>
