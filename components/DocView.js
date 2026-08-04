@@ -6,16 +6,21 @@ import Link from "next/link";
 import { money, formatDate, computeTotals } from "@/lib/format";
 import Icon from "@/components/Icon";
 import EmailButton from "@/components/EmailButton";
+import LineItems from "@/components/LineItems";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-export default function DocView({ collection, kind, label, statusMap, canConvertToOrder, backHref, requireApproval, hideDirectInvoice }) {
+export default function DocView({ collection, kind, label, statusMap, canConvertToOrder, backHref, requireApproval, hideDirectInvoice, canEditItems }) {
   const { id } = useParams();
   const router = useRouter();
   const { t } = useLanguage();
   const [doc, setDoc] = useState(null);
   const [settings, setSettings] = useState(null);
+  const [products, setProducts] = useState([]);
   const [busy, setBusy] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editItems, setEditItems] = useState([]);
+  const [savingItems, setSavingItems] = useState(false);
 
   const load = () => {
     fetch(`/api/${collection}/${id}`).then((r) => (r.ok ? r.json() : null)).then((d) => (d ? setDoc(d) : setNotFound(true)));
@@ -23,8 +28,22 @@ export default function DocView({ collection, kind, label, statusMap, canConvert
   useEffect(() => {
     load();
     fetch("/api/settings").then((r) => r.json()).then(setSettings);
+    if (canEditItems) fetch("/api/products").then((r) => r.json()).then(setProducts);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Επεξεργασία γραμμών επιτρέπεται μόνο όσο το έγγραφο είναι ακόμα πρόχειρο (draft) —
+  // μόλις σταλεί/εγκριθεί, οι γραμμές παραμένουν όπως αποφασίστηκαν.
+  const canEditNow = canEditItems && doc?.status === "draft";
+  const startEdit = () => { setEditItems((doc.items || []).map((it) => ({ ...it }))); setEditing(true); };
+  const cancelEdit = () => setEditing(false);
+  const saveEdit = async () => {
+    setSavingItems(true);
+    await fetch(`/api/${collection}/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: editItems }) });
+    setSavingItems(false);
+    setEditing(false);
+    load();
+  };
 
   // Οι browsers προτείνουν το document.title ως όνομα αρχείου στο "Αποθήκευση ως PDF"
   // από τον εκτυπωτή — έτσι το PDF παίρνει αυτόματα τον αριθμό του παραστατικού.
@@ -112,6 +131,7 @@ export default function DocView({ collection, kind, label, statusMap, canConvert
             {Object.entries(statusMap).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
           {doc.tenderId && <Link href={`/prosfores/${doc.tenderId}`} className="btn-secondary"><Icon name="quote" size={15} /> {doc.tenderNumber}</Link>}
+          {canEditNow && !editing && <button onClick={startEdit} className="btn-secondary"><Icon name="edit" size={15} /> {t("documents.editItems")}</button>}
           <button onClick={reorder} disabled={busy} className="btn-secondary"><Icon name="refresh" size={15} /> {t("documents.reorder")}</button>
           {doc.customerId && <EmailButton kind={kind} id={doc.id} defaultEmail={doc.customer?.email || ""} />}
           {!canConvertToOrder && <button onClick={toJob} disabled={busy} className="btn-secondary"><Icon name="jobs" size={15} /> {t("documents.toJob")}</button>}
@@ -176,38 +196,50 @@ export default function DocView({ collection, kind, label, statusMap, canConvert
           ) : <div className="text-sm text-slate-600">—</div>}
         </div>
 
-        <table className="w-full mt-4 text-sm">
-          <thead>
-            <tr className="border-b border-slate-300 text-slate-500 text-xs uppercase">
-              <th className="py-2 text-left">{t("invoices.colDescription")}</th>
-              <th className="py-2 text-right">{t("invoices.colQty")}</th>
-              <th className="py-2 text-right">{t("invoices.colPrice")}</th>
-              <th className="py-2 text-right">{t("invoices.colDiscount")}</th>
-              <th className="py-2 text-right">{t("common.vat")}</th>
-              <th className="py-2 text-right">{t("documents.total")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {doc.items.map((it, i) => (
-              <tr key={i} className="border-b border-slate-100">
-                <td className="py-2">{it.description}</td>
-                <td className="py-2 text-right">{it.quantity} {it.unit}</td>
-                <td className="py-2 text-right">{money(it.unitPrice, cur)}</td>
-                <td className="py-2 text-right">{it.discount ? `${it.discount}%` : "—"}</td>
-                <td className="py-2 text-right">{it.vatRate}%</td>
-                <td className="py-2 text-right font-medium">{money(computeTotals([it]).total, cur)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="flex justify-end mt-5">
-          <div className="w-full max-w-xs space-y-1 text-sm">
-            <div className="flex justify-between"><span className="text-slate-500">{t("documents.net")}</span><span className="font-medium">{money(doc.net, cur)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">{t("documents.vat")}</span><span className="font-medium">{money(doc.vat, cur)}</span></div>
-            <div className="flex justify-between border-t border-slate-300 pt-2 text-lg font-bold text-slate-800"><span>{t("documents.total")}</span><span>{money(doc.total, cur)}</span></div>
+        {editing ? (
+          <div className="mt-4 no-print">
+            <LineItems items={editItems} onChange={setEditItems} products={products} currency={cur} defaultVat={settings.vatRate ?? 19} />
+            <div className="flex justify-end gap-2 mt-3">
+              <button onClick={cancelEdit} disabled={savingItems} className="btn-secondary">{t("common.cancel")}</button>
+              <button onClick={saveEdit} disabled={savingItems} className="btn-primary">{savingItems ? t("common.saving") : t("documents.saveItems")}</button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <table className="w-full mt-4 text-sm">
+              <thead>
+                <tr className="border-b border-slate-300 text-slate-500 text-xs uppercase">
+                  <th className="py-2 text-left">{t("invoices.colDescription")}</th>
+                  <th className="py-2 text-right">{t("invoices.colQty")}</th>
+                  <th className="py-2 text-right">{t("invoices.colPrice")}</th>
+                  <th className="py-2 text-right">{t("invoices.colDiscount")}</th>
+                  <th className="py-2 text-right">{t("common.vat")}</th>
+                  <th className="py-2 text-right">{t("documents.total")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {doc.items.map((it, i) => (
+                  <tr key={i} className="border-b border-slate-100">
+                    <td className="py-2">{it.description}</td>
+                    <td className="py-2 text-right">{it.quantity} {it.unit}</td>
+                    <td className="py-2 text-right">{money(it.unitPrice, cur)}</td>
+                    <td className="py-2 text-right">{it.discount ? `${it.discount}%` : "—"}</td>
+                    <td className="py-2 text-right">{it.vatRate}%</td>
+                    <td className="py-2 text-right font-medium">{money(computeTotals([it]).total, cur)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="flex justify-end mt-5">
+              <div className="w-full max-w-xs space-y-1 text-sm">
+                <div className="flex justify-between"><span className="text-slate-500">{t("documents.net")}</span><span className="font-medium">{money(doc.net, cur)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t("documents.vat")}</span><span className="font-medium">{money(doc.vat, cur)}</span></div>
+                <div className="flex justify-between border-t border-slate-300 pt-2 text-lg font-bold text-slate-800"><span>{t("documents.total")}</span><span>{money(doc.total, cur)}</span></div>
+              </div>
+            </div>
+          </>
+        )}
 
         {doc.notes && <div className="mt-4 text-sm text-slate-600"><b>{t("documents.notes")}:</b> {doc.notes}</div>}
         {kind === "quote" && <div className="mt-6 text-center text-sm text-slate-500 italic">{t("documents.quoteFooter")}</div>}

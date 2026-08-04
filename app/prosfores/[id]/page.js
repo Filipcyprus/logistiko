@@ -14,6 +14,7 @@ export default function TenderView() {
       canConvertToOrder
       requireApproval
       hideDirectInvoice
+      canEditItems
       backHref="/prosfores"
     />
   );
