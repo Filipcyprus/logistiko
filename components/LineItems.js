@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { money, computeTotals } from "@/lib/format";
 import { quantityDiscountPercentForProduct } from "@/lib/pricing";
 import Icon from "@/components/Icon";
@@ -11,6 +12,11 @@ export function emptyLine(vatRate = 19, unit = "pcs") {
 
 export default function LineItems({ items, onChange, products = [], currency = "€", defaultVat = 24, discountTiers }) {
   const { t } = useLanguage();
+  // Αναζήτηση ανά γραμμή: κείμενο που πληκτρολογείται (query) και ποια γραμμή έχει
+  // ανοιχτή τη λίστα προτάσεων (openIdx) — αντικαθιστά το select που απαιτούσε scroll.
+  const [query, setQuery] = useState({});
+  const [openIdx, setOpenIdx] = useState(null);
+
   const setLine = (idx, patch) => onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   const addLine = () => onChange([...items, emptyLine(defaultVat, t("common.unit"))]);
   const removeLine = (idx) => onChange(items.filter((_, i) => i !== idx));
@@ -26,6 +32,25 @@ export default function LineItems({ items, onChange, products = [], currency = "
     const hasDiscount = ["cosmetic", "consumable"].includes(p.productType) || (p.customDiscountTiers || []).length > 0;
     if (hasDiscount) patch.discount = quantityDiscountPercentForProduct(items[idx].quantity, p, discountTiers);
     setLine(idx, patch);
+  };
+
+  const matchesFor = (idx) => {
+    const q = (query[idx] || "").trim().toLowerCase();
+    const pool = q
+      ? products.filter((p) => p.name.toLowerCase().includes(q) || (p.code || "").toLowerCase().includes(q) || (p.barcode || "").includes(q))
+      : products;
+    return pool.slice(0, 8);
+  };
+
+  const selectProduct = (idx, p) => {
+    pickProduct(idx, p.id);
+    setOpenIdx(null);
+    setQuery((prev) => ({ ...prev, [idx]: "" }));
+  };
+
+  const clearProduct = (idx) => {
+    pickProduct(idx, "");
+    setOpenIdx(null);
   };
 
   return (
@@ -58,12 +83,31 @@ export default function LineItems({ items, onChange, products = [], currency = "
                           : <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-300 shrink-0 mt-0.5"><Icon name="image" size={13} /></div>;
                       })()}
                       <div className="space-y-1 flex-1 min-w-0">
-                        <select className="input !py-1 text-xs" value={it.productId || ""} onChange={(e) => pickProduct(idx, e.target.value)}>
-                          <option value="">{t("lineItems.freeText")}</option>
-                          {products.map((p) => (
-                            <option key={p.id} value={p.id}>{p.name}{p.trackStock !== false ? t("lineItems.stockSuffix", { stock: p.stock }) : ""}</option>
-                          ))}
-                        </select>
+                        <div className="relative">
+                          <input
+                            className="input !py-1 text-xs"
+                            placeholder={t("lineItems.searchProductPlaceholder")}
+                            value={openIdx === idx ? (query[idx] || "") : (products.find((x) => x.id === it.productId)?.name || "")}
+                            onFocus={() => { setOpenIdx(idx); setQuery((prev) => ({ ...prev, [idx]: "" })); }}
+                            onChange={(e) => setQuery((prev) => ({ ...prev, [idx]: e.target.value }))}
+                            onBlur={() => setTimeout(() => setOpenIdx((cur) => (cur === idx ? null : cur)), 150)}
+                          />
+                          {openIdx === idx && (
+                            <div className="absolute z-20 left-0 right-0 top-full mt-1 card p-1 max-h-56 overflow-y-auto">
+                              <button type="button" onMouseDown={() => clearProduct(idx)} className="w-full text-left px-2 py-1.5 rounded hover:bg-slate-50 text-xs text-slate-500">
+                                {t("lineItems.freeText")}
+                              </button>
+                              {matchesFor(idx).length === 0 ? (
+                                <div className="text-xs text-slate-400 p-2">{t("lineItems.noProductMatches")}</div>
+                              ) : matchesFor(idx).map((p) => (
+                                <button key={p.id} type="button" onMouseDown={() => selectProduct(idx, p)} className="w-full text-left px-2 py-1.5 rounded hover:bg-slate-50 text-xs flex items-center justify-between gap-2">
+                                  <span className="truncate">{p.name}</span>
+                                  {p.trackStock !== false && <span className="text-slate-400 shrink-0 whitespace-nowrap">{t("lineItems.stockSuffix", { stock: p.stock })}</span>}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         <input className="input !py-1" placeholder={t("lineItems.descriptionPlaceholder")} value={it.description} onChange={(e) => setLine(idx, { description: e.target.value })} />
                       </div>
                     </div>
