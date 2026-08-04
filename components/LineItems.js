@@ -21,13 +21,26 @@ export default function LineItems({ items, onChange, products = [], currency = "
   // το overflow-x-auto του πίνακα την έκοβε/έκρυβε πίσω από τις επόμενες γραμμές.
   const [menuPos, setMenuPos] = useState(null);
   const inputRefs = useRef({});
+  const menuRef = useRef(null);
 
   useEffect(() => {
     if (openIdx == null) return;
-    const close = () => setOpenIdx(null);
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
+    // Το scroll μέσα στη ίδια τη λίστα προτάσεων (όταν έχει παραπάνω αποτελέσματα απ' όσα
+    // χωράνε) δεν πρέπει να την κλείνει — μόνο scroll ΕΞΩ από αυτήν (π.χ. της σελίδας),
+    // που θα άλλαζε τη θέση του πεδίου και θα άφηνε τη λίστα σε λάθος σημείο.
+    const close = (e) => {
+      if (menuRef.current && menuRef.current.contains(e.target)) return;
+      setOpenIdx(null);
+    };
+    // Καθυστέρηση πριν την εγγραφή: το ίδιο το focus/click που άνοιξε τη λίστα μπορεί να
+    // προκαλέσει ένα μικρό αυτόματο scroll (π.χ. scroll-into-view) — χωρίς αυτήν την
+    // καθυστέρηση, εκείνο το ίδιο scroll έκλεινε αμέσως τη λίστα μόλις άνοιγε.
+    const timer = setTimeout(() => {
+      window.addEventListener("scroll", close, true);
+      window.addEventListener("resize", close);
+    }, 100);
     return () => {
+      clearTimeout(timer);
       window.removeEventListener("scroll", close, true);
       window.removeEventListener("resize", close);
     };
@@ -119,7 +132,7 @@ export default function LineItems({ items, onChange, products = [], currency = "
                           onBlur={() => setTimeout(() => setOpenIdx((cur) => (cur === idx ? null : cur)), 150)}
                         />
                         {openIdx === idx && menuPos && createPortal(
-                          <div className="fixed z-[9999] card p-1 max-h-56 overflow-y-auto" style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}>
+                          <div ref={menuRef} className="fixed z-[9999] card p-1 max-h-56 overflow-y-auto" style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}>
                             <button type="button" onMouseDown={() => clearProduct(idx)} className="w-full text-left px-2 py-1.5 rounded hover:bg-slate-50 text-xs text-slate-500">
                               {t("lineItems.freeText")}
                             </button>
