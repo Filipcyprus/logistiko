@@ -38,6 +38,7 @@ function NewInvoiceInner() {
   const [saving, setSaving] = useState(false);
   const [shippingEnabled, setShippingEnabled] = useState(false);
   const [shippingMethod, setShippingMethod] = useState("p2d");
+  const [customShippingAmount, setCustomShippingAmount] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -107,6 +108,16 @@ function NewInvoiceInner() {
     const shippingNet = Math.round((shippingCostWithVat / (1 + vatRate / 100)) * 100) / 100;
     const methodLabel = shippingMethod === "p2p" ? t("portal.shippingP2P") : shippingMethod === "p2d" ? t("portal.shippingP2D") : t("portal.shippingBoxNow");
     setItems([...items, { productId: null, description: `${t("portal.shippingLineLabel")} (${methodLabel})`, quantity: 1, unit: t("common.unit"), unitPrice: shippingNet, vatRate, discount: 0 }]);
+  };
+
+  // Χειροκίνητο ποσό μεταφορικών (με ΦΠΑ), ανεξάρτητο από τον υπολογισμό βάρους — π.χ. όταν
+  // δεν υπάρχουν προϊόντα με καταχωρημένο βάρος ή όταν ο χρήστης απλά ξέρει το πραγματικό κόστος.
+  const addCustomShippingLine = () => {
+    const amt = Number(customShippingAmount);
+    if (!amt || amt <= 0) return;
+    const shippingNet = Math.round((amt / (1 + vatRate / 100)) * 100) / 100;
+    setItems([...items, { productId: null, description: t("portal.shippingLineLabel"), quantity: 1, unit: t("common.unit"), unitPrice: shippingNet, vatRate, discount: 0 }]);
+    setCustomShippingAmount("");
   };
 
   const save = async () => {
@@ -218,56 +229,72 @@ function NewInvoiceInner() {
 
       <LineItems items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.vatRate ?? 19} />
 
-      {itemsWeightG > 0 && (
-        <div className="card p-5 space-y-3">
-          <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
-            <input type="checkbox" checked={shippingEnabled} onChange={(e) => setShippingEnabled(e.target.checked)} />
-            {t("invoices.needsShippingToggle")}
-          </label>
-          {shippingEnabled && (
-            <>
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="text-sm text-slate-600">
-                  {t("portal.totalWeight")} (≈): <span className="font-semibold text-slate-800">{itemsWeightG >= 1000 ? `${itemsWeightKg.toFixed(2)} kg` : `${itemsWeightG} g/ml`}</span>
+      <div className="card p-5 space-y-3">
+        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+          <input type="checkbox" checked={shippingEnabled} onChange={(e) => setShippingEnabled(e.target.checked)} />
+          {t("invoices.needsShippingToggle")}
+        </label>
+        {shippingEnabled && (
+          <>
+            {itemsWeightG > 0 && (
+              <>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="text-sm text-slate-600">
+                    {t("portal.totalWeight")} (≈): <span className="font-semibold text-slate-800">{itemsWeightG >= 1000 ? `${itemsWeightKg.toFixed(2)} kg` : `${itemsWeightG} g/ml`}</span>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="label">{t("portal.shippingMethod")}</label>
-                <div className="grid grid-cols-3 gap-2 max-w-md">
-                  <button
-                    type="button"
-                    onClick={() => setShippingMethod("p2p")}
-                    className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "p2p" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
-                  >
-                    {t("portal.shippingP2P")}
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingP2PDesc")}</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShippingMethod("p2d")}
-                    className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "p2d" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
-                  >
-                    {t("portal.shippingP2D")}
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingP2DDesc")}</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShippingMethod("boxnow")}
-                    className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "boxnow" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
-                  >
-                    {t("portal.shippingBoxNow")}
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingBoxNowDesc")}</div>
-                  </button>
+                <div>
+                  <label className="label">{t("portal.shippingMethod")}</label>
+                  <div className="grid grid-cols-3 gap-2 max-w-md">
+                    <button
+                      type="button"
+                      onClick={() => setShippingMethod("p2p")}
+                      className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "p2p" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+                    >
+                      {t("portal.shippingP2P")}
+                      <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingP2PDesc")}</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShippingMethod("p2d")}
+                      className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "p2d" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+                    >
+                      {t("portal.shippingP2D")}
+                      <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingP2DDesc")}</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShippingMethod("boxnow")}
+                      className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "boxnow" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+                    >
+                      {t("portal.shippingBoxNow")}
+                      <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingBoxNowDesc")}</div>
+                    </button>
+                  </div>
                 </div>
+                <div className="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+                  <div className="text-sm text-slate-600">{t("portal.shippingLineLabel")}: <span className="font-bold text-slate-800">{money(shippingCostWithVat, cur)}</span></div>
+                  <button onClick={addShippingLine} className="btn-secondary text-sm"><Icon name="plus" size={14} /> {t("invoices.addShippingLine")}</button>
+                </div>
+              </>
+            )}
+            <div className={itemsWeightG > 0 ? "border-t border-slate-100 pt-3" : ""}>
+              <label className="label">{t("invoices.customShippingLabel", { currency: cur })}</label>
+              <div className="flex items-center gap-2 max-w-sm">
+                <input
+                  type="number" step="any" min="0"
+                  className="input text-right"
+                  value={customShippingAmount}
+                  onChange={(e) => setCustomShippingAmount(e.target.value)}
+                  placeholder="0.00"
+                />
+                <button onClick={addCustomShippingLine} className="btn-secondary text-sm shrink-0"><Icon name="plus" size={14} /> {t("invoices.addCustomShippingLine")}</button>
               </div>
-              <div className="flex items-center justify-between bg-slate-50 rounded-lg p-3">
-                <div className="text-sm text-slate-600">{t("portal.shippingLineLabel")}: <span className="font-bold text-slate-800">{money(shippingCostWithVat, cur)}</span></div>
-                <button onClick={addShippingLine} className="btn-secondary text-sm"><Icon name="plus" size={14} /> {t("invoices.addShippingLine")}</button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+              <p className="text-xs text-slate-400 mt-1">{t("invoices.customShippingHint")}</p>
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
