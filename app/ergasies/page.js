@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { formatDate, formatDateTime, todayISO, money } from "@/lib/format";
-import { getPriorities, STAGE_COLORS, STAGE_COLOR_OPTIONS, itemQuoteTotal, jobQuoteTotal } from "@/lib/jobs";
+import { getPriorities, STAGE_COLORS, STAGE_COLOR_OPTIONS, itemQuoteTotal, jobQuoteTotal, markedUpTotal } from "@/lib/jobs";
 import { partnerMsgCount, setSeenCount } from "@/lib/jobNotifications";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 export default function JobsPage() {
   const { t } = useLanguage();
-  const emptyJob = { title: "", customerId: "", partnerShopId: "", priority: "normal", dueDate: "", assignedTo: "", items: [], designs: [], notes: "", stageId: "" };
+  const emptyJob = { title: "", customerId: "", partnerShopId: "", priority: "normal", dueDate: "", assignedTo: "", items: [], designs: [], notes: "", stageId: "", markupPercent: "" };
   const PRIORITIES = getPriorities(t);
 
   const [stages, setStages] = useState([]);
@@ -335,6 +335,23 @@ export default function JobsPage() {
                     <div className="flex justify-between font-bold text-emerald-900 border-t border-emerald-200 pt-1">
                       <span>{t("jobs.partnerQuoteTotal")}</span>
                       <span>{money(jobQuoteTotal(jobForm.items), "€")}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 border-t border-emerald-200 pt-2 mt-1">
+                      <label className="text-sm text-emerald-800 flex items-center gap-2">
+                        {t("jobs.markupPercentLabel")}
+                        <input
+                          type="number" step="any" min="0"
+                          className="input !py-1 !w-20 text-right"
+                          value={jobForm.markupPercent}
+                          onChange={(e) => setJobForm({ ...jobForm, markupPercent: e.target.value })}
+                          placeholder="0"
+                        />
+                        %
+                      </label>
+                    </div>
+                    <div className="flex justify-between font-bold text-emerald-900">
+                      <span>{t("jobs.yourPriceLabel")}</span>
+                      <span>{money(markedUpTotal(jobForm.items, jobForm.markupPercent), "€")}</span>
                     </div>
                   </div>
                 )}

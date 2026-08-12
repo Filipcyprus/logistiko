@@ -44,6 +44,7 @@ export async function POST(request) {
     dueDate: body.dueDate || "",
     assignedTo: body.assignedTo || "",
     items: Array.isArray(body.items) ? body.items.map((it) => ({ id: it.id || uid(), description: it.description || "", quantity: it.quantity || "", unit: it.unit || "", partnerUnitPrice: null, partnerVatRate: null })).filter((it) => it.description || it.quantity) : [],
+    markupPercent: Number(body.markupPercent) || 0,
     designs: migrateInlineDesigns(body.designs),
     linkedType: body.linkedType || null,
     linkedId: body.linkedId || null,
