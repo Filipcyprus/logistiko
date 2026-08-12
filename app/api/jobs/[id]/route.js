@@ -61,6 +61,11 @@ export async function PUT(request, { params }) {
     if (notifyPartner) addSystemMessage(job, "owner", "Reopened job.");
   }
 
+  // Ελάχιστο περιθώριο 20% — ίδιος κανόνας με τη δημιουργία, ώστε να μην παρακάμπτεται με απευθείας κλήση του API.
+  if (patch.markupPercent !== undefined) {
+    patch.markupPercent = Math.max(20, Number(patch.markupPercent) || 0);
+  }
+
   Object.assign(job, patch);
   writeDB(db);
   return NextResponse.json(job);

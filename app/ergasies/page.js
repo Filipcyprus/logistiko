@@ -9,7 +9,8 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 export default function JobsPage() {
   const { t } = useLanguage();
-  const emptyJob = { title: "", customerId: "", partnerShopId: "", priority: "normal", dueDate: "", assignedTo: "", items: [], designs: [], notes: "", stageId: "", markupPercent: "" };
+  const MIN_MARKUP_PERCENT = 20;
+  const emptyJob = { title: "", customerId: "", partnerShopId: "", priority: "normal", dueDate: "", assignedTo: "", items: [], designs: [], notes: "", stageId: "", markupPercent: MIN_MARKUP_PERCENT };
   const PRIORITIES = getPriorities(t);
 
   const [stages, setStages] = useState([]);
@@ -41,9 +42,13 @@ export default function JobsPage() {
 
   const saveJob = async () => {
     if (!jobForm.title.trim()) { alert(t("jobs.errNeedTitle")); return; }
+    // Τελευταία δικλείδα ασφαλείας — και όχι μόνο το onBlur του πεδίου — για την περίπτωση που
+    // πατήθηκε Save ενώ το πεδίο ήταν ακόμα εστιασμένο με τιμή κάτω από το ελάχιστο περιθώριο.
+    const markupPercent = jobForm.markupPercent === "" ? MIN_MARKUP_PERCENT : Math.max(MIN_MARKUP_PERCENT, Number(jobForm.markupPercent) || 0);
+    const payload = { ...jobForm, markupPercent };
     const method = jobForm.id ? "PUT" : "POST";
     const url = jobForm.id ? `/api/jobs/${jobForm.id}` : "/api/jobs";
-    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(jobForm) });
+    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     setJobForm(null); loadJobs();
   };
   const delJob = async (id) => { if (!confirm(t("jobs.confirmDelete"))) return; await fetch(`/api/jobs/${id}`, { method: "DELETE" }); loadJobs(); };
@@ -340,11 +345,16 @@ export default function JobsPage() {
                       <label className="text-sm text-emerald-800 flex items-center gap-2">
                         {t("jobs.markupPercentLabel")}
                         <input
-                          type="number" step="any" min="0"
+                          type="number" step="any" min={MIN_MARKUP_PERCENT}
                           className="input !py-1 !w-20 text-right"
                           value={jobForm.markupPercent}
                           onChange={(e) => setJobForm({ ...jobForm, markupPercent: e.target.value })}
-                          placeholder="0"
+                          onBlur={(e) => {
+                            if (e.target.value !== "" && Number(e.target.value) < MIN_MARKUP_PERCENT) {
+                              setJobForm((f) => ({ ...f, markupPercent: MIN_MARKUP_PERCENT }));
+                            }
+                          }}
+                          placeholder={String(MIN_MARKUP_PERCENT)}
                         />
                         %
                       </label>
