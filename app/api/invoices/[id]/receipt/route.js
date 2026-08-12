@@ -19,24 +19,15 @@ export async function POST(_req, { params }) {
     return NextResponse.json({ error: "errors.invalidData" }, { status: 400 });
   }
 
-  // Η απόδειξη πληρωμής παίρνει τον ΙΔΙΟ αριθμό (aa) με το τιμολόγιο που αφορά, όχι τον επόμενο
-  // διαθέσιμο από τον ανεξάρτητο μετρητή αποδείξεων — έτσι είναι άμεσα αναγνωρίσιμο ποια απόδειξη
-  // πάει με ποιο τιμολόγιο. Ασφαλιστική δικλείδα: αν αυτός ο αριθμός χρησιμοποιείται ήδη από άλλο
-  // παραστατικό (π.χ. παλιά απόδειξη λιανικής), αρνήσου αντί να δημιουργήσεις διπλότυπο αριθμό.
-  const series = inv.series || db.settings.series || "A";
-  const prefix = db.settings.receiptPrefix || "RCT-";
-  const seq = Number(inv.aa);
-  const number = `${prefix}${series}-${String(seq).padStart(5, "0")}`;
-  if (db.invoices.some((x) => x.number === number)) {
-    return NextResponse.json({ error: "errors.receiptNumberTaken" }, { status: 409 });
-  }
+  const seq = db.counters.receipt || 1;
+  const number = `${db.settings.receiptPrefix || "RCT-"}${inv.series || db.settings.series || "A"}-${String(seq).padStart(5, "0")}`;
 
   const receipt = {
     id: uid(),
     number,
     type: "apodeixi",
     isPaymentReceipt: true,
-    series,
+    series: inv.series || db.settings.series || "A",
     aa: seq,
     date: new Date().toISOString().slice(0, 10),
     customerId: inv.customerId,
@@ -65,9 +56,7 @@ export async function POST(_req, { params }) {
   };
 
   db.invoices.unshift(receipt);
-  // Μόνο προς τα εμπρός: αν μια ανεξάρτητη απόδειξη λιανικής έχει ήδη προχωρήσει τον μετρητή πιο
-  // πέρα από αυτόν τον αριθμό, μην τον γυρίσεις πίσω — θα άνοιγε ξανά το ίδιο κενό αριθμοδότησης.
-  db.counters.receipt = Math.max(Number(db.counters.receipt || 1), seq + 1);
+  db.counters.receipt = seq + 1;
   inv.paymentReceipts = [...(inv.paymentReceipts || []), { id: receipt.id, number: receipt.number }];
 
   writeDB(db);
