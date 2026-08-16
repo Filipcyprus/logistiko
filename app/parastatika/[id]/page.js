@@ -18,6 +18,8 @@ export default function InvoiceView() {
   const [busy, setBusy] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [pay, setPay] = useState({ amount: 0, method: "cash", date: new Date().toISOString().slice(0, 10) });
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState(null);
 
   const load = () => fetch(`/api/invoices/${id}`).then((r) => (r.ok ? r.json() : null)).then((i) => (i ? setInv(i) : setNotFound(true)));
   useEffect(() => {
@@ -25,6 +27,35 @@ export default function InvoiceView() {
     fetch("/api/settings").then((r) => r.json()).then(setSettings);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const startEdit = () => {
+    if (!inv) return;
+    setEditForm({
+      items: inv.items.map((it) => ({ ...it })),
+      customer: inv.customer ? { ...inv.customer } : null,
+      notes: inv.notes || "",
+    });
+    setEditMode(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editForm) return;
+    setBusy(true);
+    const res = await fetch(`/api/invoices/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: editForm.items, customer: editForm.customer, notes: editForm.notes }),
+    });
+    setBusy(false);
+    if (res.ok) {
+      const updated = await res.json();
+      setInv(updated);
+      setEditMode(false);
+      setEditForm(null);
+    } else {
+      alert(t("common.error"));
+    }
+  };
 
   // Οι browsers προτείνουν το document.title ως όνομα αρχείου στο "Αποθήκευση ως PDF"
   // από τον εκτυπωτή — έτσι το PDF παίρνει αυτόματα τον αριθμό του παραστατικού.
@@ -105,6 +136,7 @@ export default function InvoiceView() {
             </Link>
           )}
           {!isCredit && !inv.creditNoteId && <button onClick={createCreditNote} disabled={busy} className="btn-secondary"><Icon name="invoice" size={15} /> {t("invoices.createCreditNote")}</button>}
+          {isCredit && !editMode && <button onClick={startEdit} disabled={busy} className="btn-secondary"><Icon name="edit" size={15} /> {t("common.edit")}</button>}
           {inv.creditNoteId && <Link href={`/parastatika/${inv.creditNoteId}`} className="btn-secondary text-red-600">{t("invoices.creditNoteLink", { number: inv.creditNoteNumber })}</Link>}
           {(inv.paymentReceipts || []).map((r) => (
             <Link key={r.id} href={`/parastatika/${r.id}`} className="btn-secondary text-emerald-600">{t("invoices.paymentReceiptLink", { number: r.number })}</Link>
@@ -216,6 +248,70 @@ export default function InvoiceView() {
         )}
         {settings.footerNote && <div className="mt-3 text-center text-sm text-slate-500 italic">{settings.footerNote}</div>}
       </div>
+
+      {/* Modal επεξεργασίας πιστωτικού σημειώματος */}
+      {editMode && editForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="card p-6 w-full max-w-2xl my-8" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-4">{t("invoices.editCreditNote")}</h2>
+
+            <div className="space-y-4 max-h-96 overflow-y-auto mb-4">
+              {/* Customer info */}
+              {editForm.customer && (
+                <div className="border-b pb-4">
+                  <label className="label">{t("invoices.customerName")}</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={editForm.customer.name || ""}
+                    onChange={(e) => setEditForm({ ...editForm, customer: { ...editForm.customer, name: e.target.value } })}
+                  />
+                </div>
+              )}
+
+              {/* Items table */}
+              <div>
+                <label className="label mb-2">{t("invoices.items")}</label>
+                <div className="overflow-x-auto text-sm">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b bg-slate-50">
+                        <th className="text-left p-2">{t("invoices.colDescription")}</th>
+                        <th className="text-right p-2">{t("invoices.colQty")}</th>
+                        <th className="text-right p-2">{t("invoices.colPrice")}</th>
+                        <th className="text-right p-2">{t("invoices.colDiscount")}</th>
+                        <th className="text-right p-2">{t("common.vat")}%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {editForm.items.map((it, idx) => (
+                        <tr key={idx} className="border-b">
+                          <td className="p-2"><input type="text" className="input !py-1 text-xs w-full" value={it.description} onChange={(e) => setEditForm({ ...editForm, items: editForm.items.map((x, i) => i === idx ? { ...x, description: e.target.value } : x) })} /></td>
+                          <td className="p-2"><input type="number" step="any" className="input !py-1 text-xs text-right w-16" value={it.quantity} onChange={(e) => setEditForm({ ...editForm, items: editForm.items.map((x, i) => i === idx ? { ...x, quantity: e.target.value } : x) })} /></td>
+                          <td className="p-2"><input type="number" step="any" className="input !py-1 text-xs text-right w-20" value={it.unitPrice} onChange={(e) => setEditForm({ ...editForm, items: editForm.items.map((x, i) => i === idx ? { ...x, unitPrice: e.target.value } : x) })} /></td>
+                          <td className="p-2"><input type="number" step="any" className="input !py-1 text-xs text-right w-16" value={it.discount} onChange={(e) => setEditForm({ ...editForm, items: editForm.items.map((x, i) => i === idx ? { ...x, discount: e.target.value } : x) })} /></td>
+                          <td className="p-2"><input type="number" step="any" className="input !py-1 text-xs text-right w-16" value={it.vatRate} onChange={(e) => setEditForm({ ...editForm, items: editForm.items.map((x, i) => i === idx ? { ...x, vatRate: e.target.value } : x) })} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="label">{t("documents.notes")}</label>
+                <textarea className="input" rows={2} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t pt-4">
+              <button onClick={() => { setEditMode(false); setEditForm(null); }} className="btn-secondary">{t("common.cancel")}</button>
+              <button onClick={saveEdit} disabled={busy} className="btn-primary">{busy ? t("common.saving") : t("common.save")}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal είσπραξης */}
       {payOpen && (
