@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server";
-import { computeTotals } from "@/lib/format";
 import { decrementWarehouseStocks, incrementWarehouseStocks } from "@/lib/stockHelpers";
 
 export async function GET(_req, { params }) {
@@ -9,47 +8,6 @@ export async function GET(_req, { params }) {
   const rec = db.invoices.find((x) => x.id === params.id);
   if (!rec) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
   return NextResponse.json(rec);
-}
-
-// Επεξεργασία πιστωτικού σημειώματος — μόνο credit notes επιτρέπονται.
-export async function PUT(request, { params }) {
-  const body = await request.json();
-  const db = readDB();
-  const inv = db.invoices.find((x) => x.id === params.id);
-  if (!inv) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
-  if (inv.type !== "credit") return NextResponse.json({ error: "errors.invalidData" }, { status: 400 });
-
-  // Ενημέρωση γραμμών αν δόθησαν — με επανυπολογισμό συνόλων
-  if (Array.isArray(body.items)) {
-    const items = body.items.filter((it) => it.description && Number(it.quantity) > 0).map((it) => ({
-      productId: it.productId || null,
-      description: it.description,
-      quantity: Number(it.quantity),
-      unit: it.unit || "pcs",
-      unitPrice: Number(it.unitPrice || 0),
-      vatRate: Number(it.vatRate || 0),
-      discount: Number(it.discount || 0),
-    }));
-    const totals = computeTotals(items);
-    inv.items = items;
-    inv.net = totals.net;
-    inv.vat = totals.vat;
-    inv.total = totals.total;
-  }
-
-  // Ενημέρωση πληροφοριών πελάτη αν δόθησαν
-  if (body.customer) {
-    inv.customer = body.customer;
-  }
-
-  // Ενημέρωση σημειώσεων αν δόθησαν
-  if (body.notes !== undefined) {
-    inv.notes = body.notes;
-  }
-
-  inv.updatedAt = new Date().toISOString();
-  writeDB(db);
-  return NextResponse.json(inv);
 }
 
 // Ακύρωση/διαγραφή παραστατικού — αντιστρέφει την κίνηση αποθέματος.
