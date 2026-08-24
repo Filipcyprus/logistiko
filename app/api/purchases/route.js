@@ -20,7 +20,7 @@ export async function POST(request) {
 
   let supplierSnapshot = null;
   const sup = db.suppliers.find((x) => x.id === body.supplierId);
-  if (sup) supplierSnapshot = { id: sup.id, name: sup.name, afm: sup.afm, address: sup.address, city: sup.city, phone: sup.phone };
+  if (sup) supplierSnapshot = { id: sup.id, name: sup.name, afm: sup.afm, address: sup.address, city: sup.city, phone: sup.phone, email: sup.email };
 
   const doc = {
     id: uid(),

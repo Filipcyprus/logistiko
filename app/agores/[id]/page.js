@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { money, formatDate, computeTotals } from "@/lib/format";
 import Icon from "@/components/Icon";
+import EmailButton from "@/components/EmailButton";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const STATUS = {
@@ -112,6 +113,7 @@ export default function PurchaseView() {
           {!po.received && <button onClick={openReceive} className="btn-secondary"><Icon name="box" size={15} /> {t("purchases.markReceived")}</button>}
           <button onClick={() => fileRef.current?.click()} className="btn-secondary"><Icon name="upload" size={15} /> {t("purchases.attachInvoice")}</button>
           <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={onAttach} />
+          <EmailButton kind="purchase" id={po.id} defaultEmail={po.supplier?.email || ""} />
           <button onClick={() => window.print()} className="btn-secondary" title={t("purchases.print")}><Icon name="printer" size={15} /></button>
           <button onClick={del} className="btn-secondary text-red-600"><Icon name="trash" size={15} /></button>
         </div>

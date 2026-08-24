@@ -10,14 +10,16 @@ export async function POST(request) {
 
   if (!mail.host) return NextResponse.json({ error: "errors.emailNotConfigured" }, { status: 400 });
 
-  const kind = body.kind; // invoice | credit | quote | order
-  const coll = kind === "tender" ? db.tenders : kind === "order" ? db.orders : db.invoices;
+  const kind = body.kind; // invoice | credit | quote | order | purchase
+  const coll = kind === "tender" ? db.tenders : kind === "order" ? db.orders : kind === "purchase" ? db.purchases : db.invoices;
   const doc = (coll || []).find((x) => x.id === body.id);
   if (!doc) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
 
-  // Παραλήπτης: από το body, αλλιώς το email του πελάτη.
+  // Παραλήπτης: από το body, αλλιώς το email του πελάτη (ή του προμηθευτή, για παραγγελία αγοράς).
   let to = (body.to || "").trim();
-  if (!to && doc.customerId) {
+  if (!to && kind === "purchase") {
+    to = (doc.supplier?.email || "").trim();
+  } else if (!to && doc.customerId) {
     to = (db.customers.find((c) => c.id === doc.customerId)?.email || "").trim();
   }
   if (!to) return NextResponse.json({ error: "errors.noRecipient" }, { status: 400 });
