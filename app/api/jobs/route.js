@@ -44,8 +44,8 @@ export async function POST(request) {
     dueDate: body.dueDate || "",
     assignedTo: body.assignedTo || "",
     items: Array.isArray(body.items) ? body.items.map((it) => ({ id: it.id || uid(), description: it.description || "", quantity: it.quantity || "", unit: it.unit || "", partnerUnitPrice: null, partnerVatRate: null })).filter((it) => it.description || it.quantity) : [],
-    // Ελάχιστο περιθώριο 20% — δεν επιτρέπεται να πέσει κάτω, ακόμα κι αν κληθεί το API απευθείας.
-    markupPercent: Math.max(20, Number(body.markupPercent) || 0),
+    // Ελάχιστο ποσοστό προμήθειας 20% — δεν επιτρέπεται να πέσει κάτω, ακόμα κι αν κληθεί το API απευθείας.
+    commissionPercent: Math.max(20, Number(body.commissionPercent ?? body.markupPercent) || 0),
     designs: migrateInlineDesigns(body.designs),
     linkedType: body.linkedType || null,
     linkedId: body.linkedId || null,

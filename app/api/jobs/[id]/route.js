@@ -61,9 +61,9 @@ export async function PUT(request, { params }) {
     if (notifyPartner) addSystemMessage(job, "owner", "Reopened job.");
   }
 
-  // Ελάχιστο περιθώριο 20% — ίδιος κανόνας με τη δημιουργία, ώστε να μην παρακάμπτεται με απευθείας κλήση του API.
-  if (patch.markupPercent !== undefined) {
-    patch.markupPercent = Math.max(20, Number(patch.markupPercent) || 0);
+  // Ελάχιστο ποσοστό προμήθειας 20% — ίδιος κανόνας με τη δημιουργία, ώστε να μην παρακάμπτεται με απευθείας κλήση του API.
+  if (patch.commissionPercent !== undefined) {
+    patch.commissionPercent = Math.max(20, Number(patch.commissionPercent) || 0);
   }
 
   Object.assign(job, patch);

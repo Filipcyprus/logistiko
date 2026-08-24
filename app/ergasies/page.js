@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { formatDate, formatDateTime, todayISO, money } from "@/lib/format";
-import { getPriorities, STAGE_COLORS, STAGE_COLOR_OPTIONS, itemQuoteTotal, jobQuoteTotal, markedUpTotal } from "@/lib/jobs";
+import { getPriorities, STAGE_COLORS, STAGE_COLOR_OPTIONS, itemQuoteTotal, jobQuoteTotal, commissionAmount } from "@/lib/jobs";
 import { partnerMsgCount, setSeenCount } from "@/lib/jobNotifications";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 export default function JobsPage() {
   const { t } = useLanguage();
-  const MIN_MARKUP_PERCENT = 20;
-  const emptyJob = { title: "", customerId: "", partnerShopId: "", priority: "normal", dueDate: "", assignedTo: "", items: [], designs: [], notes: "", stageId: "", markupPercent: MIN_MARKUP_PERCENT };
+  const MIN_COMMISSION_PERCENT = 20;
+  const emptyJob = { title: "", customerId: "", partnerShopId: "", priority: "normal", dueDate: "", assignedTo: "", items: [], designs: [], notes: "", stageId: "", commissionPercent: MIN_COMMISSION_PERCENT };
   const PRIORITIES = getPriorities(t);
 
   const [stages, setStages] = useState([]);
@@ -43,9 +43,9 @@ export default function JobsPage() {
   const saveJob = async () => {
     if (!jobForm.title.trim()) { alert(t("jobs.errNeedTitle")); return; }
     // Τελευταία δικλείδα ασφαλείας — και όχι μόνο το onBlur του πεδίου — για την περίπτωση που
-    // πατήθηκε Save ενώ το πεδίο ήταν ακόμα εστιασμένο με τιμή κάτω από το ελάχιστο περιθώριο.
-    const markupPercent = jobForm.markupPercent === "" ? MIN_MARKUP_PERCENT : Math.max(MIN_MARKUP_PERCENT, Number(jobForm.markupPercent) || 0);
-    const payload = { ...jobForm, markupPercent };
+    // πατήθηκε Save ενώ το πεδίο ήταν ακόμα εστιασμένο με τιμή κάτω από το ελάχιστο ποσοστό.
+    const commissionPercent = jobForm.commissionPercent === "" ? MIN_COMMISSION_PERCENT : Math.max(MIN_COMMISSION_PERCENT, Number(jobForm.commissionPercent) || 0);
+    const payload = { ...jobForm, commissionPercent };
     const method = jobForm.id ? "PUT" : "POST";
     const url = jobForm.id ? `/api/jobs/${jobForm.id}` : "/api/jobs";
     await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -178,7 +178,7 @@ export default function JobsPage() {
                             <button onClick={() => moveByArrow(job, 1)} disabled={i === stages.length - 1} className="btn-ghost !px-1.5 !py-0.5 text-xs disabled:opacity-30" title={t("jobs.nextStage")}><Icon name="arrowRight" size={13} /></button>
                           </div>
                           <div className="flex gap-1">
-                            <button onClick={() => { setJobForm({ ...emptyJob, ...job, customerId: job.customerId || "", items: job.items || [], designs: job.designs || [] }); setMsgDraft(""); setSeenCount(job.id, partnerMsgCount(job)); }} className="btn-ghost !px-1.5 !py-0.5 text-xs"><Icon name="edit" size={13} /></button>
+                            <button onClick={() => { setJobForm({ ...emptyJob, ...job, customerId: job.customerId || "", items: job.items || [], designs: job.designs || [], commissionPercent: job.commissionPercent ?? job.markupPercent ?? MIN_COMMISSION_PERCENT }); setMsgDraft(""); setSeenCount(job.id, partnerMsgCount(job)); }} className="btn-ghost !px-1.5 !py-0.5 text-xs"><Icon name="edit" size={13} /></button>
                             <button onClick={() => completeJob(job.id)} className="btn-ghost !px-1.5 !py-0.5 text-xs text-emerald-600" title={t("jobs.complete")}><Icon name="check" size={13} /></button>
                             <button onClick={() => delJob(job.id)} className="btn-ghost !px-1.5 !py-0.5 text-xs text-red-500"><Icon name="trash" size={13} /></button>
                           </div>
@@ -343,25 +343,25 @@ export default function JobsPage() {
                     </div>
                     <div className="flex items-center justify-between gap-2 border-t border-emerald-200 pt-2 mt-1">
                       <label className="text-sm text-emerald-800 flex items-center gap-2">
-                        {t("jobs.markupPercentLabel")}
+                        {t("jobs.commissionPercentLabel")}
                         <input
-                          type="number" step="any" min={MIN_MARKUP_PERCENT}
+                          type="number" step="any" min={MIN_COMMISSION_PERCENT}
                           className="input !py-1 !w-20 text-right"
-                          value={jobForm.markupPercent}
-                          onChange={(e) => setJobForm({ ...jobForm, markupPercent: e.target.value })}
+                          value={jobForm.commissionPercent}
+                          onChange={(e) => setJobForm({ ...jobForm, commissionPercent: e.target.value })}
                           onBlur={(e) => {
-                            if (e.target.value !== "" && Number(e.target.value) < MIN_MARKUP_PERCENT) {
-                              setJobForm((f) => ({ ...f, markupPercent: MIN_MARKUP_PERCENT }));
+                            if (e.target.value !== "" && Number(e.target.value) < MIN_COMMISSION_PERCENT) {
+                              setJobForm((f) => ({ ...f, commissionPercent: MIN_COMMISSION_PERCENT }));
                             }
                           }}
-                          placeholder={String(MIN_MARKUP_PERCENT)}
+                          placeholder={String(MIN_COMMISSION_PERCENT)}
                         />
                         %
                       </label>
                     </div>
                     <div className="flex justify-between font-bold text-emerald-900">
-                      <span>{t("jobs.yourPriceLabel")}</span>
-                      <span>{money(markedUpTotal(jobForm.items, jobForm.markupPercent), "€")}</span>
+                      <span>{t("jobs.commissionAmountLabel")}</span>
+                      <span>{money(commissionAmount(jobForm.items, jobForm.commissionPercent), "€")}</span>
                     </div>
                   </div>
                 )}
