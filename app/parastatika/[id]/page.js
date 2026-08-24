@@ -125,24 +125,24 @@ export default function InvoiceView() {
       <div className="flex items-center justify-between flex-wrap gap-3 no-print">
         <Link href="/parastatika" className="btn-secondary"><Icon name="arrowLeft" size={15} /> {t("invoices.backToInvoices")}</Link>
         <div className="flex flex-wrap gap-2">
-          {inv.customerId && !editMode && <Link href={`/pelates/${inv.customerId}`} className="btn-secondary"><Icon name="users" size={15} /> {t("invoices.customerCard")}</Link>}
-          {!isCredit && inv.status === "unpaid" && !editMode && <button onClick={() => { setPay({ ...pay, amount: balance }); setPayOpen(true); }} className="btn-secondary"><Icon name="money" size={15} /> {t("invoices.registerPayment")}</button>}
-          {!isCredit && inv.status === "paid" && !inv.isPaymentReceipt && (inv.paymentReceipts || []).length === 0 && !editMode && (
+          {inv.customerId && <Link href={`/pelates/${inv.customerId}`} className="btn-secondary"><Icon name="users" size={15} /> {t("invoices.customerCard")}</Link>}
+          {!isCredit && inv.status === "unpaid" && <button onClick={() => { setPay({ ...pay, amount: balance }); setPayOpen(true); }} className="btn-secondary"><Icon name="money" size={15} /> {t("invoices.registerPayment")}</button>}
+          {!isCredit && inv.status === "paid" && !inv.isPaymentReceipt && (inv.paymentReceipts || []).length === 0 && (
             <button onClick={issuePaymentReceipt} disabled={busy} className="btn-secondary"><Icon name="money" size={15} /> {t("invoices.issuePaymentReceipt")}</button>
           )}
-          {!isCredit && !isTim && !(inv.isPaymentReceipt && inv.relatedInvoiceId) && !inv.creditNoteId && !editMode && (
+          {!isCredit && !isTim && !(inv.isPaymentReceipt && inv.relatedInvoiceId) && !inv.creditNoteId && (
             <Link href={`/parastatika/neo?from=invoices&id=${inv.id}&replaces=${inv.id}`} className="btn-secondary">
               <Icon name="invoice" size={15} /> {t("invoices.reissueAsInvoice")}
             </Link>
           )}
-          {!isCredit && !inv.creditNoteId && !editMode && <button onClick={createCreditNote} disabled={busy} className="btn-secondary"><Icon name="invoice" size={15} /> {t("invoices.createCreditNote")}</button>}
+          {!isCredit && !inv.creditNoteId && <button onClick={createCreditNote} disabled={busy} className="btn-secondary"><Icon name="invoice" size={15} /> {t("invoices.createCreditNote")}</button>}
           {isCredit && !editMode && <button onClick={startEdit} disabled={busy} className="btn-secondary"><Icon name="edit" size={15} /> {t("common.edit")}</button>}
           {inv.creditNoteId && <Link href={`/parastatika/${inv.creditNoteId}`} className="btn-secondary text-red-600">{t("invoices.creditNoteLink", { number: inv.creditNoteNumber })}</Link>}
           {(inv.paymentReceipts || []).map((r) => (
             <Link key={r.id} href={`/parastatika/${r.id}`} className="btn-secondary text-emerald-600">{t("invoices.paymentReceiptLink", { number: r.number })}</Link>
           ))}
-          {inv.customerId && !editMode && <EmailButton kind={isCredit ? "credit" : "invoice"} id={inv.id} defaultEmail={inv.customer?.email || ""} />}
-          <button onClick={() => window.print()} disabled={editMode} className="btn-primary"><Icon name="printer" size={15} /> {t("invoices.printPdf")}</button>
+          {inv.customerId && <EmailButton kind={isCredit ? "credit" : "invoice"} id={inv.id} defaultEmail={inv.customer?.email || ""} />}
+          <button onClick={() => window.print()} className="btn-primary"><Icon name="printer" size={15} /> {t("invoices.printPdf")}</button>
         </div>
       </div>
 
