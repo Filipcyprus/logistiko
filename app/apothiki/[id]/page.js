@@ -17,6 +17,7 @@ export default function EditProductPage() {
   const [form, setForm] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [addedToReorder, setAddedToReorder] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -51,6 +52,11 @@ export default function EditProductPage() {
     }
   };
 
+  const addToReorderList = async () => {
+    const res = await fetch("/api/reorder-list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId: id, quantity: 1 }) });
+    if (res.ok) { setAddedToReorder(true); setTimeout(() => setAddedToReorder(false), 1500); }
+  };
+
   if (notFound) return <div className="text-slate-500">{t("common.notFound")} <Link href="/apothiki" className="text-brand-600">{t("common.returnLink")}</Link></div>;
   if (!form || !settings) return <div className="text-slate-400">{t("common.loading")}</div>;
 
@@ -58,7 +64,12 @@ export default function EditProductPage() {
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-slate-800">{t("stock.editItemTitle")}</h1>
-        <button onClick={() => router.push("/apothiki")} className="btn-secondary"><Icon name="arrowLeft" size={15} /> {t("stock.backToList")}</button>
+        <div className="flex items-center gap-2">
+          <button onClick={addToReorderList} className={`btn-secondary ${addedToReorder ? "text-emerald-600" : ""}`}>
+            <Icon name={addedToReorder ? "check" : "cart"} size={15} /> {t("stock.addToReorderList")}
+          </button>
+          <button onClick={() => router.push("/apothiki")} className="btn-secondary"><Icon name="arrowLeft" size={15} /> {t("stock.backToList")}</button>
+        </div>
       </div>
 
       <ProductForm form={form} setForm={setForm} categories={categories} suppliers={suppliers} settings={settings} catListId="cat-list-edit" />

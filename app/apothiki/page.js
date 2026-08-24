@@ -19,16 +19,31 @@ export default function StockPage() {
   const [categories, setCategories] = useState([]);
   const [catFilter, setCatFilter] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
+  const [reorderCount, setReorderCount] = useState(0);
+  const [justAdded, setJustAdded] = useState(null);
 
   const load = () => {
     fetch("/api/products").then((r) => r.json()).then(setProducts);
     fetch("/api/stock").then((r) => r.json()).then(setMovements);
     fetch("/api/categories").then((r) => r.json()).then(setCategories);
+    fetch("/api/reorder-list").then((r) => r.json()).then((list) => setReorderCount(list.length));
   };
   useEffect(() => {
     load();
     fetch("/api/settings").then((r) => r.json()).then(setSettings);
   }, []);
+
+  // Προσθήκη προϊόντος στη λίστα αγορών — προσβάσιμο από οπουδήποτε στη λίστα αποθέματος,
+  // χωρίς να χρειάζεται να ανοίξει κανείς κατευθείαν Παραγγελία Αγοράς.
+  const addToReorderList = async (productId) => {
+    const res = await fetch("/api/reorder-list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId, quantity: 1 }) });
+    if (res.ok) {
+      const list = await res.json();
+      setReorderCount(list.length);
+      setJustAdded(productId);
+      setTimeout(() => setJustAdded((cur) => (cur === productId ? null : cur)), 1500);
+    }
+  };
 
   const cur = settings?.currency || "€";
   // Ενοποίηση κατηγοριών: από τη λίστα κατηγοριών + όσες υπάρχουν ήδη στα προϊόντα.
@@ -70,7 +85,10 @@ export default function StockPage() {
           <h1 className="text-2xl font-bold text-slate-800">{t("stock.title")}</h1>
           <p className="text-slate-500 text-sm">{t("stock.summary", { count: products.length, value: money(stockValue, cur) })}</p>
         </div>
-        <Link href="/apothiki/neo" className="btn-primary"><Icon name="plus" size={16} /> {t("stock.newItem")}</Link>
+        <div className="flex items-center gap-2">
+          <Link href="/agores/lista" className="btn-secondary"><Icon name="cart" size={16} /> {t("stock.reorderList")}{reorderCount > 0 && <span className="badge bg-brand-100 text-brand-700 ml-1">{reorderCount}</span>}</Link>
+          <Link href="/apothiki/neo" className="btn-primary"><Icon name="plus" size={16} /> {t("stock.newItem")}</Link>
+        </div>
       </div>
 
       <div className="flex gap-2 border-b border-slate-200">
@@ -158,6 +176,9 @@ export default function StockPage() {
                           ) : "—"}
                         </td>
                         <td className="table-td text-right whitespace-nowrap">
+                          <button onClick={() => addToReorderList(p.id)} className={`btn-ghost !px-2 !py-1 ${justAdded === p.id ? "text-emerald-600" : ""}`} title={t("stock.addToReorderList")}>
+                            <Icon name={justAdded === p.id ? "check" : "cart"} size={15} />
+                          </button>
                           {p.trackStock !== false && <button onClick={() => { setMoveFor(p); setMove({ type: "in", quantity: 0, reason: "" }); }} className="btn-ghost !px-2 !py-1" title={t("stock.moveModalTitle")}><Icon name="box" size={15} /></button>}
                           <Link href={`/apothiki/${p.id}`} className="btn-ghost !px-2 !py-1 inline-flex"><Icon name="edit" size={15} /></Link>
                           <button onClick={() => delProduct(p.id)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={15} /></button>

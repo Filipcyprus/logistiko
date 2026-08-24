@@ -80,7 +80,12 @@ function ExpensesInner() {
         </div>
         {tab === "expenses"
           ? <button onClick={() => setForm({ ...empty })} className="btn-primary"><Icon name="plus" size={16} /> {t("expenses.newExpense")}</button>
-          : <Link href="/agores/nea" className="btn-primary"><Icon name="plus" size={16} /> {t("purchases.newPO")}</Link>}
+          : (
+            <div className="flex items-center gap-2">
+              <Link href="/agores/lista" className="btn-secondary"><Icon name="cart" size={16} /> {t("stock.reorderList")}</Link>
+              <Link href="/agores/nea" className="btn-primary"><Icon name="plus" size={16} /> {t("purchases.newPO")}</Link>
+            </div>
+          )}
       </div>
 
       <div className="flex gap-1 border-b border-slate-200">
