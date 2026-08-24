@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatDate, formatDateTime, todayISO, money } from "@/lib/format";
-import { getPriorities, STAGE_COLORS, STAGE_COLOR_OPTIONS, itemQuoteTotal, jobQuoteTotal, commissionAmount } from "@/lib/jobs";
+import { getPriorities, STAGE_COLORS, STAGE_COLOR_OPTIONS, itemQuoteTotal, jobQuoteTotal, commissionAmount, itemCommissionAmount } from "@/lib/jobs";
 import { partnerMsgCount, setSeenCount } from "@/lib/jobNotifications";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -23,6 +23,7 @@ export default function JobsPage() {
   const [stagesModal, setStagesModal] = useState(null);
   const [partnersModal, setPartnersModal] = useState(false);
   const [msgDraft, setMsgDraft] = useState("");
+  const [showPerItemCommission, setShowPerItemCommission] = useState(false);
   const [drag, setDrag] = useState(null);
   const [dragOver, setDragOver] = useState(null);
 
@@ -330,11 +331,24 @@ export default function JobsPage() {
               <div className="border-t border-slate-100 mt-4 pt-4">
                 {jobQuoteTotal(jobForm.items) != null && (
                   <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2.5 mb-3 space-y-1">
-                    <div className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">{t("jobs.partnerQuoteLabel")}</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">{t("jobs.partnerQuoteLabel")}</div>
+                      <label className="text-[11px] text-emerald-700 flex items-center gap-1 cursor-pointer normal-case font-normal">
+                        <input type="checkbox" checked={showPerItemCommission} onChange={(e) => setShowPerItemCommission(e.target.checked)} />
+                        {t("jobs.showPerItemCommission")}
+                      </label>
+                    </div>
                     {jobForm.items.filter((it) => it.partnerUnitPrice != null).map((it) => (
-                      <div key={it.id} className="flex justify-between text-sm text-emerald-800">
-                        <span>{it.quantity} {it.unit} — {it.description} <span className="text-emerald-600">({money(it.partnerUnitPrice, "€")} + {it.partnerVatRate}%)</span></span>
-                        <span className="font-medium">{money(itemQuoteTotal(it), "€")}</span>
+                      <div key={it.id} className="flex justify-between items-start text-sm text-emerald-800">
+                        <span>
+                          {it.quantity} {it.unit} — {it.description} <span className="text-emerald-600">({money(it.partnerUnitPrice, "€")} + {it.partnerVatRate}%)</span>
+                          {showPerItemCommission && (
+                            <div className="text-[11px] text-emerald-600">
+                              {t("jobs.commissionAmountLabel")}: {money(itemCommissionAmount(it, jobForm.commissionPercent), "€")}
+                            </div>
+                          )}
+                        </span>
+                        <span className="font-medium shrink-0">{money(itemQuoteTotal(it), "€")}</span>
                       </div>
                     ))}
                     <div className="flex justify-between font-bold text-emerald-900 border-t border-emerald-200 pt-1">
