@@ -18,6 +18,7 @@ export default function JobsPage() {
   const [doneJobs, setDoneJobs] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [partnerShops, setPartnerShops] = useState([]);
+  const [settings, setSettings] = useState(null);
   const [tab, setTab] = useState("board");
   const [jobForm, setJobForm] = useState(null);
   const [stagesModal, setStagesModal] = useState(null);
@@ -36,8 +37,13 @@ export default function JobsPage() {
   useEffect(() => {
     loadStages(); loadJobs(); loadPartners();
     fetch("/api/customers").then((r) => r.json()).then(setCustomers);
+    fetch("/api/settings").then((r) => r.json()).then(setSettings);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Ο ΦΠΑ που προστίθεται πάνω στην ίδια την προμήθειά μας (δικό μας έσοδο υπηρεσίας) — ο
+  // γενικός συντελεστής της επιχείρησης, ανεξάρτητος από τον συντελεστή ΦΠΑ που έδωσε ο συνεργάτης.
+  const commissionVatRate = settings?.vatRate ?? 19;
 
   const today = todayISO();
 
@@ -338,19 +344,40 @@ export default function JobsPage() {
                         {t("jobs.showPerItemCommission")}
                       </label>
                     </div>
-                    {jobForm.items.filter((it) => it.partnerUnitPrice != null).map((it) => (
-                      <div key={it.id} className="flex justify-between items-start text-sm text-emerald-800">
-                        <span>
-                          {it.quantity} {it.unit} — {it.description} <span className="text-emerald-600">({money(it.partnerUnitPrice, "€")} + {it.partnerVatRate}%)</span>
-                          {showPerItemCommission && (
-                            <div className="text-[11px] text-emerald-600">
-                              {t("jobs.commissionAmountLabel")}: {money(itemCommissionAmount(it, jobForm.commissionPercent), "€")}
-                            </div>
-                          )}
-                        </span>
-                        <span className="font-medium shrink-0">{money(itemQuoteTotal(it), "€")}</span>
-                      </div>
-                    ))}
+                    {jobForm.items.filter((it) => it.partnerUnitPrice != null).map((it) => {
+                      const itemIdx = jobForm.items.findIndex((x) => x === it);
+                      const setItemCommissionPercent = (val) => setJobForm({
+                        ...jobForm,
+                        items: jobForm.items.map((x, i) => (i === itemIdx ? { ...x, commissionPercent: val } : x)),
+                      });
+                      return (
+                        <div key={it.id} className="flex justify-between items-start text-sm text-emerald-800">
+                          <span>
+                            {it.quantity} {it.unit} — {it.description} <span className="text-emerald-600">({money(it.partnerUnitPrice, "€")} + {it.partnerVatRate}%)</span>
+                            {showPerItemCommission && (
+                              <div className="text-[11px] text-emerald-600 flex items-center gap-1.5 mt-0.5">
+                                <span>{t("jobs.commissionAmountLabel")}: {money(itemCommissionAmount(it, jobForm.commissionPercent, commissionVatRate), "€")}</span>
+                                <span className="flex items-center gap-1">
+                                  ({t("jobs.commissionPercentOverride")}
+                                  <input
+                                    type="number" step="any" min={MIN_COMMISSION_PERCENT}
+                                    className="input !py-0.5 !w-14 text-right text-[11px]"
+                                    value={it.commissionPercent ?? ""}
+                                    onChange={(e) => setItemCommissionPercent(e.target.value)}
+                                    onBlur={(e) => {
+                                      if (e.target.value !== "" && Number(e.target.value) < MIN_COMMISSION_PERCENT) setItemCommissionPercent(MIN_COMMISSION_PERCENT);
+                                    }}
+                                    placeholder={String(jobForm.commissionPercent || MIN_COMMISSION_PERCENT)}
+                                  />
+                                  %)
+                                </span>
+                              </div>
+                            )}
+                          </span>
+                          <span className="font-medium shrink-0">{money(itemQuoteTotal(it), "€")}</span>
+                        </div>
+                      );
+                    })}
                     <div className="flex justify-between font-bold text-emerald-900 border-t border-emerald-200 pt-1">
                       <span>{t("jobs.partnerQuoteTotal")}</span>
                       <span>{money(jobQuoteTotal(jobForm.items), "€")}</span>
@@ -375,8 +402,9 @@ export default function JobsPage() {
                     </div>
                     <div className="flex justify-between font-bold text-emerald-900">
                       <span>{t("jobs.commissionAmountLabel")}</span>
-                      <span>{money(commissionAmount(jobForm.items, jobForm.commissionPercent), "€")}</span>
+                      <span>{money(commissionAmount(jobForm.items, jobForm.commissionPercent, commissionVatRate), "€")}</span>
                     </div>
+                    <div className="text-[11px] text-emerald-600 text-right">{t("jobs.commissionVatHint", { rate: commissionVatRate })}</div>
                   </div>
                 )}
                 <label className="label mb-2">{t("jobs.messagesTitle")}</label>

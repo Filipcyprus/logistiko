@@ -65,6 +65,15 @@ export async function PUT(request, { params }) {
   if (patch.commissionPercent !== undefined) {
     patch.commissionPercent = Math.max(20, Number(patch.commissionPercent) || 0);
   }
+  // Ίδιο ελάχιστο και για τυχόν διαφορετικό ποσοστό ανά γραμμή — κενό/null σημαίνει "χρησιμοποίησε
+  // το γενικό ποσοστό της δουλειάς", άρα δεν εξαναγκάζεται σε τιμή.
+  if (Array.isArray(patch.items)) {
+    patch.items = patch.items.map((it) => (
+      it.commissionPercent != null && it.commissionPercent !== ""
+        ? { ...it, commissionPercent: Math.max(20, Number(it.commissionPercent) || 0) }
+        : it
+    ));
+  }
 
   Object.assign(job, patch);
   writeDB(db);
