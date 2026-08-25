@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
-import { computeTotals } from "@/lib/format";
 import { serverT } from "@/lib/i18n/server";
 import { logActivity } from "@/lib/audit";
 import { incrementWarehouseStocks } from "@/lib/stockHelpers";
@@ -43,41 +42,13 @@ export async function PUT(request, { params }) {
     po.received = true;
   }
 
-  // Παραλαβή = πραγματικό κόστος: καταχώρησε αυτόματα το ποσό ως Έξοδο (μία φορά ανά PO),
-  // με το τιμολόγιο του προμηθευτή (αν έχει επισυναφθεί) κολλημένο πάνω του για τον λογιστή.
-  if (justReceived && !po.expenseId) {
-    const expense = {
-      id: uid(),
-      createdAt: new Date().toISOString(),
-      date: new Date().toISOString().slice(0, 10),
-      category: "purchaseOrder",
-      description: serverT(db.settings.language, "expenses.autoPODescription", { number: po.number }),
-      supplier: po.supplier?.name || "",
-      net: po.net,
-      vat: po.vat,
-      amount: po.total,
-      paymentMethod: "bank",
-      notes: "",
-      purchaseOrderId: po.id,
-      attachment: po.attachment || null,
-    };
-    db.expenses = [expense, ...(db.expenses || [])];
-    po.expenseId = expense.id;
-  }
-
+  // Χωρίς τιμές πλέον στις Παραγγελίες Αγοράς — δεν δημιουργείται πια αυτόματο Έξοδο κατά την
+  // παραλαβή. Το πραγματικό κόστος καταχωρείται χειροκίνητα ως Έξοδο όταν έρθει το τιμολόγιο
+  // του προμηθευτή (το συνημμένο τιμολόγιο μένει πάνω στην ίδια την Παραγγελία, για αναφορά).
   if (patch.items) {
-    const items = patch.items.filter((it) => it.description && Number(it.quantity) > 0);
-    const tott = computeTotals(items);
-    patch = { ...patch, items, net: tott.net, vat: tott.vat, total: tott.total };
+    patch = { ...patch, items: patch.items.filter((it) => it.description && Number(it.quantity) > 0) };
   }
   Object.assign(po, patch, { updatedAt: new Date().toISOString() });
-
-  // Αν το τιμολόγιο επισυνάπτεται/αφαιρείται αφού έχει ήδη δημιουργηθεί το αυτόματο έξοδο,
-  // κράτησε το ίδιο αρχείο συγχρονισμένο και στις δύο εγγραφές.
-  if (patch.attachment !== undefined && po.expenseId) {
-    const linkedExpense = (db.expenses || []).find((e) => e.id === po.expenseId);
-    if (linkedExpense) linkedExpense.attachment = patch.attachment;
-  }
 
   writeDB(db);
   if (justReceived) await logActivity(request, "stock_receive", { number: po.number, totalQty: receivedTotalQty });

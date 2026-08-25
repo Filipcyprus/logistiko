@@ -154,14 +154,13 @@ function ExpensesInner() {
                   <th className="table-th">{t("purchases.colNumber")}</th>
                   <th className="table-th">{t("purchases.colDate")}</th>
                   <th className="table-th">{t("purchases.colSupplier")}</th>
-                  <th className="table-th text-right">{t("purchases.colTotal")}</th>
                   <th className="table-th">{t("purchases.colStatus")}</th>
                   <th className="table-th"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {purchases.length === 0 ? (
-                  <tr><td className="table-td text-slate-400" colSpan={6}>{t("purchases.noEntries")}</td></tr>
+                  <tr><td className="table-td text-slate-400" colSpan={5}>{t("purchases.noEntries")}</td></tr>
                 ) : purchases.map((po) => {
                   const st = PO_STATUS[po.status] || PO_STATUS.draft;
                   return (
@@ -169,7 +168,6 @@ function ExpensesInner() {
                       <td className="table-td font-semibold"><Link href={`/agores/${po.id}`} className="text-brand-700 hover:underline">{po.number}</Link></td>
                       <td className="table-td">{formatDate(po.date)}</td>
                       <td className="table-td">{po.supplier?.name || "—"}</td>
-                      <td className="table-td text-right font-semibold">{money(po.total)}</td>
                       <td className="table-td"><span className={`badge ${st.color}`}>{t(st.key)}</span></td>
                       <td className="table-td text-right whitespace-nowrap">
                         <Link href={`/agores/${po.id}`} className="btn-ghost !px-2 !py-1"><Icon name="eye" size={15} /></Link>

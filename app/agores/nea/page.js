@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { money, computeTotals, todayISO } from "@/lib/format";
+import { todayISO } from "@/lib/format";
 import LineItems, { emptyLine } from "@/components/LineItems";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -36,9 +36,8 @@ export default function NewPurchasePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const totals = computeTotals(items);
-  const cur = settings?.currency || "€";
-
+  // Παραγγελίες αγοράς δεν έχουν τιμές — μόνο ποια προϊόντα/ποσότητες θέλουμε να παραγγείλουμε.
+  // Το πραγματικό κόστος καταχωρείται χειροκίνητα ως Έξοδο όταν φτάσει το τιμολόγιο του προμηθευτή.
   const onPdfSelected = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -71,7 +70,6 @@ export default function NewPurchasePage() {
       }) || null;
     };
 
-    const defaultVat = settings?.vatRate ?? 19;
     let matchedCount = 0;
     const newLines = extracted.map((it) => {
       const byCode = it.barcode ? products.find((p) =>
@@ -86,9 +84,6 @@ export default function NewPurchasePage() {
         description: matched ? matched.name : it.description,
         quantity: it.quantity,
         unit: matched ? matched.unit : t("common.unit"),
-        unitPrice: it.unitPrice,
-        vatRate: matched ? (matched.saleVatRate ?? matched.vatRate ?? defaultVat) : defaultVat,
-        discount: 0,
       };
     });
     setItems((prev) => {
@@ -145,21 +140,15 @@ export default function NewPurchasePage() {
         </div>
       </div>
 
-      <LineItems items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.vatRate ?? 19} discountTiers={settings.quantityDiscounts} />
+      <LineItems items={items} onChange={setItems} products={products} defaultVat={settings.vatRate ?? 19} pricing={false} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 card p-5">
-          <label className="label">{t("purchases.notes")}</label>
-          <textarea className="input" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-        <div className="card p-5 h-fit">
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-slate-500">{t("purchases.net")}</span><span className="font-medium">{money(totals.net, cur)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">{t("purchases.vat")}</span><span className="font-medium">{money(totals.vat, cur)}</span></div>
-            <div className="flex justify-between border-t border-slate-200 pt-2 text-lg font-bold text-slate-800"><span>{t("purchases.total")}</span><span>{money(totals.total, cur)}</span></div>
-          </div>
-          <button onClick={save} disabled={saving} className="btn-primary w-full mt-4">{saving ? t("common.saving") : t("purchases.save")}</button>
-        </div>
+      <div className="card p-5">
+        <label className="label">{t("purchases.notes")}</label>
+        <textarea className="input" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </div>
+
+      <div className="flex justify-end">
+        <button onClick={save} disabled={saving} className="btn-primary">{saving ? t("common.saving") : t("purchases.save")}</button>
       </div>
     </div>
   );

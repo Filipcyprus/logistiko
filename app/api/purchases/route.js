@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
-import { computeTotals } from "@/lib/format";
 
 export async function GET() {
   return NextResponse.json(readDB().purchases || []);
 }
 
+// Παραγγελίες αγοράς: μόνο ποια προϊόντα/ποσότητες θέλουμε να παραγγείλουμε — καμία τιμή.
+// Το πραγματικό κόστος καταχωρείται χειροκίνητα ως Έξοδο όταν έρθει το τιμολόγιο του προμηθευτή.
 export async function POST(request) {
   const body = await request.json();
   const db = readDB();
@@ -16,7 +17,6 @@ export async function POST(request) {
 
   const seq = db.counters.purchase || 1;
   const number = `${db.settings.purchasePrefix || "PO-"}${String(seq).padStart(5, "0")}`;
-  const totals = computeTotals(items);
 
   let supplierSnapshot = null;
   const sup = db.suppliers.find((x) => x.id === body.supplierId);
@@ -34,13 +34,7 @@ export async function POST(request) {
       description: it.description,
       quantity: Number(it.quantity),
       unit: it.unit || "pcs",
-      unitPrice: Number(it.unitPrice || 0),
-      vatRate: Number(it.vatRate || 0),
-      discount: Number(it.discount || 0),
     })),
-    net: totals.net,
-    vat: totals.vat,
-    total: totals.total,
     status: body.status || "draft", // draft | sent | received
     received: false,
     notes: body.notes || "",

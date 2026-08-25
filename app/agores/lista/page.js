@@ -55,9 +55,6 @@ export default function ReorderListPage() {
       description: it.product?.name || it.productName,
       quantity: Number(it.quantity),
       unit: it.product?.unit || it.unit,
-      unitPrice: Number(it.product?.cost || 0),
-      vatRate: Number(it.product?.vatRate || 0),
-      discount: 0,
     }));
     const res = await fetch("/api/purchases", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ supplierId: finalSupplierId, items: poItems }) });
     if (res.ok) {

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { money, formatDate, computeTotals } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import Icon from "@/components/Icon";
 import EmailButton from "@/components/EmailButton";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -48,7 +48,6 @@ export default function PurchaseView() {
 
   if (notFound) return <div className="text-slate-500">{t("common.notFound")} <Link href="/exoda?tab=purchases" className="text-brand-600">{t("common.returnLink")}</Link></div>;
   if (!po || !settings) return <div className="text-slate-400">{t("common.loading")}</div>;
-  const cur = settings.currency || "€";
 
   const setStatus = async (status) => {
     await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
@@ -167,9 +166,6 @@ export default function PurchaseView() {
             <tr className="border-b border-slate-300 text-slate-500 text-xs uppercase">
               <th className="py-2 text-left">{t("invoices.colDescription")}</th>
               <th className="py-2 text-right">{t("invoices.colQty")}</th>
-              <th className="py-2 text-right">{t("invoices.colPrice")}</th>
-              <th className="py-2 text-right">{t("common.vat")}</th>
-              <th className="py-2 text-right">{t("purchases.total")}</th>
             </tr>
           </thead>
           <tbody>
@@ -177,21 +173,10 @@ export default function PurchaseView() {
               <tr key={i} className="border-b border-slate-100">
                 <td className="py-2">{it.description}</td>
                 <td className="py-2 text-right">{it.quantity} {it.unit}</td>
-                <td className="py-2 text-right">{money(it.unitPrice, cur)}</td>
-                <td className="py-2 text-right">{it.vatRate}%</td>
-                <td className="py-2 text-right font-medium">{money(computeTotals([it]).total, cur)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-
-        <div className="flex justify-end mt-5">
-          <div className="w-full max-w-xs space-y-1 text-sm">
-            <div className="flex justify-between"><span className="text-slate-500">{t("purchases.net")}</span><span className="font-medium">{money(po.net, cur)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">{t("purchases.vat")}</span><span className="font-medium">{money(po.vat, cur)}</span></div>
-            <div className="flex justify-between border-t border-slate-300 pt-2 text-lg font-bold text-slate-800"><span>{t("purchases.total")}</span><span>{money(po.total, cur)}</span></div>
-          </div>
-        </div>
 
         {po.notes && <div className="mt-4 text-sm text-slate-600"><b>{t("purchases.notes")}:</b> {po.notes}</div>}
       </div>
