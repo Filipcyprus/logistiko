@@ -45,8 +45,15 @@ export async function PUT(request, { params }) {
   // Χωρίς τιμές πλέον στις Παραγγελίες Αγοράς — δεν δημιουργείται πια αυτόματο Έξοδο κατά την
   // παραλαβή. Το πραγματικό κόστος καταχωρείται χειροκίνητα ως Έξοδο όταν έρθει το τιμολόγιο
   // του προμηθευτή (το συνημμένο τιμολόγιο μένει πάνω στην ίδια την Παραγγελία, για αναφορά).
+  // Αναδιαμόρφωση στο ίδιο καθαρό σχήμα με τη δημιουργία (POST) — χωρίς τυχόν κατάλοιπα
+  // τιμής/ΦΠΑ/έκπτωσης από το LineItems όταν προστίθεται νέα γραμμή μέσω επεξεργασίας.
   if (patch.items) {
-    patch = { ...patch, items: patch.items.filter((it) => it.description && Number(it.quantity) > 0) };
+    patch = {
+      ...patch,
+      items: patch.items
+        .filter((it) => it.description && Number(it.quantity) > 0)
+        .map((it) => ({ productId: it.productId || null, description: it.description, quantity: Number(it.quantity), unit: it.unit || "pcs" })),
+    };
   }
   Object.assign(po, patch, { updatedAt: new Date().toISOString() });
 

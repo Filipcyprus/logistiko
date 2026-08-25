@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDate } from "@/lib/format";
+import LineItems from "@/components/LineItems";
 import Icon from "@/components/Icon";
 import EmailButton from "@/components/EmailButton";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -28,6 +29,9 @@ export default function PurchaseView() {
   const [scanCode, setScanCode] = useState("");
   const [receiving, setReceiving] = useState(false);
   const scanRef = useRef();
+  const [editing, setEditing] = useState(false);
+  const [editItems, setEditItems] = useState([]);
+  const [saving, setSaving] = useState(false);
 
   const load = () => fetch(`/api/purchases/${id}`).then((r) => (r.ok ? r.json() : null)).then((d) => (d ? setPo(d) : setNotFound(true)));
   useEffect(() => {
@@ -99,6 +103,20 @@ export default function PurchaseView() {
     load();
   };
 
+  // Επεξεργασία ειδών — μόνο όσο η παραγγελία είναι ακόμα "Πρόχειρη". Μόλις σταλεί στον
+  // προμηθευτή (ή παραληφθεί), τα είδη κλειδώνουν — ο προμηθευτής έχει ήδη δει/λάβει αυτή τη λίστα.
+  const startEdit = () => { setEditItems((po.items || []).map((it) => ({ ...it }))); setEditing(true); };
+  const cancelEdit = () => setEditing(false);
+  const saveEdit = async () => {
+    const valid = editItems.filter((it) => it.description && Number(it.quantity) > 0);
+    if (valid.length === 0) { alert(t("purchases.errNeedLine")); return; }
+    setSaving(true);
+    await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: valid }) });
+    setSaving(false);
+    setEditing(false);
+    load();
+  };
+
   const st = STATUS[po.status] || STATUS.draft;
 
   return (
@@ -106,15 +124,25 @@ export default function PurchaseView() {
       <div className="flex items-center justify-between flex-wrap gap-3 no-print">
         <Link href="/exoda?tab=purchases" className="btn-secondary"><Icon name="arrowLeft" size={15} /> {t("purchases.list")}</Link>
         <div className="flex flex-wrap gap-2">
-          <select className="input !py-2 max-w-[170px]" value={po.status} onChange={(e) => setStatus(e.target.value)} disabled={po.received}>
-            {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{t(v.key)}</option>)}
-          </select>
-          {!po.received && <button onClick={openReceive} className="btn-secondary"><Icon name="box" size={15} /> {t("purchases.markReceived")}</button>}
-          <button onClick={() => fileRef.current?.click()} className="btn-secondary"><Icon name="upload" size={15} /> {t("purchases.attachInvoice")}</button>
-          <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={onAttach} />
-          <EmailButton kind="purchase" id={po.id} defaultEmail={po.supplier?.email || ""} />
-          <button onClick={() => window.print()} className="btn-secondary" title={t("purchases.print")}><Icon name="printer" size={15} /></button>
-          <button onClick={del} className="btn-secondary text-red-600"><Icon name="trash" size={15} /></button>
+          {editing ? (
+            <>
+              <button onClick={cancelEdit} className="btn-secondary">{t("common.cancel")}</button>
+              <button onClick={saveEdit} disabled={saving} className="btn-primary">{saving ? t("common.saving") : t("common.save")}</button>
+            </>
+          ) : (
+            <>
+              <select className="input !py-2 max-w-[170px]" value={po.status} onChange={(e) => setStatus(e.target.value)} disabled={po.received}>
+                {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{t(v.key)}</option>)}
+              </select>
+              {po.status === "draft" && <button onClick={startEdit} className="btn-secondary"><Icon name="edit" size={15} /> {t("common.edit")}</button>}
+              {!po.received && <button onClick={openReceive} className="btn-secondary"><Icon name="box" size={15} /> {t("purchases.markReceived")}</button>}
+              <button onClick={() => fileRef.current?.click()} className="btn-secondary"><Icon name="upload" size={15} /> {t("purchases.attachInvoice")}</button>
+              <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={onAttach} />
+              <EmailButton kind="purchase" id={po.id} defaultEmail={po.supplier?.email || ""} />
+              <button onClick={() => window.print()} className="btn-secondary" title={t("purchases.print")}><Icon name="printer" size={15} /></button>
+              <button onClick={del} className="btn-secondary text-red-600"><Icon name="trash" size={15} /></button>
+            </>
+          )}
         </div>
       </div>
 
@@ -161,24 +189,30 @@ export default function PurchaseView() {
           ) : <div className="text-sm text-slate-600">—</div>}
         </div>
 
-        <table className="w-full mt-4 text-sm">
-          <thead>
-            <tr className="border-b border-slate-300 text-slate-500 text-xs uppercase">
-              <th className="py-2 text-left">{t("invoices.colDescription")}</th>
-              <th className="py-2 text-right">{t("invoices.colQty")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {po.items.map((it, i) => (
-              <tr key={i} className="border-b border-slate-100">
-                <td className="py-2">{it.description}</td>
-                <td className="py-2 text-right">{it.quantity} {it.unit}</td>
+        {editing ? (
+          <div className="mt-4 no-print">
+            <LineItems items={editItems} onChange={setEditItems} products={products} pricing={false} />
+          </div>
+        ) : (
+          <table className="w-full mt-4 text-sm">
+            <thead>
+              <tr className="border-b border-slate-300 text-slate-500 text-xs uppercase">
+                <th className="py-2 text-left">{t("invoices.colDescription")}</th>
+                <th className="py-2 text-right">{t("invoices.colQty")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {po.items.map((it, i) => (
+                <tr key={i} className="border-b border-slate-100">
+                  <td className="py-2">{it.description}</td>
+                  <td className="py-2 text-right">{it.quantity} {it.unit}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
 
-        {po.notes && <div className="mt-4 text-sm text-slate-600"><b>{t("purchases.notes")}:</b> {po.notes}</div>}
+        {po.notes && !editing && <div className="mt-4 text-sm text-slate-600"><b>{t("purchases.notes")}:</b> {po.notes}</div>}
       </div>
 
       {receiveOpen && (
