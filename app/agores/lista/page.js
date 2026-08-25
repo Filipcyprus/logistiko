@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { money } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
@@ -15,19 +14,18 @@ export default function ReorderListPage() {
   const [items, setItems] = useState([]);
   const [products, setProducts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
-  const [settings, setSettings] = useState(null);
   const [unassignedSupplierId, setUnassignedSupplierId] = useState("");
   const [creating, setCreating] = useState(null); // supplierId currently being checked out
+  const [loaded, setLoaded] = useState(false);
 
   const load = () => fetch("/api/reorder-list").then((r) => r.json()).then(setItems);
   useEffect(() => {
-    load();
-    fetch("/api/products").then((r) => r.json()).then(setProducts);
-    fetch("/api/suppliers").then((r) => r.json()).then(setSuppliers);
-    fetch("/api/settings").then((r) => r.json()).then(setSettings);
+    Promise.all([
+      load(),
+      fetch("/api/products").then((r) => r.json()).then(setProducts),
+      fetch("/api/suppliers").then((r) => r.json()).then(setSuppliers),
+    ]).then(() => setLoaded(true));
   }, []);
-
-  const cur = settings?.currency || "€";
 
   const updateQty = async (id, quantity) => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, quantity } : it)));
@@ -73,9 +71,7 @@ export default function ReorderListPage() {
     }
   };
 
-  const groupTotal = (groupItems) => groupItems.reduce((sum, it) => sum + Number(it.quantity) * Number(it.product?.cost || 0), 0);
-
-  if (!settings) return <div className="text-slate-400">{t("common.loading")}</div>;
+  if (!loaded) return <div className="text-slate-400">{t("common.loading")}</div>;
 
   return (
     <div className="space-y-6">
@@ -125,8 +121,7 @@ export default function ReorderListPage() {
                 ))}
               </div>
 
-              <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                <div className="text-sm text-slate-500">{t("purchases.total")}: <span className="font-semibold text-slate-800">{money(groupTotal(groupItems), cur)}</span></div>
+              <div className="flex items-center justify-end border-t border-slate-100 pt-3">
                 <button onClick={() => createPO(supplierId, groupItems)} disabled={creating === supplierId} className="btn-primary">
                   <Icon name="invoice" size={15} /> {creating === supplierId ? t("common.saving") : t("stock.createPOFromList")}
                 </button>
