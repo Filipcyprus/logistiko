@@ -145,7 +145,7 @@ export default function PurchaseView() {
             <div className="text-2xl font-extrabold text-brand-700">{po.number}</div>
             <div className="text-sm text-slate-500 mt-1">{t("invoices.dateLabel", { date: formatDate(po.date) })}</div>
             {po.expectedDate && <div className="text-sm text-slate-500">{t("purchases.expectedDate")}: {formatDate(po.expectedDate)}</div>}
-            <span className={`badge mt-2 ${st.color}`}>{t(st.key)}</span>
+            <span className={`badge mt-2 no-print ${st.color}`}>{t(st.key)}</span>
           </div>
         </div>
 
