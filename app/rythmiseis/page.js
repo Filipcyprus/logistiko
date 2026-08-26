@@ -5,7 +5,7 @@ import Icon from "@/components/Icon";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { DEFAULT_QUANTITY_DISCOUNT_TIERS } from "@/lib/pricing";
-import { testPrint } from "@/lib/receiptPrinter";
+import { testPrint, listPrinters } from "@/lib/receiptPrinter";
 
 const QTY_DISCOUNT_PRODUCT_TYPES = [
   ["cosmetic", "typeCosmetic"],
@@ -68,6 +68,16 @@ export default function SettingsPage() {
     const res = await testPrint({ settings: s });
     setPrintTestResult(res);
     setPrintTesting(false);
+  };
+
+  const [printersListing, setPrintersListing] = useState(false);
+  const [printersResult, setPrintersResult] = useState(null);
+  const runListPrinters = async () => {
+    setPrintersListing(true);
+    setPrintersResult(null);
+    const res = await listPrinters({ settings: s });
+    setPrintersResult(res);
+    setPrintersListing(false);
   };
 
   const getTiers = (type) => {
@@ -267,12 +277,34 @@ export default function SettingsPage() {
             <p className="text-xs text-slate-400 mt-1">{t("settings.receiptPrinterHostHint")}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <button onClick={runTestPrint} disabled={printTesting || !s.receiptPrinter?.name} className="btn-secondary"><Icon name="printer" size={15} /> {printTesting ? t("common.loading") : t("settings.receiptPrinterTestBtn")}</button>
           {printTestResult && (
             printTestResult.ok
               ? <span className="text-emerald-600 text-sm font-medium flex items-center gap-1"><Icon name="check" size={15} /> {t("settings.receiptPrinterTestOk")}</span>
               : <span className="text-red-600 text-sm font-medium">{t("settings.receiptPrinterTestFail")}: {printTestResult.error}</span>
+          )}
+        </div>
+        <div className="space-y-2">
+          <button onClick={runListPrinters} disabled={printersListing} className="btn-secondary"><Icon name="search" size={15} /> {printersListing ? t("common.loading") : t("settings.receiptPrinterListBtn")}</button>
+          <p className="text-xs text-slate-400">{t("settings.receiptPrinterListHint")}</p>
+          {printersResult && (
+            printersResult.ok ? (
+              printersResult.list.length === 0 ? (
+                <p className="text-sm text-red-600">{t("settings.receiptPrinterListEmpty")}</p>
+              ) : (
+                <ul className="text-sm bg-slate-50 rounded-lg p-3 space-y-1">
+                  {printersResult.list.map((name) => (
+                    <li key={name} className="flex items-center justify-between gap-2">
+                      <code className="text-slate-700">{name}</code>
+                      <button onClick={() => updReceiptPrinter({ name })} className="btn-ghost !px-2 !py-0.5 text-xs text-brand-700">{t("settings.receiptPrinterListUse")}</button>
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : (
+              <span className="text-sm text-red-600">{t("settings.receiptPrinterTestFail")}: {printersResult.error}</span>
+            )
           )}
         </div>
       </div>
