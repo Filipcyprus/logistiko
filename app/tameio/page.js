@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { money, computeTotals } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -17,6 +18,7 @@ export default function TillPage() {
   const [customerName, setCustomerName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [tendered, setTendered] = useState("");
+  const [payModalOpen, setPayModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [lastSale, setLastSale] = useState(null);
   const [printWarning, setPrintWarning] = useState(null);
@@ -137,8 +139,16 @@ export default function TillPage() {
     loadHeld();
   };
 
-  const completeSale = async () => {
+  // Ανοίγει το popup επιλογής τρόπου πληρωμής — η πώληση ολοκληρώνεται μόνο αφού διαλέξει
+  // ο ταμίας Μετρητά ή Visa εκεί, όχι με προεπιλεγμένο dropdown πριν το πάτημα του κουμπιού.
+  const openPayModal = () => {
     if (cart.length === 0) { alert(t("pos.errEmptyCart")); return; }
+    setPaymentMethod("cash");
+    setTendered("");
+    setPayModalOpen(true);
+  };
+
+  const completeSale = async (method) => {
     setSaving(true);
     const res = await fetch("/api/invoices", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -146,7 +156,7 @@ export default function TillPage() {
         type: "apodeixi",
         customerId: customerId || null,
         customerName: customerId ? "" : customerName,
-        paymentMethod,
+        paymentMethod: method,
         status: "paid",
         shiftId: shift?.id || null,
         items: cart.map((c) => ({ productId: c.productId, description: c.name, quantity: c.qty, unit: c.unit, unitPrice: c.price, vatRate: c.vatRate, discount: c.discount || 0 })),
@@ -154,8 +164,7 @@ export default function TillPage() {
     });
     if (res.ok) {
       const inv = await res.json();
-      window.open(`/parastatika/${inv.id}`, "_blank");
-      setLastSale(inv.number);
+      setLastSale({ id: inv.id, number: inv.number });
       setPrintWarning(null);
       // Αυτόματη εκτύπωση στον θερμικό εκτυπωτή (αν ενεργοποιημένο) — ποτέ δεν μπλοκάρει ή
       // ακυρώνει την πώληση, η οποία έχει ήδη καταχωρηθεί επιτυχώς παραπάνω.
@@ -164,7 +173,8 @@ export default function TillPage() {
           if (!result.ok) setPrintWarning(t("pos.printFailed", { error: result.error }));
         });
       }
-      setCart([]); setTendered(""); setCustomerId(""); setCustomerName(""); setQuery("");
+      setCart([]); setTendered(""); setCustomerId(""); setCustomerName(""); setQuery(""); setPaymentMethod("cash");
+      setPayModalOpen(false);
       load();
     } else {
       const err = await res.json().catch(() => ({}));
@@ -331,27 +341,6 @@ export default function TillPage() {
               />
             )}
           </div>
-          <div>
-            <label className="label">{t("invoices.paymentMethod")}</label>
-            <select className="input" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-              <option value="cash">{t("common.paymentMethods.cash")}</option>
-              <option value="card">{t("common.paymentMethods.card")}</option>
-              <option value="bank">{t("common.paymentMethods.bank")}</option>
-              <option value="cheque">{t("common.paymentMethods.cheque")}</option>
-            </select>
-          </div>
-          {paymentMethod === "cash" && (
-            <div>
-              <label className="label">{t("pos.amountTendered")}</label>
-              <input type="number" step="any" className="input" value={tendered} onChange={(e) => setTendered(e.target.value)} />
-              {tendered !== "" && (
-                <div className={`text-sm mt-1 font-medium ${change < 0 ? "text-red-600" : "text-emerald-700"}`}>
-                  {change < 0 ? t("pos.insufficientAmount") : `${t("pos.changeDue")}: ${money(change, cur)}`}
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="space-y-2 text-sm border-t border-slate-200 pt-3">
             <div className="flex justify-between"><span className="text-slate-500">{t("common.net")}</span><span className="font-medium">{money(totals.net, cur)}</span></div>
             <div className="flex justify-between"><span className="text-slate-500">{t("common.vat")}</span><span className="font-medium">{money(totals.vat, cur)}</span></div>
@@ -360,12 +349,17 @@ export default function TillPage() {
 
           <div className="flex gap-2">
             <button onClick={holdSale} disabled={cart.length === 0} className="btn-secondary flex-1"><Icon name="box" size={15} /> {t("pos.holdSale")}</button>
-            <button onClick={completeSale} disabled={saving || cart.length === 0 || insufficientCash} className="btn-primary flex-1">
+            <button onClick={openPayModal} disabled={saving || cart.length === 0} className="btn-primary flex-1">
               {saving ? t("common.saving") : t("pos.completeSale")}
             </button>
           </div>
 
-          {lastSale && <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-2.5 text-center">{t("pos.saleCompleted", { number: lastSale })}</div>}
+          {lastSale && (
+            <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-2.5 text-center flex items-center justify-center gap-2 flex-wrap">
+              <span>{t("pos.saleCompleted", { number: lastSale.number })}</span>
+              <Link href={`/parastatika/${lastSale.id}`} target="_blank" className="underline font-medium">{t("pos.viewInvoice")}</Link>
+            </div>
+          )}
           {printWarning && <div className="text-sm text-amber-700 bg-amber-50 rounded-lg p-2.5 text-center">{printWarning}</div>}
         </div>
       </div>
@@ -397,6 +391,49 @@ export default function TillPage() {
                 <button onClick={finishCloseShift} className="btn-primary w-full mt-5">{t("common.close")}</button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {payModalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => !saving && setPayModalOpen(false)}>
+          <div className="card p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-1">{t("pos.payModalTitle")}</h2>
+            <div className="text-2xl font-bold text-slate-800 text-center my-3">{money(totals.total, cur)}</div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setPaymentMethod("cash")}
+                className={`py-4 rounded-lg text-base font-semibold border-2 flex flex-col items-center gap-1 ${paymentMethod === "cash" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+              >
+                <Icon name="money" size={22} /> {t("common.paymentMethods.cash")}
+              </button>
+              <button
+                onClick={() => setPaymentMethod("card")}
+                className={`py-4 rounded-lg text-base font-semibold border-2 flex flex-col items-center gap-1 ${paymentMethod === "card" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+              >
+                <Icon name="cart" size={22} /> {t("common.paymentMethods.card")}
+              </button>
+            </div>
+
+            {paymentMethod === "cash" && (
+              <div className="mt-4">
+                <label className="label">{t("pos.amountTendered")}</label>
+                <input type="number" step="any" className="input" autoFocus value={tendered} onChange={(e) => setTendered(e.target.value)} />
+                {tendered !== "" && (
+                  <div className={`text-sm mt-1 font-medium ${change < 0 ? "text-red-600" : "text-emerald-700"}`}>
+                    {change < 0 ? t("pos.insufficientAmount") : `${t("pos.changeDue")}: ${money(change, cur)}`}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setPayModalOpen(false)} disabled={saving} className="btn-secondary">{t("common.cancel")}</button>
+              <button onClick={() => completeSale(paymentMethod)} disabled={saving || insufficientCash} className="btn-primary">
+                {saving ? t("common.saving") : t("pos.confirmPayment")}
+              </button>
+            </div>
           </div>
         </div>
       )}
