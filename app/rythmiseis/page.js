@@ -234,6 +234,16 @@ export default function SettingsPage() {
             <li>{t("settings.receiptPrinterSetup3")}</li>
           </ol>
         </div>
+        <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-sm text-amber-900 space-y-1">
+          <p className="font-medium">{t("settings.receiptPrinterRemoteTitle")}</p>
+          <ol className="list-decimal list-inside space-y-0.5 text-amber-800">
+            <li>{t("settings.receiptPrinterRemote1")}</li>
+            <li>{t("settings.receiptPrinterRemote2")}</li>
+            <li>{t("settings.receiptPrinterRemote3")}</li>
+            <li>{t("settings.receiptPrinterRemote4")}</li>
+            <li>{t("settings.receiptPrinterRemote5")}</li>
+          </ol>
+        </div>
         <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
           <input type="checkbox" checked={!!s.receiptPrinter?.enabled} onChange={(e) => updReceiptPrinter({ enabled: e.target.checked })} />
           {t("settings.receiptPrinterEnable")}
@@ -250,6 +260,11 @@ export default function SettingsPage() {
               <option value={58}>58mm</option>
               <option value={80}>80mm</option>
             </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">{t("settings.receiptPrinterHost")}</label>
+            <input className="input" value={s.receiptPrinter?.host || ""} onChange={(e) => updReceiptPrinter({ host: e.target.value })} placeholder="192.168.1.50" />
+            <p className="text-xs text-slate-400 mt-1">{t("settings.receiptPrinterHostHint")}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
