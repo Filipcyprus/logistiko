@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { money, computeTotals } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { printReceipt } from "@/lib/receiptPrinter";
 
 export default function TillPage() {
   const { t } = useLanguage();
@@ -18,6 +19,7 @@ export default function TillPage() {
   const [tendered, setTendered] = useState("");
   const [saving, setSaving] = useState(false);
   const [lastSale, setLastSale] = useState(null);
+  const [printWarning, setPrintWarning] = useState(null);
   const [me, setMe] = useState(null);
   const [heldSales, setHeldSales] = useState([]);
   const [showHeld, setShowHeld] = useState(false);
@@ -154,6 +156,14 @@ export default function TillPage() {
       const inv = await res.json();
       window.open(`/parastatika/${inv.id}`, "_blank");
       setLastSale(inv.number);
+      setPrintWarning(null);
+      // Αυτόματη εκτύπωση στον θερμικό εκτυπωτή (αν ενεργοποιημένο) — ποτέ δεν μπλοκάρει ή
+      // ακυρώνει την πώληση, η οποία έχει ήδη καταχωρηθεί επιτυχώς παραπάνω.
+      if (settings.receiptPrinter?.enabled) {
+        printReceipt({ invoice: inv, settings }).then((result) => {
+          if (!result.ok) setPrintWarning(t("pos.printFailed", { error: result.error }));
+        });
+      }
       setCart([]); setTendered(""); setCustomerId(""); setCustomerName(""); setQuery("");
       load();
     } else {
@@ -356,6 +366,7 @@ export default function TillPage() {
           </div>
 
           {lastSale && <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-2.5 text-center">{t("pos.saleCompleted", { number: lastSale })}</div>}
+          {printWarning && <div className="text-sm text-amber-700 bg-amber-50 rounded-lg p-2.5 text-center">{printWarning}</div>}
         </div>
       </div>
 

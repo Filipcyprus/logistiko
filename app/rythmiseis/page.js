@@ -5,6 +5,7 @@ import Icon from "@/components/Icon";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { DEFAULT_QUANTITY_DISCOUNT_TIERS } from "@/lib/pricing";
+import { testPrint } from "@/lib/receiptPrinter";
 
 const QTY_DISCOUNT_PRODUCT_TYPES = [
   ["cosmetic", "typeCosmetic"],
@@ -57,6 +58,17 @@ export default function SettingsPage() {
 
   const upd = (patch) => setS((prev) => ({ ...prev, ...patch }));
   const updMail = (patch) => setS((prev) => ({ ...prev, mail: { ...(prev.mail || {}), ...patch } }));
+  const updReceiptPrinter = (patch) => setS((prev) => ({ ...prev, receiptPrinter: { ...(prev.receiptPrinter || {}), ...patch } }));
+
+  const [printTesting, setPrintTesting] = useState(false);
+  const [printTestResult, setPrintTestResult] = useState(null);
+  const runTestPrint = async () => {
+    setPrintTesting(true);
+    setPrintTestResult(null);
+    const res = await testPrint({ settings: s });
+    setPrintTestResult(res);
+    setPrintTesting(false);
+  };
 
   const getTiers = (type) => {
     const custom = s?.quantityDiscounts?.[type];
@@ -206,6 +218,47 @@ export default function SettingsPage() {
           <div><label className="label">{t("settings.fieldMailPass")}</label><input type="password" className="input" value={s.mail?.pass || ""} onChange={(e) => updMail({ pass: e.target.value })} placeholder="••••••••" /></div>
           <div><label className="label">{t("settings.fieldMailFromName")}</label><input className="input" value={s.mail?.fromName || ""} onChange={(e) => updMail({ fromName: e.target.value })} /></div>
           <div><label className="label">{t("settings.fieldMailFromEmail")}</label><input className="input" value={s.mail?.fromEmail || ""} onChange={(e) => updMail({ fromEmail: e.target.value })} /></div>
+        </div>
+      </div>
+
+      <div className="card p-6 space-y-4">
+        <div>
+          <h2 className="font-semibold text-slate-700">{t("settings.receiptPrinterSection")}</h2>
+          <p className="text-sm text-slate-500 mt-1">{t("settings.receiptPrinterDesc")}</p>
+        </div>
+        <div className="bg-brand-50 border border-brand-100 rounded-lg p-3 text-sm text-brand-800 space-y-1">
+          <p className="font-medium">{t("settings.receiptPrinterSetupTitle")}</p>
+          <ol className="list-decimal list-inside space-y-0.5 text-brand-700">
+            <li>{t("settings.receiptPrinterSetup1")}</li>
+            <li>{t("settings.receiptPrinterSetup2")}</li>
+            <li>{t("settings.receiptPrinterSetup3")}</li>
+          </ol>
+        </div>
+        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+          <input type="checkbox" checked={!!s.receiptPrinter?.enabled} onChange={(e) => updReceiptPrinter({ enabled: e.target.checked })} />
+          {t("settings.receiptPrinterEnable")}
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="label">{t("settings.receiptPrinterName")}</label>
+            <input className="input" value={s.receiptPrinter?.name || ""} onChange={(e) => updReceiptPrinter({ name: e.target.value })} placeholder="EPSON TM-T20III Receipt" />
+            <p className="text-xs text-slate-400 mt-1">{t("settings.receiptPrinterNameHint")}</p>
+          </div>
+          <div>
+            <label className="label">{t("settings.receiptPrinterWidth")}</label>
+            <select className="input" value={s.receiptPrinter?.widthMm || 80} onChange={(e) => updReceiptPrinter({ widthMm: Number(e.target.value) })}>
+              <option value={58}>58mm</option>
+              <option value={80}>80mm</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={runTestPrint} disabled={printTesting || !s.receiptPrinter?.name} className="btn-secondary"><Icon name="printer" size={15} /> {printTesting ? t("common.loading") : t("settings.receiptPrinterTestBtn")}</button>
+          {printTestResult && (
+            printTestResult.ok
+              ? <span className="text-emerald-600 text-sm font-medium flex items-center gap-1"><Icon name="check" size={15} /> {t("settings.receiptPrinterTestOk")}</span>
+              : <span className="text-red-600 text-sm font-medium">{t("settings.receiptPrinterTestFail")}: {printTestResult.error}</span>
+          )}
         </div>
       </div>
 
