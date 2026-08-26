@@ -16,6 +16,7 @@ export default function TillPage() {
   const [cart, setCart] = useState([]);
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [shopName, setShopName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [tendered, setTendered] = useState("");
   const [payModalOpen, setPayModalOpen] = useState(false);
@@ -156,6 +157,7 @@ export default function TillPage() {
         type: "apodeixi",
         customerId: customerId || null,
         customerName: customerId ? "" : customerName,
+        shopName,
         paymentMethod: method,
         status: "paid",
         shiftId: shift?.id || null,
@@ -340,6 +342,10 @@ export default function TillPage() {
                 onChange={(e) => setCustomerName(e.target.value)}
               />
             )}
+          </div>
+          <div>
+            <label className="label">{t("invoices.shopName")}</label>
+            <input className="input" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder={t("invoices.shopNamePlaceholder")} />
           </div>
           <div className="space-y-2 text-sm border-t border-slate-200 pt-3">
             <div className="flex justify-between"><span className="text-slate-500">{t("common.net")}</span><span className="font-medium">{money(totals.net, cur)}</span></div>
