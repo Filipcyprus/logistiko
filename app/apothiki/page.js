@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { money, formatDate } from "@/lib/format";
 import Icon from "@/components/Icon";
@@ -21,6 +21,11 @@ export default function StockPage() {
   const [deptFilter, setDeptFilter] = useState("");
   const [reorderCount, setReorderCount] = useState(0);
   const [justAdded, setJustAdded] = useState(null);
+  const excelInputRef = useRef();
+  const [excelParsing, setExcelParsing] = useState(false);
+  const [excelPreview, setExcelPreview] = useState(null); // { file, changes }
+  const [excelApplying, setExcelApplying] = useState(false);
+  const [excelError, setExcelError] = useState("");
 
   const load = () => {
     fetch("/api/products").then((r) => r.json()).then(setProducts);
@@ -42,6 +47,42 @@ export default function StockPage() {
       setReorderCount(list.length);
       setJustAdded(productId);
       setTimeout(() => setJustAdded((cur) => (cur === productId ? null : cur)), 1500);
+    }
+  };
+
+  const onExcelSelected = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setExcelError("");
+    setExcelParsing(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/products/import-excel", { method: "POST", body: formData });
+    setExcelParsing(false);
+    if (res.ok) {
+      const data = await res.json();
+      setExcelPreview({ file, changes: data.changes });
+    } else {
+      const err = await res.json().catch(() => ({}));
+      setExcelError(err.error ? t(err.error) : t("common.error"));
+    }
+  };
+
+  const applyExcelImport = async () => {
+    if (!excelPreview) return;
+    setExcelApplying(true);
+    const formData = new FormData();
+    formData.append("file", excelPreview.file);
+    formData.append("apply", "true");
+    const res = await fetch("/api/products/import-excel", { method: "POST", body: formData });
+    setExcelApplying(false);
+    if (res.ok) {
+      setExcelPreview(null);
+      load();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      setExcelError(err.error ? t(err.error) : t("common.error"));
     }
   };
 
@@ -85,11 +126,18 @@ export default function StockPage() {
           <h1 className="text-2xl font-bold text-slate-800">{t("stock.title")}</h1>
           <p className="text-slate-500 text-sm">{t("stock.summary", { count: products.length, value: money(stockValue, cur) })}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Link href="/agores/lista" className="btn-secondary"><Icon name="cart" size={16} /> {t("stock.reorderList")}{reorderCount > 0 && <span className="badge bg-brand-100 text-brand-700 ml-1">{reorderCount}</span>}</Link>
+          <input ref={excelInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={onExcelSelected} />
+          <button onClick={() => excelInputRef.current?.click()} disabled={excelParsing} className="btn-secondary">
+            <Icon name="upload" size={16} /> {excelParsing ? t("common.loading") : t("stock.importExcel")}
+          </button>
+          <a href="/api/products/import-excel/template" className="text-xs text-brand-600 hover:underline whitespace-nowrap">{t("stock.downloadTemplate")}</a>
           <Link href="/apothiki/neo" className="btn-primary"><Icon name="plus" size={16} /> {t("stock.newItem")}</Link>
         </div>
       </div>
+
+      {excelError && <div className="text-sm rounded-lg px-3 py-2 bg-red-50 text-red-700">{excelError}</div>}
 
       <div className="flex gap-2 border-b border-slate-200">
         <button onClick={() => setTab("products")} className={`px-4 py-2 text-sm font-medium border-b-2 ${tab === "products" ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500"}`}>{t("stock.tabProducts")}</button>
@@ -247,6 +295,53 @@ export default function StockPage() {
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setMoveFor(null)} className="btn-secondary">{t("common.cancel")}</button>
               <button onClick={submitMove} disabled={saving} className="btn-primary">{saving ? "…" : t("invoices.register")}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal προεπισκόπησης εισαγωγής Excel */}
+      {excelPreview && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="card p-6 w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-1">{t("stock.excelPreviewTitle")}</h2>
+            <p className="text-sm text-slate-500 mb-4">
+              {t("stock.excelPreviewSummary", {
+                updates: excelPreview.changes.filter((c) => c.action === "update").length,
+                creates: excelPreview.changes.filter((c) => c.action === "create").length,
+              })}
+            </p>
+
+            <div className="overflow-y-auto flex-1 border border-slate-100 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+                  <tr>
+                    <th className="table-th">{t("stock.colName")}</th>
+                    <th className="table-th">{t("stock.excelColAction")}</th>
+                    <th className="table-th text-right">{t("stock.excelColStockChange")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {excelPreview.changes.map((c, i) => (
+                    <tr key={i}>
+                      <td className="table-td">{c.name}</td>
+                      <td className="table-td">
+                        {c.action === "update"
+                          ? <span className="badge bg-sky-100 text-sky-700">{t("stock.excelActionUpdate")}</span>
+                          : <span className="badge bg-emerald-100 text-emerald-700">{t("stock.excelActionCreate")}</span>}
+                      </td>
+                      <td className="table-td text-right whitespace-nowrap">
+                        {c.action === "update" ? `${c.oldStock} → ${c.newStock}` : c.newStock}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setExcelPreview(null)} disabled={excelApplying} className="btn-secondary">{t("common.cancel")}</button>
+              <button onClick={applyExcelImport} disabled={excelApplying} className="btn-primary">{excelApplying ? t("common.saving") : t("stock.confirmImport")}</button>
             </div>
           </div>
         </div>
