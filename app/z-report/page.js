@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { money } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { printZReport } from "@/lib/receiptPrinter";
 
 function today() { return new Date().toISOString().slice(0, 10); }
 function thisMonth() { return new Date().toISOString().slice(0, 7); }
@@ -15,6 +16,9 @@ export default function ZReportPage() {
   const [month, setMonth] = useState(thisMonth());
   const [r, setR] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [settings, setSettings] = useState(null);
+  const [printerBusy, setPrinterBusy] = useState(false);
+  const [printerResult, setPrinterResult] = useState(null);
 
   const load = () => {
     setLoading(true);
@@ -23,9 +27,21 @@ export default function ZReportPage() {
     fetch(`/api/z-report?${qs}`).then((x) => x.json()).then(setR).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    load();
+    fetch("/api/settings").then((x) => x.json()).then(setSettings);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   const methodLabel = (key) => t(`common.paymentMethods.${key}`) || key;
+
+  const printOnReceiptPrinter = async () => {
+    setPrinterBusy(true);
+    setPrinterResult(null);
+    const result = await printZReport({ report: r, mode, settings });
+    setPrinterResult(result);
+    setPrinterBusy(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -45,8 +61,19 @@ export default function ZReportPage() {
           <div><label className="label">{t("zReport.month")}</label><input type="month" className="input" value={month} onChange={(e) => setMonth(e.target.value)} /></div>
         )}
         <button onClick={load} className="btn-primary">{t("zReport.apply")}</button>
-        <button onClick={() => window.print()} className="btn-secondary ml-auto"><Icon name="printer" size={15} /> {t("zReport.print")}</button>
+        <div className="flex items-center gap-2 ml-auto">
+          {settings?.receiptPrinter?.name && (
+            <button onClick={printOnReceiptPrinter} disabled={printerBusy || !r} className="btn-secondary"><Icon name="printer" size={15} /> {printerBusy ? "…" : t("zReport.printReceiptPrinter")}</button>
+          )}
+          <button onClick={() => window.print()} className="btn-secondary"><Icon name="printer" size={15} /> {t("zReport.print")}</button>
+        </div>
       </div>
+
+      {printerResult && (
+        <div className={`no-print text-sm px-4 py-2 rounded-md ${printerResult.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+          {printerResult.ok ? t("zReport.printSuccess") : t("zReport.printFailed", { error: printerResult.error })}
+        </div>
+      )}
 
       {loading || !r || r.mode !== mode ? <div className="text-slate-400">{t("common.loading")}</div> : (
         <div className="print-area space-y-6">
