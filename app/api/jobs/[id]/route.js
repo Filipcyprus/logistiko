@@ -39,8 +39,9 @@ export async function PUT(request, { params }) {
       addSystemMessage(job, "owner", `Stage changed to: ${stageName}`);
     }
   }
-  // Ενημέρωση ονόματος πελάτη αν άλλαξε ο πελάτης
-  if (patch.customerId !== undefined) {
+  // Ενημέρωση ονόματος πελάτη αν άλλαξε ο πελάτης — μόνο όταν ο χρήστης δεν έγραψε ήδη
+  // όνομα ελεύθερα στο ίδιο αίτημα (το ελεύθερο κείμενο έχει προτεραιότητα).
+  if (patch.customerId !== undefined && patch.customerName === undefined) {
     job.customerName = patch.customerId ? (db.customers.find((c) => c.id === patch.customerId)?.name || "") : "";
   }
   // Ενημέρωση ονόματος συνεργάτη αν άλλαξε το partner shop

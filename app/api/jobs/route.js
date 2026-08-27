@@ -21,10 +21,13 @@ export async function POST(request) {
   const seq = db.counters.job || 1;
   const number = `JOB-${String(seq).padStart(5, "0")}`;
 
-  let customerName = "";
-  if (body.customerId) {
+  // Το όνομα πελάτη γράφεται ελεύθερα (δεν απαιτεί επιλογή υπάρχοντος πελάτη) — αν όμως
+  // επιλέχθηκε πελάτης από τη λίστα και δεν γράφτηκε κάτι χειροκίνητα, γέμισε από εκεί.
+  let customerName = body.customerName || "";
+  if (!customerName && body.customerId) {
     customerName = db.customers.find((c) => c.id === body.customerId)?.name || "";
   }
+  const customerPhone = body.customerPhone || "";
   let partnerShopName = "";
   if (body.partnerShopId) {
     partnerShopName = db.partnerShops.find((p) => p.id === body.partnerShopId)?.name || "";
@@ -36,6 +39,9 @@ export async function POST(request) {
     title: body.title || "",
     customerId: body.customerId || null,
     customerName,
+    // Προσωπικά στοιχεία πελάτη — ΜΟΝΟ για εσωτερική χρήση, ποτέ μην τα προσθέσεις στο ό,τι
+    // βλέπει ο συνεργάτης τυπογραφείο (δες lib/jobs.js -> jobForPartner).
+    customerPhone,
     partnerShopId: body.partnerShopId || null,
     partnerShopName,
     messages: [],

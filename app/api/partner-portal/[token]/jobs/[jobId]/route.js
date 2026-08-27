@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
-import { jobQuoteTotal } from "@/lib/jobs";
+import { jobQuoteTotal, jobForPartner } from "@/lib/jobs";
 import { verifyPortalSession } from "@/lib/portalAuth";
 
 function addSystemMessage(job, author, authorName, text) {
@@ -61,5 +61,5 @@ export async function PUT(request, { params }) {
   }
 
   writeDB(db);
-  return NextResponse.json(job);
+  return NextResponse.json(jobForPartner(job));
 }

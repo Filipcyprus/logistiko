@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
+import { jobForPartner } from "@/lib/jobs";
 import { verifyPortalSession } from "@/lib/portalAuth";
 
 // Προσθήκη μηνύματος από τον συνεργάτη τυπογραφείο.
@@ -27,5 +28,5 @@ export async function POST(request, { params }) {
   };
   job.messages = [...(job.messages || []), message];
   writeDB(db);
-  return NextResponse.json(job, { status: 201 });
+  return NextResponse.json(jobForPartner(job), { status: 201 });
 }

@@ -135,7 +135,6 @@ export default function PartnerPortalPage() {
                     <span className={`badge ${prio.color} shrink-0`}><span className={`w-1.5 h-1.5 rounded-full ${prio.dot} inline-block mr-1`} />{prio.label}</span>
                   )}
                 </div>
-                {j.customerName && <div className="text-xs text-slate-500 mt-0.5">{t("partnerPortal.forCustomer")}: {j.customerName}</div>}
               </div>
               {j.dueDate && <span className="badge bg-slate-100 text-slate-600 shrink-0">{formatDate(j.dueDate)}</span>}
             </div>

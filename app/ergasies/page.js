@@ -10,7 +10,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 export default function JobsPage() {
   const { t } = useLanguage();
   const MIN_COMMISSION_PERCENT = 20;
-  const emptyJob = { title: "", customerId: "", partnerShopId: "", priority: "normal", dueDate: "", assignedTo: "", items: [], designs: [], notes: "", stageId: "", commissionPercent: MIN_COMMISSION_PERCENT };
+  const emptyJob = { title: "", customerId: "", customerName: "", customerPhone: "", partnerShopId: "", priority: "normal", dueDate: "", assignedTo: "", items: [], designs: [], notes: "", stageId: "", commissionPercent: MIN_COMMISSION_PERCENT };
   const PRIORITIES = getPriorities(t);
 
   const [stages, setStages] = useState([]);
@@ -163,7 +163,12 @@ export default function JobsPage() {
                           </div>
                           <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1 ${pr.dot}`} title={pr.label}></span>
                         </div>
-                        {job.customerName && <div className="text-xs text-slate-500 mt-1 truncate flex items-center gap-1"><Icon name="users" size={12} /> {job.customerName}</div>}
+                        {job.customerName && (
+                          <div className="text-xs text-slate-500 mt-1 truncate flex items-center gap-1">
+                            <Icon name="users" size={12} /> {job.customerName}
+                            {job.customerPhone && <a href={`tel:${job.customerPhone}`} onClick={(e) => e.stopPropagation()} className="text-brand-600 hover:underline">· {job.customerPhone}</a>}
+                          </div>
+                        )}
                         {job.partnerShopName && <div className="text-xs text-brand-600 mt-0.5 truncate flex items-center gap-1"><Icon name="truck" size={12} /> {job.partnerShopName}{(job.messages || []).length > 0 && <span className="badge bg-brand-100 text-brand-700 !px-1.5">{job.messages.length}</span>}</div>}
                         {(job.items || []).length > 0 && (
                           <div className="mt-1 space-y-0.5">
@@ -229,7 +234,26 @@ export default function JobsPage() {
             <h2 className="text-lg font-bold mb-4">{jobForm.id ? t("jobs.modalTitle", { number: jobForm.number || "" }) : t("jobs.modalNewTitle")}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2"><label className="label">{t("jobs.fieldTitle")}</label><input className="input" value={jobForm.title} onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })} placeholder={t("jobs.titlePlaceholder")} /></div>
-              <div><label className="label">{t("jobs.fieldCustomer")}</label><select className="input" value={jobForm.customerId} onChange={(e) => setJobForm({ ...jobForm, customerId: e.target.value })}><option value="">—</option>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+              <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-md bg-slate-50 border border-slate-100">
+                <div className="sm:col-span-2 flex items-center gap-1.5 text-xs text-slate-500">
+                  <Icon name="lock" size={12} /> {t("jobs.customerPrivateNote")}
+                </div>
+                <div><label className="label">{t("jobs.fieldCustomerName")}</label><input className="input" value={jobForm.customerName} onChange={(e) => setJobForm({ ...jobForm, customerName: e.target.value })} placeholder={t("jobs.customerNamePlaceholder")} /></div>
+                <div><label className="label">{t("jobs.fieldCustomerPhone")}</label><input className="input" value={jobForm.customerPhone} onChange={(e) => setJobForm({ ...jobForm, customerPhone: e.target.value })} placeholder={t("jobs.customerPhonePlaceholder")} /></div>
+                <div className="sm:col-span-2">
+                  <label className="label">{t("jobs.pickExistingCustomer")}</label>
+                  <select
+                    className="input"
+                    value={jobForm.customerId}
+                    onChange={(e) => {
+                      const c = customers.find((x) => x.id === e.target.value);
+                      setJobForm({ ...jobForm, customerId: e.target.value, customerName: c?.name || jobForm.customerName, customerPhone: c?.phone || jobForm.customerPhone });
+                    }}
+                  >
+                    <option value="">—</option>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              </div>
               <div><label className="label">{t("jobs.fieldPartnerShop")}</label><select className="input" value={jobForm.partnerShopId || ""} onChange={(e) => setJobForm({ ...jobForm, partnerShopId: e.target.value })}><option value="">{t("jobs.noPartner")}</option>{partnerShops.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
               <div><label className="label">{t("jobs.fieldStage")}</label><select className="input" value={jobForm.stageId} onChange={(e) => setJobForm({ ...jobForm, stageId: e.target.value })}>{stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
               <div><label className="label">{t("jobs.fieldPriority")}</label><select className="input" value={jobForm.priority} onChange={(e) => setJobForm({ ...jobForm, priority: e.target.value })}>{Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
