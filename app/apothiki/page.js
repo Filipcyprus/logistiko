@@ -181,7 +181,7 @@ export default function StockPage() {
                     <th className="table-th text-right">{t("stock.colStock")}</th>
                     <th className="table-th text-center">{t("stock.colExpiry")}</th>
                     <th className="table-th text-center">{t("stock.colSerial")}</th>
-                    <th className="table-th"></th>
+                    <th className="table-th sticky right-0 bg-slate-50 border-l border-slate-200"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -223,7 +223,7 @@ export default function StockPage() {
                             </div>
                           ) : "—"}
                         </td>
-                        <td className="table-td text-right whitespace-nowrap">
+                        <td className="table-td text-right whitespace-nowrap sticky right-0 bg-white border-l border-slate-200">
                           <button onClick={() => addToReorderList(p.id)} className={`btn-ghost !px-2 !py-1 ${justAdded === p.id ? "text-emerald-600" : ""}`} title={t("stock.addToReorderList")}>
                             <Icon name={justAdded === p.id ? "check" : "cart"} size={15} />
                           </button>

@@ -47,6 +47,26 @@ body {
   }
 }
 
+/* Πάντα ορατή, χοντρή οριζόντια μπάρα κύλισης στους πίνακες που κυλούν πλευρικά —
+   ώστε να φαίνεται καθαρά ότι υπάρχουν κρυμμένες στήλες (π.χ. οι ενέργειες επεξεργασίας/διαγραφής). */
+.overflow-x-auto {
+  scrollbar-width: auto;
+}
+.overflow-x-auto::-webkit-scrollbar {
+  height: 12px;
+}
+.overflow-x-auto::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background-color: #94a3b8;
+  border-radius: 8px;
+  border: 2px solid #f1f5f9;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
+}
+
 /* Εκτύπωση παραστατικού */
 @media print {
   .no-print {
