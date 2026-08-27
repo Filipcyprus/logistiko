@@ -24,6 +24,7 @@ const nav = [
   { href: "/trapeza", key: "nav.bankRecon", icon: "money" },
   { href: "/shifts-summary", key: "nav.shiftSummary", icon: "report" },
   { href: "/anafores", key: "nav.reports", icon: "report" },
+  { href: "/z-report", key: "nav.zReport", icon: "report" },
   { href: "/istoriko", key: "nav.activityLog", icon: "clock" },
   { href: "/rythmiseis", key: "nav.settings", icon: "settings" },
 ];
