@@ -4,17 +4,24 @@ import { readDB, writeDB, uid } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server";
 import { generateBarcode } from "@/lib/barcode";
 
-// Ταιριάζει επικεφαλίδες στηλών (πεζά/κεφαλαία, κενά, συνώνυμα) σε ένα σταθερό σύνολο πεδίων.
+// Ταιριάζει επικεφαλίδες στηλών (πεζά/κεφαλαία, κενά, συνώνυμα — ελληνικά ή αγγλικά) σε ένα
+// σταθερό σύνολο πεδίων. Καλύπτει τόσο το δικό μας πρότυπο όσο και τυπικές εξαγωγές παλιότερων
+// προγραμμάτων ταμείου/αποθήκης (π.χ. "LIANIKI ME VAT", "XONDRIKI XWRIS VAT", "LastCost1").
 const FIELD_ALIASES = {
-  name: ["name", "product", "productname", "description", "item", "title"],
+  name: ["name", "product", "productname", "description", "description1", "shortname", "item", "title"],
   sku: ["sku", "code", "productcode"],
   barcode: ["barcode", "ean", "upc"],
   stock: ["stock", "quantity", "qty", "count"],
-  price: ["price", "wholesaleprice", "cost", "unitprice"],
+  // Κόστος: τι πλήρωσε ο ίδιος στον προμηθευτή.
+  cost: ["cost", "lastcost", "lastcost1", "purchaseprice"],
+  // Χονδρική τιμή (χωρίς ΦΠΑ) — αυτό δείχνει το πρόγραμμα ως βασική τιμή πώλησης.
+  wholesalePrice: ["price", "wholesaleprice", "unitprice", "xondrikixwrisvat", "xondrikitimixwrisvat"],
+  // Λιανική τιμή (με ΦΠΑ) — αν υπάρχει, χρησιμοποιείται ως τελική τιμή λιανικής.
+  retailPrice: ["retailprice", "retail", "lianikimevat", "lianikitimimevat"],
   unit: ["unit", "uom"],
   vatRate: ["vat", "vatrate", "tax", "taxrate"],
   category: ["category"],
-  brand: ["brand"],
+  brand: ["brand", "description2"],
 };
 
 function normalizeKey(k) {
@@ -23,6 +30,8 @@ function normalizeKey(k) {
 
 // Χτίζει μια αντιστοίχιση canonical πεδίου -> πραγματικό όνομα στήλης στο φύλλο, μία φορά,
 // από τα κλειδιά μιας τυπικής γραμμής (οι επικεφαλίδες θεωρούνται ίδιες σε όλο το φύλλο).
+// Η σειρά των στηλών στο ίδιο το αρχείο αποφασίζει ποια κερδίζει αν παραπάνω από μία ταιριάζουν
+// στο ίδιο πεδίο (π.χ. Description1 πριν το ShortName).
 function buildFieldMap(rowKeys) {
   const map = {};
   for (const key of rowKeys) {
@@ -49,6 +58,8 @@ function findMatch(db, barcode, sku, name) {
   }
   return null;
 }
+
+const num = (v) => (v === "" || v == null ? null : Number(v));
 
 // Διαβάζει το ανεβασμένο αρχείο και υπολογίζει τι θα άλλαζε — ΔΕΝ γράφει τίποτα ακόμα εκτός
 // αν body.apply === "true". Ταιριάζει είδη με barcode/SKU/όνομα· ό,τι δεν ταιριάζει δημιουργείται
@@ -83,9 +94,10 @@ export async function POST(request) {
 
     const barcode = fieldMap.barcode ? String(row[fieldMap.barcode] || "").trim() : "";
     const sku = fieldMap.sku ? String(row[fieldMap.sku] || "").trim() : "";
-    const stockRaw = fieldMap.stock ? row[fieldMap.stock] : "";
-    const stock = stockRaw === "" || stockRaw == null ? null : Number(stockRaw);
-    const price = fieldMap.price && row[fieldMap.price] !== "" ? Number(row[fieldMap.price]) : 0;
+    const stock = fieldMap.stock ? num(row[fieldMap.stock]) : null;
+    const cost = fieldMap.cost && row[fieldMap.cost] !== "" ? Number(row[fieldMap.cost]) : 0;
+    const wholesalePrice = fieldMap.wholesalePrice && row[fieldMap.wholesalePrice] !== "" ? Number(row[fieldMap.wholesalePrice]) : 0;
+    const retailPrice = fieldMap.retailPrice && row[fieldMap.retailPrice] !== "" ? Number(row[fieldMap.retailPrice]) : null;
     const unit = fieldMap.unit ? String(row[fieldMap.unit] || "").trim() : "";
     const vatRate = fieldMap.vatRate && row[fieldMap.vatRate] !== "" ? Number(row[fieldMap.vatRate]) : defVat;
     const category = fieldMap.category ? String(row[fieldMap.category] || "").trim() : "";
@@ -106,7 +118,7 @@ export async function POST(request) {
         action: "create",
         name,
         barcode, sku, unit, category, brand,
-        price,
+        cost, wholesalePrice, retailPrice,
         vatRate,
         newStock: stock != null ? stock : 0,
       });
@@ -139,8 +151,10 @@ export async function POST(request) {
         name: c.name, brand: c.brand || "", category: c.category || "",
         supplierId: "", department: "", productType: "product", targetProfessions: [],
         image: "", unit: c.unit || serverT(db.settings.language, "common.unit"),
-        price: c.price, wholesalePrice: c.price, retailPrice: null, cost: 0,
-        vatRate: 0, saleVatRate: c.vatRate,
+        price: c.wholesalePrice, wholesalePrice: c.wholesalePrice,
+        retailPrice: c.retailPrice != null ? c.retailPrice : null,
+        cost: c.cost,
+        vatRate: c.vatRate, saleVatRate: c.vatRate,
         stock: c.newStock, lowStock: 0, warehouseStocks: [],
         volumeMl: null, weightG: null, shippingRate: 2.4,
         trackStock: true, trackSerial: false, serialNumbers: [],

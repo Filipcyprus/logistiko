@@ -322,7 +322,7 @@ export default function StockPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {excelPreview.changes.map((c, i) => (
+                  {excelPreview.changes.slice(0, 200).map((c, i) => (
                     <tr key={i}>
                       <td className="table-td">{c.name}</td>
                       <td className="table-td">
@@ -337,6 +337,11 @@ export default function StockPage() {
                   ))}
                 </tbody>
               </table>
+              {excelPreview.changes.length > 200 && (
+                <div className="text-xs text-slate-400 text-center py-2">
+                  {t("stock.excelPreviewMore", { count: excelPreview.changes.length - 200 })}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 mt-5">
