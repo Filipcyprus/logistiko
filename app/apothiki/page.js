@@ -197,7 +197,7 @@ export default function StockPage() {
                         <td className="table-td text-slate-500 text-sm">{p.sku || "—"}</td>
                         <td className="table-td font-medium">{p.name}{p.category && <div className="text-xs text-slate-400">{p.category}</div>}</td>
                         <td className="table-td text-slate-500">{p.brand || "—"}</td>
-                        <td className="table-td text-right">{money(p.price, cur)}</td>
+                        <td className="table-td text-right">{money(p.retailPrice || p.price, cur)}</td>
                         <td className="table-td text-right">{p.saleVatRate ?? p.vatRate ?? 19}%</td>
                         <td className="table-td text-right">
                           {p.trackStock === false ? <span className="text-slate-400 text-xs">{t("stock.serviceLabel")}</span> :
