@@ -16,7 +16,7 @@ export async function GET(request) {
     const entry = (p.consignmentStock || []).find((c) => c.storeId === store.id);
     return {
       id: p.id, code: p.code, name: p.name, category: p.category, unit: p.unit,
-      price: p.price, retailPrice: p.retailPrice, vatRate: p.vatRate, image: p.image || "",
+      price: p.price, retailPrice: p.retailPrice, vatRate: p.saleVatRate ?? p.vatRate ?? 19, image: p.image || "",
       myStock: entry ? Number(entry.quantity || 0) : 0,
     };
   });

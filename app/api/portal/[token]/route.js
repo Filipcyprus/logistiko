@@ -18,7 +18,9 @@ export async function GET(_req, { params }) {
     const finalPrice = hasCustomPrice ? customPriceMap.get(p.id) : Math.round(p.price * (1 - disc / 100) * 100) / 100;
     return {
       id: p.id, code: p.code, name: p.name, category: p.category, brand: p.brand || "",
-      unit: p.unit, price: p.price, retailPrice: p.retailPrice, vatRate: p.vatRate,
+      // Ο συντελεστής ΦΠΑ πρέπει να είναι αυτός της ΠΩΛΗΣΗΣ (saleVatRate), όχι της αγοράς
+      // (vatRate) — αλλιώς ο πελάτης B2B χρεώνεται με λάθος ΦΠΑ σε αυτή την παραγγελία.
+      unit: p.unit, price: p.price, retailPrice: p.retailPrice, vatRate: p.saleVatRate ?? p.vatRate ?? 19,
       stock: p.stock, trackStock: p.trackStock, image: p.image || "",
       targetProfessions: p.targetProfessions || [],
       productType: p.productType || "",
