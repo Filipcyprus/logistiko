@@ -177,62 +177,75 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
       </div>
 
       {/* PRICING */}
-      <div className="card p-6 space-y-4">
+      <div className="card p-6 space-y-5">
         <SectionHeader icon="money" title={t("stock.sectionPricing")} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="label">{t("stock.fieldCostWithVat")}</label>
-            <input
-              type="number"
-              step="any"
-              className="input"
-              value={costWithVat === "" ? "" : costWithVat}
-              onChange={(e) => {
-                const gross = e.target.value;
-                upd({
-                  costWithVat: gross === "" ? "" : gross,
-                  cost: gross === "" ? "" : round2(Number(gross) / (1 + vatRate / 100))
-                });
-              }}
-            />
+
+        {/* Τι χρεώνεις τον πελάτη — μπαίνει ΠΡΩΤΟ και ξεχωριστά από το κόστος, ώστε να μη γράφεται
+            κατά λάθος η τιμή πώλησης στο πεδίο Κόστος παρακάτω (έχει ξαναγίνει επανειλημμένα). */}
+        <div>
+          <div className="text-xs font-semibold text-brand-700 uppercase tracking-wide mb-2">{t("stock.chargeSectionTitle")}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label">{t("stock.fieldWholesalePrice")}</label>
+              <input type="number" step="any" className="input" value={form.wholesalePrice} onChange={(e) => upd({ wholesalePrice: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">{t("stock.fieldRetailPrice")}</label>
+              <input type="number" step="any" className="input" value={form.retailPrice ?? ""} onChange={(e) => upd({ retailPrice: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">{t("stock.fieldSalesVat")}</label>
+              <select className="input" value={form.saleVatRate ?? 19} onChange={(e) => upd({ saleVatRate: Number(e.target.value) })}>
+                <option value={0}>0%</option>
+                <option value={5}>5%</option>
+                <option value={9}>9%</option>
+                <option value={19}>19%</option>
+              </select>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-3">
+              <div className="text-xs text-slate-400 uppercase tracking-wide">{t("stock.profitWholesaleLabel")}</div>
+              <div className={`text-lg font-semibold ${wholesaleProfit < 0 ? "text-red-600" : "text-emerald-700"}`}>{money(wholesaleProfit, cur)} <span className="text-sm font-medium">({wholesaleMargin.toFixed(1)}%)</span></div>
+            </div>
           </div>
-          <div>
-            <label className="label">{t("stock.fieldCost")}</label>
-            <input type="number" step="any" className="input" value={form.cost} onChange={(e) => upd({ cost: e.target.value, costWithVat: undefined })} placeholder={t("stock.fieldCostOptional")} />
-          </div>
-          <div>
-            <label className="label">{t("stock.fieldCostVat")}</label>
-            <select className="input" value={form.vatRate ?? 0} onChange={(e) => upd({ vatRate: Number(e.target.value) })}>
-              <option value={0}>0%</option>
-              <option value={5}>5%</option>
-              <option value={9}>9%</option>
-              <option value={19}>19%</option>
-            </select>
-          </div>
-          <div>
-            <label className="label">{t("stock.fieldSalesVat")}</label>
-            <select className="input" value={form.saleVatRate ?? 19} onChange={(e) => upd({ saleVatRate: Number(e.target.value) })}>
-              <option value={0}>0%</option>
-              <option value={5}>5%</option>
-              <option value={9}>9%</option>
-              <option value={19}>19%</option>
-            </select>
-          </div>
-          <div>
-            <label className="label">{t("stock.fieldWholesalePrice")}</label>
-            <input type="number" step="any" className="input" value={form.wholesalePrice} onChange={(e) => upd({ wholesalePrice: e.target.value })} />
-          </div>
-          <div>
-            <label className="label">{t("stock.fieldRetailPrice")}</label>
-            <input type="number" step="any" className="input" value={form.retailPrice ?? ""} onChange={(e) => upd({ retailPrice: e.target.value })} />
-          </div>
-          <div className="bg-slate-50 rounded-lg p-3">
-            <div className="text-xs text-slate-400 uppercase tracking-wide">{t("stock.totalCostLabel")}</div>
-            <div className="text-lg font-semibold text-slate-700">{money(totalCostWithVat, cur)}</div>
-          </div>
-          <div className="bg-slate-50 rounded-lg p-3">
-            <div className="text-xs text-slate-400 uppercase tracking-wide">{t("stock.profitWholesaleLabel")}</div>
-            <div className={`text-lg font-semibold ${wholesaleProfit < 0 ? "text-red-600" : "text-emerald-700"}`}>{money(wholesaleProfit, cur)} <span className="text-sm font-medium">({wholesaleMargin.toFixed(1)}%)</span></div>
+        </div>
+
+        {/* Τι πλήρωσες εσύ στον προμηθευτή — ξεχωριστό block, σκόπιμα ΜΕΤΑ την τιμή πώλησης. */}
+        <div className="pt-1 border-t border-slate-100">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 mt-3">{t("stock.costSectionTitle")}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label">{t("stock.fieldCostWithVat")}</label>
+              <input
+                type="number"
+                step="any"
+                className="input"
+                value={costWithVat === "" ? "" : costWithVat}
+                onChange={(e) => {
+                  const gross = e.target.value;
+                  upd({
+                    costWithVat: gross === "" ? "" : gross,
+                    cost: gross === "" ? "" : round2(Number(gross) / (1 + vatRate / 100))
+                  });
+                }}
+              />
+            </div>
+            <div>
+              <label className="label">{t("stock.fieldCost")}</label>
+              <input type="number" step="any" className="input" value={form.cost} onChange={(e) => upd({ cost: e.target.value, costWithVat: undefined })} placeholder={t("stock.fieldCostOptional")} />
+            </div>
+            <div>
+              <label className="label">{t("stock.fieldCostVat")}</label>
+              <select className="input" value={form.vatRate ?? 0} onChange={(e) => upd({ vatRate: Number(e.target.value) })}>
+                <option value={0}>0%</option>
+                <option value={5}>5%</option>
+                <option value={9}>9%</option>
+                <option value={19}>19%</option>
+              </select>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-3">
+              <div className="text-xs text-slate-400 uppercase tracking-wide">{t("stock.totalCostLabel")}</div>
+              <div className="text-lg font-semibold text-slate-700">{money(totalCostWithVat, cur)}</div>
+            </div>
           </div>
         </div>
 
