@@ -5,7 +5,7 @@ import Link from "next/link";
 import { money, computeTotals } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { printReceipt } from "@/lib/receiptPrinter";
+import { printReceipt, warmUpPrinterConnection } from "@/lib/receiptPrinter";
 
 export default function TillPage() {
   const { t } = useLanguage();
@@ -42,7 +42,12 @@ export default function TillPage() {
 
   useEffect(() => {
     load();
-    fetch("/api/settings").then((r) => r.json()).then(setSettings);
+    fetch("/api/settings").then((r) => r.json()).then((s) => {
+      setSettings(s);
+      // Άνοιξε τη σύνδεση με το QZ Tray ΤΩΡΑ (όχι στην πρώτη πώληση) — αν χρειαστεί χειροκίνητο
+      // "Allow?", ο ταμίας θα το δει ενώ ανοίγει το ταμείο, όχι στη μέση μιας πραγματικής πώλησης.
+      warmUpPrinterConnection({ settings: s });
+    });
     fetch("/api/customers").then((r) => r.json()).then(setCustomers);
     fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).then(setMe);
     loadHeld();
