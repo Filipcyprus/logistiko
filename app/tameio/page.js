@@ -17,6 +17,8 @@ export default function TillPage() {
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [shopName, setShopName] = useState("");
+  const [customItemOpen, setCustomItemOpen] = useState(false);
+  const [customItemForm, setCustomItemForm] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [tendered, setTendered] = useState("");
   const [payModalOpen, setPayModalOpen] = useState(false);
@@ -101,6 +103,26 @@ export default function TillPage() {
       return [...prev, { productId: p.id, name: p.name, unit: p.unit, price: netPrice, vatRate: saleVat, qty: 1, discount: 0 }];
     });
     setQuery("");
+    setLastSale(null);
+    searchRef.current?.focus();
+  };
+
+  // Πώληση κάτι που δεν είναι (ακόμα) καταχωρημένο ως προϊόν — π.χ. μια δουλειά/υπηρεσία μιας
+  // φοράς. Δεν αγγίζει καθόλου το απόθεμα (productId: null), ακριβώς όπως και οι γραμμές
+  // αποστολής στο B2B portal.
+  const openCustomItem = () => {
+    setCustomItemForm({ description: "", qty: 1, unit: t("common.unit"), price: "", vatRate: 0 });
+    setCustomItemOpen(true);
+  };
+
+  const addCustomItem = () => {
+    const f = customItemForm;
+    if (!f.description.trim() || Number(f.qty) <= 0) return;
+    setCart((prev) => [...prev, {
+      productId: null, name: f.description.trim(), unit: f.unit || t("common.unit"),
+      price: Number(f.price) || 0, vatRate: Number(f.vatRate) || 0, qty: Number(f.qty), discount: 0,
+    }]);
+    setCustomItemOpen(false);
     setLastSale(null);
     searchRef.current?.focus();
   };
@@ -261,6 +283,7 @@ export default function TillPage() {
                 onKeyDown={onSearchKeyDown}
               />
             </div>
+            <button onClick={openCustomItem} className="btn-ghost !px-0 text-xs mt-1.5"><Icon name="plus" size={12} /> {t("pos.addCustomItem")}</button>
             {q && (
               <div className="absolute left-4 right-4 top-full mt-1 card p-1 z-20 max-h-72 overflow-y-auto">
                 {matches.length === 0 ? (
@@ -444,6 +467,40 @@ export default function TillPage() {
               <button onClick={() => completeSale(paymentMethod)} disabled={saving || insufficientCash} className="btn-primary">
                 {saving ? t("common.saving") : t("pos.confirmPayment")}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom item modal — sell something not (yet) in the product catalog. */}
+      {customItemOpen && customItemForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => setCustomItemOpen(false)}>
+          <div className="card p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-1">{t("pos.customItemTitle")}</h2>
+            <p className="text-sm text-slate-500 mb-4">{t("pos.customItemSub")}</p>
+            <div className="space-y-3">
+              <div>
+                <label className="label">{t("pos.customItemDesc")}</label>
+                <input autoFocus className="input" value={customItemForm.description} onChange={(e) => setCustomItemForm({ ...customItemForm, description: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="label">{t("pos.colQty")}</label><input type="number" step="any" className="input" value={customItemForm.qty} onChange={(e) => setCustomItemForm({ ...customItemForm, qty: e.target.value })} /></div>
+                <div><label className="label">{t("stock.fieldUnit")}</label><input className="input" value={customItemForm.unit} onChange={(e) => setCustomItemForm({ ...customItemForm, unit: e.target.value })} /></div>
+                <div><label className="label">{t("pos.customItemPrice")}</label><input type="number" step="any" className="input" value={customItemForm.price} onChange={(e) => setCustomItemForm({ ...customItemForm, price: e.target.value })} /></div>
+                <div>
+                  <label className="label">{t("stock.fieldSalesVat")}</label>
+                  <select className="input" value={customItemForm.vatRate} onChange={(e) => setCustomItemForm({ ...customItemForm, vatRate: Number(e.target.value) })}>
+                    <option value={0}>0%</option>
+                    <option value={5}>5%</option>
+                    <option value={9}>9%</option>
+                    <option value={19}>19%</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setCustomItemOpen(false)} className="btn-secondary">{t("common.cancel")}</button>
+              <button onClick={addCustomItem} disabled={!customItemForm.description.trim() || Number(customItemForm.qty) <= 0} className="btn-primary">{t("pos.addToCart")}</button>
             </div>
           </div>
         </div>
