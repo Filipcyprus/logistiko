@@ -5,7 +5,7 @@ import Icon from "@/components/Icon";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { DEFAULT_QUANTITY_DISCOUNT_TIERS } from "@/lib/pricing";
-import { testPrint, listPrinters } from "@/lib/receiptPrinter";
+import { testPrint, listPrinters, testOpenDrawer } from "@/lib/receiptPrinter";
 
 const QTY_DISCOUNT_PRODUCT_TYPES = [
   ["cosmetic", "typeCosmetic"],
@@ -68,6 +68,16 @@ export default function SettingsPage() {
     const res = await testPrint({ settings: s });
     setPrintTestResult(res);
     setPrintTesting(false);
+  };
+
+  const [drawerTesting, setDrawerTesting] = useState(false);
+  const [drawerTestResult, setDrawerTestResult] = useState(null);
+  const runTestDrawer = async () => {
+    setDrawerTesting(true);
+    setDrawerTestResult(null);
+    const res = await testOpenDrawer({ settings: s });
+    setDrawerTestResult(res);
+    setDrawerTesting(false);
   };
 
   const [printersListing, setPrintersListing] = useState(false);
@@ -277,6 +287,11 @@ export default function SettingsPage() {
             <p className="text-xs text-slate-400 mt-1">{t("settings.receiptPrinterHostHint")}</p>
           </div>
         </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={!!s.receiptPrinter?.openCashDrawer} onChange={(e) => updReceiptPrinter({ openCashDrawer: e.target.checked })} />
+          {t("settings.receiptPrinterDrawer")}
+        </label>
+        <p className="text-xs text-slate-400 -mt-2">{t("settings.receiptPrinterDrawerHint")}</p>
         <div className="flex items-center gap-3 flex-wrap">
           <button onClick={runTestPrint} disabled={printTesting || !s.receiptPrinter?.name} className="btn-secondary"><Icon name="printer" size={15} /> {printTesting ? t("common.loading") : t("settings.receiptPrinterTestBtn")}</button>
           {printTestResult && (
@@ -285,6 +300,16 @@ export default function SettingsPage() {
               : <span className="text-red-600 text-sm font-medium">{t("settings.receiptPrinterTestFail")}: {printTestResult.error}</span>
           )}
         </div>
+        {s.receiptPrinter?.openCashDrawer && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <button onClick={runTestDrawer} disabled={drawerTesting || !s.receiptPrinter?.name} className="btn-secondary"><Icon name="box" size={15} /> {drawerTesting ? t("common.loading") : t("settings.receiptPrinterTestDrawerBtn")}</button>
+            {drawerTestResult && (
+              drawerTestResult.ok
+                ? <span className="text-emerald-600 text-sm font-medium flex items-center gap-1"><Icon name="check" size={15} /> {t("settings.receiptPrinterTestOk")}</span>
+                : <span className="text-red-600 text-sm font-medium">{t("settings.receiptPrinterTestFail")}: {drawerTestResult.error}</span>
+            )}
+          </div>
+        )}
         <div className="space-y-2">
           <button onClick={runListPrinters} disabled={printersListing} className="btn-secondary"><Icon name="search" size={15} /> {printersListing ? t("common.loading") : t("settings.receiptPrinterListBtn")}</button>
           <p className="text-xs text-slate-400">{t("settings.receiptPrinterListHint")}</p>
