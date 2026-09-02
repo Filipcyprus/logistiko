@@ -86,9 +86,16 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
   const shippingCost = round2(shippingCostWithVat / (1 + vatRate / 100));
   const totalCostWithVat = round2(Number(costWithVat || 0) + shippingCostWithVat);
   const saleVatRate = Number(form.saleVatRate ?? 19);
-  const wholesaleNet = wholesale > 0 ? round2(wholesale / (1 + saleVatRate / 100)) : 0;
-  const wholesaleProfit = wholesaleNet - totalCostWithVat;
-  const wholesaleMargin = wholesaleNet > 0 ? (wholesaleProfit / wholesaleNet) * 100 : 0;
+  // Το κέρδος υπολογίζεται από τη ΛΙΑΝΙΚΗ τιμή (αυτό πληρώνει τελικά ο πελάτης), όχι τη χονδρική —
+  // πέφτει στη χονδρική μόνο αν δεν έχει οριστεί καθόλου λιανική. Το ΦΠΑ πώλησης αφαιρείται από
+  // τα έσοδα (δεν είναι δικά μας χρήματα, πάνε στην εφορία) ενώ το ΦΠΑ αγοράς παραμένει μέσα στο
+  // κόστος (totalCostWithVat) — έτσι το κέρδος αντανακλά ήδη «ΦΠΑ που πλήρωσα μείον ΦΠΑ που
+  // εισέπραξα»: το πρώτο μειώνει το κέρδος (είναι πραγματικό κόστος), το δεύτερο απλά δεν
+  // προσμετράται καθόλου ως έσοδο (δεν αφαιρείται δεύτερη φορά).
+  const retail = form.retailPrice != null && form.retailPrice !== "" ? Number(form.retailPrice) : wholesale;
+  const retailNet = retail > 0 ? round2(retail / (1 + saleVatRate / 100)) : 0;
+  const retailProfit = retailNet - totalCostWithVat;
+  const retailMargin = retailNet > 0 ? (retailProfit / retailNet) * 100 : 0;
 
   return (
     <div className="space-y-6">
@@ -203,8 +210,8 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
               </select>
             </div>
             <div className="bg-slate-50 rounded-lg p-3">
-              <div className="text-xs text-slate-400 uppercase tracking-wide">{t("stock.profitWholesaleLabel")}</div>
-              <div className={`text-lg font-semibold ${wholesaleProfit < 0 ? "text-red-600" : "text-emerald-700"}`}>{money(wholesaleProfit, cur)} <span className="text-sm font-medium">({wholesaleMargin.toFixed(1)}%)</span></div>
+              <div className="text-xs text-slate-400 uppercase tracking-wide">{t("stock.profitRetailLabel")}</div>
+              <div className={`text-lg font-semibold ${retailProfit < 0 ? "text-red-600" : "text-emerald-700"}`}>{money(retailProfit, cur)} <span className="text-sm font-medium">({retailMargin.toFixed(1)}%)</span></div>
             </div>
           </div>
         </div>

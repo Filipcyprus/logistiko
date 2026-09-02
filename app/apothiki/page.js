@@ -133,9 +133,12 @@ export default function StockPage() {
             <Icon name="upload" size={16} /> {excelParsing ? t("common.loading") : t("stock.importExcel")}
           </button>
           <a href="/api/products/import-excel/template" className="text-xs text-brand-600 hover:underline whitespace-nowrap">{t("stock.downloadTemplate")}</a>
+          <a href="/api/products/export-excel" className="btn-secondary"><Icon name="download" size={16} /> {t("stock.exportExcel")}</a>
           <Link href="/apothiki/neo" className="btn-primary"><Icon name="plus" size={16} /> {t("stock.newItem")}</Link>
         </div>
       </div>
+
+      <p className="text-xs text-slate-400 -mt-3">{t("stock.exportExcelHint")}</p>
 
       {excelError && <div className="text-sm rounded-lg px-3 py-2 bg-red-50 text-red-700">{excelError}</div>}
 
@@ -310,6 +313,9 @@ export default function StockPage() {
                 updates: excelPreview.changes.filter((c) => c.action === "update").length,
                 creates: excelPreview.changes.filter((c) => c.action === "create").length,
               })}
+              {excelPreview.changes.some((c) => c.action === "edit") && (
+                <> · {t("stock.excelEditCount", { count: excelPreview.changes.filter((c) => c.action === "edit").length })}</>
+              )}
             </p>
 
             <div className="overflow-y-auto flex-1 border border-slate-100 rounded-lg">
@@ -328,10 +334,14 @@ export default function StockPage() {
                       <td className="table-td">
                         {c.action === "update"
                           ? <span className="badge bg-sky-100 text-sky-700">{t("stock.excelActionUpdate")}</span>
+                          : c.action === "edit"
+                          ? <span className="badge bg-violet-100 text-violet-700">{t("stock.excelActionEdit")}</span>
                           : <span className="badge bg-emerald-100 text-emerald-700">{t("stock.excelActionCreate")}</span>}
                       </td>
-                      <td className="table-td text-right whitespace-nowrap">
-                        {c.action === "update" ? `${c.oldStock} → ${c.newStock}` : c.newStock}
+                      <td className="table-td text-right whitespace-nowrap max-w-xs truncate" title={c.action === "edit" ? Object.entries(c.fields).map(([k, v]) => `${k}: ${v}`).join(", ") : undefined}>
+                        {c.action === "update" ? `${c.oldStock} → ${c.newStock}`
+                          : c.action === "edit" ? Object.keys(c.fields).join(", ")
+                          : c.newStock}
                       </td>
                     </tr>
                   ))}

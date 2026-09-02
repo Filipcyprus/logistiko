@@ -8,6 +8,10 @@ import { generateBarcode } from "@/lib/barcode";
 // σταθερό σύνολο πεδίων. Καλύπτει τόσο το δικό μας πρότυπο όσο και τυπικές εξαγωγές παλιότερων
 // προγραμμάτων ταμείου/αποθήκης (π.χ. "LIANIKI ME VAT", "XONDRIKI XWRIS VAT", "LastCost1").
 const FIELD_ALIASES = {
+  // Στήλη ID (από export-excel) — αν υπάρχει και ταιριάζει με υπαρχόν προϊόν, ενημερώνονται ΟΛΑ
+  // τα πεδία της γραμμής (ακόμα και όνομα/SKU/barcode), όχι μόνο το απόθεμα — ασφαλές ΜΟΝΟ επειδή
+  // το ταίριασμα γίνεται με το αμετάβλητο εσωτερικό id, όχι με πεδία που μπορεί να άλλαξαν.
+  id: ["id", "productid"],
   name: ["name", "product", "productname", "description", "description1", "shortname", "item", "title"],
   sku: ["sku", "code", "productcode"],
   barcode: ["barcode", "ean", "upc"],
@@ -62,8 +66,11 @@ function findMatch(db, barcode, sku, name) {
 const num = (v) => (v === "" || v == null ? null : Number(v));
 
 // Διαβάζει το ανεβασμένο αρχείο και υπολογίζει τι θα άλλαζε — ΔΕΝ γράφει τίποτα ακόμα εκτός
-// αν body.apply === "true". Ταιριάζει είδη με barcode/SKU/όνομα· ό,τι δεν ταιριάζει δημιουργείται
-// ως νέο προϊόν.
+// αν body.apply === "true". Αν η γραμμή έχει στήλη ID που ταιριάζει με υπάρχον προϊόν (τυπικά από
+// export-excel), ενημερώνονται ΟΛΑ τα πεδία που δόθηκαν (όνομα/SKU/barcode/τιμές/απόθεμα κ.λπ.) —
+// αυτό επιτρέπει μαζική επεξεργασία ολόκληρου του καταλόγου. Χωρίς ID, ταιριάζει με
+// barcode/SKU/όνομα και ενημερώνει ΜΟΝΟ το απόθεμα (η αρχική συμπεριφορά)· ό,τι δεν ταιριάζει
+// καθόλου δημιουργείται ως νέο προϊόν.
 export async function POST(request) {
   const formData = await request.formData();
   const file = formData.get("file");
@@ -90,7 +97,63 @@ export async function POST(request) {
 
   for (const row of rows) {
     const name = fieldMap.name ? String(row[fieldMap.name] || "").trim() : "";
-    if (!name) continue; // κενή γραμμή
+
+    // Ταίριασμα με ID (από export-excel) — ενημερώνει ΟΛΑ τα πεδία της γραμμής στο σωστό προϊόν,
+    // ακόμα κι αν άλλαξε το ίδιο το όνομα/SKU/barcode· ξεχωριστό μονοπάτι από το ταίριασμα
+    // barcode/SKU/όνομα παρακάτω (που μένει μόνο-απόθεμα, όπως πριν).
+    const idVal = fieldMap.id ? String(row[fieldMap.id] || "").trim() : "";
+    const existingById = idVal ? db.products.find((p) => p.id === idVal) : null;
+    if (existingById) {
+      const fields = {};
+      if (fieldMap.name && name && name !== existingById.name) fields.name = name;
+      if (fieldMap.sku) {
+        const v = String(row[fieldMap.sku] || "").trim();
+        if (v !== (existingById.sku || "")) fields.sku = v;
+      }
+      if (fieldMap.barcode) {
+        const v = String(row[fieldMap.barcode] || "").trim();
+        if (v !== (existingById.barcode || "")) fields.barcode = v;
+      }
+      if (fieldMap.wholesalePrice && row[fieldMap.wholesalePrice] !== "") {
+        const v = Number(row[fieldMap.wholesalePrice]);
+        if (v !== Number(existingById.wholesalePrice ?? existingById.price ?? 0)) fields.wholesalePrice = v;
+      }
+      if (fieldMap.retailPrice) {
+        const raw = row[fieldMap.retailPrice];
+        const v = raw === "" ? null : Number(raw);
+        if (v !== (existingById.retailPrice ?? null)) fields.retailPrice = v;
+      }
+      if (fieldMap.stock && row[fieldMap.stock] !== "") {
+        const v = Number(row[fieldMap.stock]);
+        if (v !== Number(existingById.stock || 0)) fields.stock = v;
+      }
+      if (fieldMap.cost && row[fieldMap.cost] !== "") {
+        const v = Number(row[fieldMap.cost]);
+        if (v !== Number(existingById.cost || 0)) fields.cost = v;
+      }
+      if (fieldMap.vatRate && row[fieldMap.vatRate] !== "") {
+        const v = Number(row[fieldMap.vatRate]);
+        if (v !== Number(existingById.saleVatRate ?? existingById.vatRate ?? defVat)) fields.saleVatRate = v;
+      }
+      if (fieldMap.category) {
+        const v = String(row[fieldMap.category] || "").trim();
+        if (v !== (existingById.category || "")) fields.category = v;
+      }
+      if (fieldMap.brand) {
+        const v = String(row[fieldMap.brand] || "").trim();
+        if (v !== (existingById.brand || "")) fields.brand = v;
+      }
+      if (fieldMap.unit) {
+        const v = String(row[fieldMap.unit] || "").trim();
+        if (v !== (existingById.unit || "")) fields.unit = v;
+      }
+      if (Object.keys(fields).length > 0) {
+        changes.push({ action: "edit", productId: existingById.id, name: existingById.name, fields });
+      }
+      continue;
+    }
+
+    if (!name) continue; // κενή γραμμή, χωρίς ID
 
     const barcode = fieldMap.barcode ? String(row[fieldMap.barcode] || "").trim() : "";
     const sku = fieldMap.sku ? String(row[fieldMap.sku] || "").trim() : "";
@@ -132,6 +195,24 @@ export async function POST(request) {
   // Εφαρμογή: ενημέρωση υπαρχόντων + δημιουργία νέων.
   let updated = 0, created = 0;
   for (const c of changes) {
+    if (c.action === "edit") {
+      const p = db.products.find((x) => x.id === c.productId);
+      if (!p) continue;
+      const oldStock = Number(p.stock || 0);
+      Object.assign(p, c.fields);
+      // Η "τιμή" που χρησιμοποιείται σε παραστατικά/προσφορές ταυτίζεται με τη χονδρική τιμή.
+      if (c.fields.wholesalePrice != null) p.price = c.fields.wholesalePrice;
+      if (c.fields.stock != null && c.fields.stock !== oldStock) {
+        db.stockMovements.unshift({
+          id: uid(), productId: p.id, productName: p.name, type: "adjust",
+          quantity: c.fields.stock,
+          reason: serverT(db.settings.language, "stock.reasonExcelImport"),
+          ref: null, date: new Date().toISOString().slice(0, 10), createdAt: new Date().toISOString(),
+        });
+      }
+      updated++;
+      continue;
+    }
     if (c.action === "update") {
       const p = db.products.find((x) => x.id === c.productId);
       if (!p || c.newStock === c.oldStock) continue;
