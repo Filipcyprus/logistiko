@@ -209,10 +209,6 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
                 <option value={19}>19%</option>
               </select>
             </div>
-            <div className="bg-slate-50 rounded-lg p-3">
-              <div className="text-xs text-slate-400 uppercase tracking-wide">{t("stock.profitRetailLabel")}</div>
-              <div className={`text-lg font-semibold ${retailProfit < 0 ? "text-red-600" : "text-emerald-700"}`}>{money(retailProfit, cur)} <span className="text-sm font-medium">({retailMargin.toFixed(1)}%)</span></div>
-            </div>
           </div>
         </div>
 
@@ -249,9 +245,25 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
                 <option value={19}>19%</option>
               </select>
             </div>
-            <div className="bg-slate-50 rounded-lg p-3">
-              <div className="text-xs text-slate-400 uppercase tracking-wide">{t("stock.totalCostLabel")}</div>
-              <div className="text-lg font-semibold text-slate-700">{money(totalCostWithVat, cur)}</div>
+          </div>
+        </div>
+
+        {/* Πλήρης, διάφανη ανάλυση κέρδους — κάθε στοιχείο ξεχωριστά (τιμή πώλησης/αγοράς, ΦΠΑ
+            πώλησης/αγοράς, μεταφορικά), ώστε να φαίνεται ΑΚΡΙΒΩΣ πώς προκύπτει το τελικό κέρδος
+            (πριν τον εταιρικό φόρο) — όχι μόνο ένας τελικός αριθμός χωρίς εξήγηση. */}
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t("stock.profitBreakdownTitle")}</div>
+          <div className="space-y-1.5 text-sm">
+            <div className="flex justify-between"><span className="text-slate-500">{t("stock.pbSellPrice")}</span><span className="font-medium">{money(retail, cur)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">{t("stock.pbVatSold", { rate: saleVatRate })}</span><span className="text-red-500">− {money(retail - retailNet, cur)}</span></div>
+            <div className="flex justify-between border-t border-slate-200 pt-1.5"><span className="text-slate-600 font-medium">{t("stock.pbNetRevenue")}</span><span className="font-semibold">{money(retailNet, cur)}</span></div>
+            <div className="flex justify-between pt-2"><span className="text-slate-500">{t("stock.pbBuyPrice")}</span><span className="text-red-500">− {money(cost, cur)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">{t("stock.pbVatBought", { rate: vatRate })}</span><span className="text-red-500">− {money(Number(costWithVat || 0) - cost, cur)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">{t("stock.pbShipping")}</span><span className="text-red-500">− {money(shippingCostWithVat, cur)}</span></div>
+            <div className="flex justify-between border-t border-slate-200 pt-1.5"><span className="text-slate-600 font-medium">{t("stock.pbTotalCost")}</span><span className="font-semibold">{money(totalCostWithVat, cur)}</span></div>
+            <div className="flex justify-between border-t-2 border-slate-300 pt-2 mt-1">
+              <span className="font-semibold text-slate-800">{t("stock.pbFinalProfit")}</span>
+              <span className={`text-lg font-bold ${retailProfit < 0 ? "text-red-600" : "text-emerald-700"}`}>{money(retailProfit, cur)} <span className="text-sm font-medium">({retailMargin.toFixed(1)}%)</span></span>
             </div>
           </div>
         </div>
