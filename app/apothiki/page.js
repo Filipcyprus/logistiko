@@ -5,6 +5,7 @@ import Link from "next/link";
 import { money, formatDate } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { productMatchesQuery } from "@/lib/productSearch";
 
 export default function StockPage() {
   const { t } = useLanguage();
@@ -92,9 +93,7 @@ export default function StockPage() {
   const filtered = products.filter((p) => {
     if (deptFilter && (p.department || "") !== deptFilter) return false;
     if (catFilter && (p.category || "") !== catFilter) return false;
-    if (!q) return true;
-    const query = q.toLowerCase();
-    return p.name.toLowerCase().includes(query) || (p.code || "").toLowerCase().includes(query) || (p.barcode || "").includes(query);
+    return productMatchesQuery(p, q);
   });
 
   const DEPARTMENTS = [

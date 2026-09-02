@@ -6,6 +6,7 @@ import { money, computeTotals } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { printReceipt, warmUpPrinterConnection } from "@/lib/receiptPrinter";
+import { productMatchesQuery } from "@/lib/productSearch";
 
 export default function TillPage() {
   const { t } = useLanguage();
@@ -82,10 +83,8 @@ export default function TillPage() {
     loadShift();
   };
   const tillProducts = products.filter((p) => p.department === "printShop");
-  const q = query.trim().toLowerCase();
-  const matches = q
-    ? tillProducts.filter((p) => p.name.toLowerCase().includes(q) || (p.code || "").toLowerCase().includes(q) || (p.barcode || "").includes(q)).slice(0, 8)
-    : [];
+  const q = query.trim();
+  const matches = q ? tillProducts.filter((p) => productMatchesQuery(p, q)).slice(0, 8) : [];
 
   const addToCart = (p) => {
     setCart((prev) => {

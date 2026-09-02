@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { money, computeTotals } from "@/lib/format";
 import { quantityDiscountPercentForProduct } from "@/lib/pricing";
+import { productMatchesQuery } from "@/lib/productSearch";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
@@ -76,10 +77,8 @@ export default function LineItems({ items, onChange, products = [], currency = "
   };
 
   const matchesFor = (idx) => {
-    const q = (query[idx] || "").trim().toLowerCase();
-    const pool = q
-      ? products.filter((p) => p.name.toLowerCase().includes(q) || (p.code || "").toLowerCase().includes(q) || (p.barcode || "").includes(q))
-      : products;
+    const q = (query[idx] || "").trim();
+    const pool = q ? products.filter((p) => productMatchesQuery(p, q)) : products;
     return pool.slice(0, 8);
   };
 
