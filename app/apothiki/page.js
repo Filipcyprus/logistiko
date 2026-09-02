@@ -427,6 +427,7 @@ export default function StockPage() {
                     <select className="input" value={bulkForm.value} onChange={(e) => setBulkForm({ ...bulkForm, value: e.target.value })}>
                       <option value="">—</option>
                       <option value={0}>0%</option>
+                      <option value={3}>3%</option>
                       <option value={5}>5%</option>
                       <option value={9}>9%</option>
                       <option value={19}>19%</option>

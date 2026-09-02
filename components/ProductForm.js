@@ -204,6 +204,7 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
               <label className="label">{t("stock.fieldSalesVat")}</label>
               <select className="input" value={form.saleVatRate ?? 19} onChange={(e) => upd({ saleVatRate: Number(e.target.value) })}>
                 <option value={0}>0%</option>
+                <option value={3}>3%</option>
                 <option value={5}>5%</option>
                 <option value={9}>9%</option>
                 <option value={19}>19%</option>
@@ -238,8 +239,9 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
             </div>
             <div>
               <label className="label">{t("stock.fieldCostVat")}</label>
-              <select className="input" value={form.vatRate ?? 0} onChange={(e) => upd({ vatRate: Number(e.target.value) })}>
+              <select className="input" value={form.vatRate ?? 0} onChange={(e) => upd({ vatRate: Number(e.target.value), costWithVat: undefined })}>
                 <option value={0}>0%</option>
+                <option value={3}>3%</option>
                 <option value={5}>5%</option>
                 <option value={9}>9%</option>
                 <option value={19}>19%</option>
