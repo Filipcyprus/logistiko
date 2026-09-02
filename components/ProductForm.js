@@ -84,18 +84,22 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
   const shippingRate = form.shippingRate === "" || form.shippingRate == null ? 2.4 : Number(form.shippingRate);
   const shippingCostWithVat = round2((Number(form.weightG || 0) / 1000) * shippingRate);
   const shippingCost = round2(shippingCostWithVat / (1 + vatRate / 100));
-  const totalCostWithVat = round2(Number(costWithVat || 0) + shippingCostWithVat);
   const saleVatRate = Number(form.saleVatRate ?? 19);
-  // Το κέρδος υπολογίζεται από τη ΛΙΑΝΙΚΗ τιμή (αυτό πληρώνει τελικά ο πελάτης), όχι τη χονδρική —
-  // πέφτει στη χονδρική μόνο αν δεν έχει οριστεί καθόλου λιανική. Το ΦΠΑ πώλησης αφαιρείται από
-  // τα έσοδα (δεν είναι δικά μας χρήματα, πάνε στην εφορία) ενώ το ΦΠΑ αγοράς παραμένει μέσα στο
-  // κόστος (totalCostWithVat) — έτσι το κέρδος αντανακλά ήδη «ΦΠΑ που πλήρωσα μείον ΦΠΑ που
-  // εισέπραξα»: το πρώτο μειώνει το κέρδος (είναι πραγματικό κόστος), το δεύτερο απλά δεν
-  // προσμετράται καθόλου ως έσοδο (δεν αφαιρείται δεύτερη φορά).
+  // Επαγγελματικός διαχωρισμός: το ΚΕΡΔΟΣ υπολογίζεται ΚΑΘΑΡΟ ΑΠΟ ΦΠΑ και στις δύο πλευρές — το
+  // ΦΠΑ δεν αγγίζει ποτέ το πραγματικό κέρδος, γιατί κανονικά επιστρέφεται (ΦΠΑ αγορών) ή
+  // αποδίδεται (ΦΠΑ πωλήσεων) στο κράτος, όχι δικά μας χρήματα προς τα πάνω ή προς τα κάτω.
+  // Το «πόσο ΦΠΑ πρέπει να αποδώσω/θα πάρω πίσω» είναι ΞΕΧΩΡΙΣΤΟ νούμερο (netVatDue παρακάτω) —
+  // δεν μπαίνει μέσα στο κέρδος, ακριβώς όπως σε μια κανονική δήλωση ΦΠΑ.
   const retail = form.retailPrice != null && form.retailPrice !== "" ? Number(form.retailPrice) : wholesale;
   const retailNet = retail > 0 ? round2(retail / (1 + saleVatRate / 100)) : 0;
-  const retailProfit = retailNet - totalCostWithVat;
+  const totalCostNet = round2(cost + shippingCost);
+  const retailProfit = retailNet - totalCostNet;
   const retailMargin = retailNet > 0 ? (retailProfit / retailNet) * 100 : 0;
+  // ΦΠΑ που εισέπραξες από τον πελάτη μείον ΦΠΑ που πλήρωσες στον προμηθευτή — θετικό = το
+  // οφείλεις στην εφορία, αρνητικό = δικαιούσαι επιστροφή. Ενημερωτικό, όχι μέρος του κέρδους.
+  const purchaseVatAmount = round2(Number(costWithVat || 0) - cost + (shippingCostWithVat - shippingCost));
+  const salesVatAmount = round2(retail - retailNet);
+  const netVatDue = round2(salesVatAmount - purchaseVatAmount);
 
   return (
     <div className="space-y-6">
@@ -250,22 +254,34 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
           </div>
         </div>
 
-        {/* Πλήρης, διάφανη ανάλυση κέρδους — κάθε στοιχείο ξεχωριστά (τιμή πώλησης/αγοράς, ΦΠΑ
-            πώλησης/αγοράς, μεταφορικά), ώστε να φαίνεται ΑΚΡΙΒΩΣ πώς προκύπτει το τελικό κέρδος
-            (πριν τον εταιρικό φόρο) — όχι μόνο ένας τελικός αριθμός χωρίς εξήγηση. */}
+        {/* Πλήρης, διάφανη ανάλυση κέρδους — ΚΑΘΑΡΟ από ΦΠΑ και στις δύο πλευρές (το ΦΠΑ κανονικά
+            επιστρέφεται/αποδίδεται στο κράτος, δεν είναι ποτέ δικά μας χρήματα ούτε πραγματικό
+            κόστος). Το πόσο ΦΠΑ πρέπει να αποδοθεί/θα επιστραφεί δείχνεται ΞΕΧΩΡΙΣΤΑ παρακάτω,
+            ακριβώς όπως σε μια κανονική δήλωση ΦΠΑ — δεν μπαίνει μέσα στο κέρδος. */}
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t("stock.profitBreakdownTitle")}</div>
           <div className="space-y-1.5 text-sm">
             <div className="flex justify-between"><span className="text-slate-500">{t("stock.pbSellPrice")}</span><span className="font-medium">{money(retail, cur)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">{t("stock.pbVatSold", { rate: saleVatRate })}</span><span className="text-red-500">− {money(retail - retailNet, cur)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">{t("stock.pbVatSold", { rate: saleVatRate })}</span><span className="text-red-500">− {money(salesVatAmount, cur)}</span></div>
             <div className="flex justify-between border-t border-slate-200 pt-1.5"><span className="text-slate-600 font-medium">{t("stock.pbNetRevenue")}</span><span className="font-semibold">{money(retailNet, cur)}</span></div>
             <div className="flex justify-between pt-2"><span className="text-slate-500">{t("stock.pbBuyPrice")}</span><span className="text-red-500">− {money(cost, cur)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">{t("stock.pbVatBought", { rate: vatRate })}</span><span className="text-red-500">− {money(Number(costWithVat || 0) - cost, cur)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">{t("stock.pbShipping")}</span><span className="text-red-500">− {money(shippingCostWithVat, cur)}</span></div>
-            <div className="flex justify-between border-t border-slate-200 pt-1.5"><span className="text-slate-600 font-medium">{t("stock.pbTotalCost")}</span><span className="font-semibold">{money(totalCostWithVat, cur)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">{t("stock.pbShippingNet")}</span><span className="text-red-500">− {money(shippingCost, cur)}</span></div>
+            <div className="flex justify-between border-t border-slate-200 pt-1.5"><span className="text-slate-600 font-medium">{t("stock.pbNetCost")}</span><span className="font-semibold">{money(totalCostNet, cur)}</span></div>
             <div className="flex justify-between border-t-2 border-slate-300 pt-2 mt-1">
               <span className="font-semibold text-slate-800">{t("stock.pbFinalProfit")}</span>
               <span className={`text-lg font-bold ${retailProfit < 0 ? "text-red-600" : "text-emerald-700"}`}>{money(retailProfit, cur)} <span className="text-sm font-medium">({retailMargin.toFixed(1)}%)</span></span>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-dashed border-slate-300">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{t("stock.vatPositionTitle")}</div>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between"><span className="text-slate-500">{t("stock.pbVatCollected", { rate: saleVatRate })}</span><span className="font-medium">{money(salesVatAmount, cur)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">{t("stock.pbVatPaid", { rate: vatRate })}</span><span className="text-red-500">− {money(purchaseVatAmount, cur)}</span></div>
+              <div className="flex justify-between border-t border-slate-200 pt-1.5">
+                <span className="font-medium text-slate-700">{netVatDue >= 0 ? t("stock.pbVatOwed") : t("stock.pbVatRefund")}</span>
+                <span className="font-semibold">{money(Math.abs(netVatDue), cur)}</span>
+              </div>
             </div>
           </div>
         </div>
