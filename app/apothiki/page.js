@@ -27,6 +27,11 @@ export default function StockPage() {
   const [excelPreview, setExcelPreview] = useState(null); // { file, changes }
   const [excelApplying, setExcelApplying] = useState(false);
   const [excelError, setExcelError] = useState("");
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkForm, setBulkForm] = useState({ field: "retailPrice", mode: "set", value: "" });
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null);
 
   const load = () => {
     fetch("/api/products").then((r) => r.json()).then(setProducts);
@@ -109,6 +114,49 @@ export default function StockPage() {
     load();
   };
 
+  // Επιλογή προϊόντων για μαζική επεξεργασία — μόνο μέσα στα ΦΙΛΤΡΑΡΙΣΜΕΝΑ αποτελέσματα
+  // (αναζήτηση/τμήμα/κατηγορία), ώστε "επιλογή όλων" να μη σημαίνει κατά λάθος ΟΛΟΝ τον κατάλογο.
+  const toggleSelect = (id) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const allFilteredSelected = filtered.length > 0 && filtered.every((p) => selected.has(p.id));
+  const toggleSelectAllFiltered = () => setSelected((prev) => {
+    if (allFilteredSelected) {
+      const next = new Set(prev);
+      filtered.forEach((p) => next.delete(p.id));
+      return next;
+    }
+    const next = new Set(prev);
+    filtered.forEach((p) => next.add(p.id));
+    return next;
+  });
+
+  const BULK_NUMERIC_FIELDS = ["retailPrice", "wholesalePrice", "cost", "saleVatRate", "vatRate", "lowStock", "stock"];
+  const openBulkEdit = () => {
+    setBulkForm({ field: "retailPrice", mode: "set", value: "" });
+    setBulkResult(null);
+    setBulkOpen(true);
+  };
+  const applyBulkEdit = async () => {
+    if (bulkForm.value === "" || bulkForm.value == null) return;
+    setBulkSaving(true);
+    const res = await fetch("/api/products/bulk-update", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productIds: Array.from(selected), field: bulkForm.field, mode: bulkForm.mode, value: bulkForm.value }),
+    });
+    setBulkSaving(false);
+    if (res.ok) {
+      const data = await res.json();
+      setBulkResult(data);
+      load();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      setBulkResult({ error: err.error ? t(err.error) : t("common.error") });
+    }
+  };
+
   const submitMove = async () => {
     if (Number(move.quantity) === 0 && move.type !== "set") { alert(t("stock.errNeedQty")); return; }
     setSaving(true);
@@ -169,11 +217,21 @@ export default function StockPage() {
               {catNames.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
+
+          {selected.size > 0 && (
+            <div className="card p-3 flex items-center gap-3 bg-brand-50 border-brand-100">
+              <span className="text-sm font-medium text-brand-800">{t("stock.bulkSelectedCount", { count: selected.size })}</span>
+              <button onClick={openBulkEdit} className="btn-primary text-sm"><Icon name="edit" size={14} /> {t("stock.bulkEditBtn")}</button>
+              <button onClick={() => setSelected(new Set())} className="btn-ghost text-sm">{t("stock.bulkClearSelection")}</button>
+            </div>
+          )}
+
           <div className="card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
+                    <th className="table-th !px-3"><input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAllFiltered} /></th>
                     <th className="table-th"></th>
                     <th className="table-th">{t("stock.fieldSku")}</th>
                     <th className="table-th">{t("stock.colName")}</th>
@@ -188,11 +246,12 @@ export default function StockPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filtered.length === 0 ? (
-                    <tr><td className="table-td text-slate-400" colSpan={10}>{t("stock.noItems")}</td></tr>
+                    <tr><td className="table-td text-slate-400" colSpan={11}>{t("stock.noItems")}</td></tr>
                   ) : filtered.map((p) => {
                     const low = p.trackStock !== false && Number(p.stock) <= Number(p.lowStock || 0);
                     return (
-                      <tr key={p.id} className="hover:bg-slate-50">
+                      <tr key={p.id} className={`hover:bg-slate-50 ${selected.has(p.id) ? "bg-brand-50/50" : ""}`}>
+                        <td className="table-td !px-3"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} /></td>
                         <td className="table-td">
                           {p.image ? <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden"><img src={p.image} alt="" className="w-full h-full object-contain" /></div> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300"><Icon name="image" size={16} /></div>}
                         </td>
@@ -297,6 +356,99 @@ export default function StockPage() {
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setMoveFor(null)} className="btn-secondary">{t("common.cancel")}</button>
               <button onClick={submitMove} disabled={saving} className="btn-primary">{saving ? "…" : t("invoices.register")}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal μαζικής επεξεργασίας — ΕΝΑ πεδίο τη φορά σε όλα τα επιλεγμένα προϊόντα. */}
+      {bulkOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => !bulkSaving && setBulkOpen(false)}>
+          <div className="card p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-1">{t("stock.bulkEditTitle")}</h2>
+            <p className="text-sm text-slate-500 mb-4">{t("stock.bulkEditSub", { count: selected.size })}</p>
+
+            {!bulkResult ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="label">{t("stock.bulkFieldLabel")}</label>
+                  <select
+                    className="input"
+                    value={bulkForm.field}
+                    onChange={(e) => setBulkForm({ field: e.target.value, mode: "set", value: "" })}
+                  >
+                    <option value="retailPrice">{t("stock.fieldRetailPrice")}</option>
+                    <option value="wholesalePrice">{t("stock.fieldWholesalePrice")}</option>
+                    <option value="cost">{t("stock.fieldCost")}</option>
+                    <option value="saleVatRate">{t("stock.fieldSalesVat")}</option>
+                    <option value="vatRate">{t("stock.fieldCostVat")}</option>
+                    <option value="lowStock">{t("stock.fieldLowStock")}</option>
+                    <option value="stock">{t("stock.colStock")}</option>
+                    <option value="department">{t("stock.fieldDepartment")}</option>
+                    <option value="category">{t("stock.fieldCategory")}</option>
+                    <option value="brand">{t("stock.colBrand")}</option>
+                  </select>
+                </div>
+
+                {BULK_NUMERIC_FIELDS.includes(bulkForm.field) && !["saleVatRate", "vatRate"].includes(bulkForm.field) && (
+                  <div>
+                    <label className="label">{t("stock.bulkModeLabel")}</label>
+                    <select className="input" value={bulkForm.mode} onChange={(e) => setBulkForm({ ...bulkForm, mode: e.target.value })}>
+                      <option value="set">{t("stock.bulkModeSet")}</option>
+                      {["retailPrice", "wholesalePrice", "cost"].includes(bulkForm.field) ? (
+                        <>
+                          <option value="increasePercent">{t("stock.bulkModeIncreasePct")}</option>
+                          <option value="decreasePercent">{t("stock.bulkModeDecreasePct")}</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="increaseAmount">{t("stock.bulkModeIncreaseAmt")}</option>
+                          <option value="decreaseAmount">{t("stock.bulkModeDecreaseAmt")}</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="label">
+                    {bulkForm.mode === "increasePercent" || bulkForm.mode === "decreasePercent" ? t("stock.bulkValuePercent")
+                      : bulkForm.mode === "increaseAmount" || bulkForm.mode === "decreaseAmount" ? t("stock.bulkValueAmount")
+                      : t("stock.bulkValueNew")}
+                  </label>
+                  {bulkForm.field === "department" ? (
+                    <select className="input" value={bulkForm.value} onChange={(e) => setBulkForm({ ...bulkForm, value: e.target.value })}>
+                      <option value="">—</option>
+                      <option value="printShop">{t("stock.deptPrintShop")}</option>
+                      <option value="barber">{t("stock.deptBarber")}</option>
+                      <option value="perfumes">{t("stock.deptPerfumes")}</option>
+                    </select>
+                  ) : ["saleVatRate", "vatRate"].includes(bulkForm.field) ? (
+                    <select className="input" value={bulkForm.value} onChange={(e) => setBulkForm({ ...bulkForm, value: e.target.value })}>
+                      <option value="">—</option>
+                      <option value={0}>0%</option>
+                      <option value={5}>5%</option>
+                      <option value={9}>9%</option>
+                      <option value={19}>19%</option>
+                    </select>
+                  ) : BULK_NUMERIC_FIELDS.includes(bulkForm.field) ? (
+                    <input type="number" step="any" className="input" value={bulkForm.value} onChange={(e) => setBulkForm({ ...bulkForm, value: e.target.value })} />
+                  ) : (
+                    <input className="input" value={bulkForm.value} onChange={(e) => setBulkForm({ ...bulkForm, value: e.target.value })} />
+                  )}
+                </div>
+              </div>
+            ) : bulkResult.error ? (
+              <div className="text-sm text-red-600">{bulkResult.error}</div>
+            ) : (
+              <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3">{t("stock.bulkEditDone", { updated: bulkResult.updated, total: bulkResult.total })}</div>
+            )}
+
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setBulkOpen(false)} disabled={bulkSaving} className="btn-secondary">{bulkResult ? t("common.close") : t("common.cancel")}</button>
+              {!bulkResult && (
+                <button onClick={applyBulkEdit} disabled={bulkSaving || bulkForm.value === ""} className="btn-primary">{bulkSaving ? t("common.saving") : t("stock.bulkApplyBtn")}</button>
+              )}
             </div>
           </div>
         </div>
