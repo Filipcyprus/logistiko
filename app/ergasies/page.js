@@ -335,7 +335,7 @@ export default function JobsPage() {
                   {jobForm.designs.map((d) => (
                     <div key={d.id} className="relative group border border-slate-200 rounded-lg overflow-hidden">
                       {d.type?.startsWith("image/") ? (
-                        <a href={d.url || d.dataUrl} target="_blank" rel="noreferrer"><img src={d.url || d.dataUrl} alt={d.name} className="w-full h-20 object-cover" /></a>
+                        <a href={d.url || d.dataUrl} target="_blank" rel="noreferrer" download={d.name}><img src={d.url || d.dataUrl} alt={d.name} className="w-full h-20 object-cover" /></a>
                       ) : (
                         <a href={d.url || d.dataUrl} target="_blank" rel="noreferrer" download={d.name} className="w-full h-20 flex flex-col items-center justify-center bg-slate-50 gap-1">
                           <Icon name="note" size={20} className="text-slate-400" />

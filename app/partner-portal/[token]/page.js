@@ -185,7 +185,7 @@ export default function PartnerPortalPage() {
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                   {j.designs.map((d) => (
                     d.type?.startsWith("image/") ? (
-                      <a key={d.id} href={d.url || d.dataUrl} target="_blank" rel="noreferrer" className="block border border-slate-200 rounded-lg overflow-hidden">
+                      <a key={d.id} href={d.url || d.dataUrl} target="_blank" rel="noreferrer" download={d.name} className="block border border-slate-200 rounded-lg overflow-hidden">
                         <img src={d.url || d.dataUrl} alt={d.name} className="w-full h-16 object-cover" />
                       </a>
                     ) : (
