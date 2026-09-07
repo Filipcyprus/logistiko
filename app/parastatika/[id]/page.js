@@ -109,7 +109,7 @@ export default function InvoiceView() {
           {(inv.paymentReceipts || []).map((r) => (
             <Link key={r.id} href={`/parastatika/${r.id}`} className="btn-secondary text-emerald-600">{t("invoices.paymentReceiptLink", { number: r.number })}</Link>
           ))}
-          {inv.customerId && <EmailButton kind={isCredit ? "credit" : "invoice"} id={inv.id} defaultEmail={inv.customer?.email || ""} />}
+          <EmailButton kind={isCredit ? "credit" : inv.type === "apodeixi" ? "receipt" : "invoice"} id={inv.id} defaultEmail={inv.customer?.email || ""} />
           <button onClick={() => window.print()} className="btn-primary"><Icon name="printer" size={15} /> {t("invoices.printPdf")}</button>
         </div>
       </div>
