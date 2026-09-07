@@ -5,6 +5,11 @@ import { serverT } from "@/lib/i18n/server";
 import { logActivity } from "@/lib/audit";
 import { decrementWarehouseStocks } from "@/lib/stockHelpers";
 
+// Χωρίς αυτό, το Next.js μπορεί να "παγώσει" αυτό το route σε στατικό αποτέλεσμα κατά το build
+// (δεν διαβάζει cookies/headers, οπότε φαίνεται "στατικό") — ό,τι αλλαγή γίνεται απευθείας στο
+// db.json μετά το build (π.χ. διορθώσεις αρίθμησης) δεν θα φαινόταν ποτέ μέχρι το επόμενο build.
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const db = readDB();
   return NextResponse.json(db.invoices);
