@@ -72,10 +72,17 @@ export default function NewPurchasePage() {
 
     let matchedCount = 0;
     const newLines = extracted.map((it) => {
-      const byCode = it.barcode ? products.find((p) =>
-        (p.barcode && p.barcode === it.barcode) ||
-        (p.sku && p.sku === it.barcode) ||
-        (p.hsCode && p.hsCode === it.barcode)
+      // it.code = αλφαριθμητικός κωδικός είδους του προμηθευτή (π.χ. "BL-G2-5-LB") από στήλη/κείμενο
+      // τύπου "Item Code" — it.barcode = αριθμητικός EAN/barcode. Ταιριάζουμε οποιοδήποτε από τα
+      // δύο με ΟΠΟΙΟΔΗΠΟΤΕ από τα code/sku/barcode/hsCode πεδία του προϊόντος.
+      const candidateCodes = [it.code, it.barcode].filter(Boolean);
+      const byCode = candidateCodes.length > 0 ? products.find((p) =>
+        candidateCodes.some((c) =>
+          (p.code && p.code === c) ||
+          (p.sku && p.sku === c) ||
+          (p.barcode && p.barcode === c) ||
+          (p.hsCode && p.hsCode === c)
+        )
       ) : null;
       const matched = byCode || findByName(it.description);
       if (matched) matchedCount++;
