@@ -82,7 +82,10 @@ export default function TillPage() {
     setCloseOpen(false); setCloseResult(null); setCountedCash("");
     loadShift();
   };
-  const tillProducts = products.filter((p) => p.department === "printShop");
+  // Το ταμείο πουλάει προϊόντα από ΟΛΑ τα τμήματα (τυπογραφείο, κουρείο, αρώματα) — όχι μόνο
+  // τυπογραφείο. Πριν περιοριζόταν σε "printShop" και το σκανάρισμα προϊόντων άλλου τμήματος
+  // (π.χ. άρωμα) δεν έβρισκε τίποτα, παρότι υπήρχε απόθεμα.
+  const tillProducts = products;
   const q = query.trim();
   const matches = q ? tillProducts.filter((p) => productMatchesQuery(p, q)).slice(0, 8) : [];
 
