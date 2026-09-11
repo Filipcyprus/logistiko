@@ -20,6 +20,8 @@ export default function StockPage() {
   const [categories, setCategories] = useState([]);
   const [catFilter, setCatFilter] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
   const [reorderCount, setReorderCount] = useState(0);
   const [justAdded, setJustAdded] = useState(null);
   const excelInputRef = useRef();
@@ -100,6 +102,12 @@ export default function StockPage() {
     if (catFilter && (p.category || "") !== catFilter) return false;
     return productMatchesQuery(p, q);
   });
+  // Ο κατάλογος έχει χιλιάδες είδη — να αποδίδουμε (render) ολόκληρη τη φιλτραρισμένη λίστα
+  // μονομιάς έκανε τη σελίδα αργή/άδεια για μερικά δευτερόλεπτα μετά το άνοιγμα (έμοιαζε σαν
+  // να "έλειπε" το απόθεμα). Σελιδοποίηση στα 50 ανά σελίδα.
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const DEPARTMENTS = [
     ["", "allDepartments"],
@@ -200,7 +208,7 @@ export default function StockPage() {
             {DEPARTMENTS.map(([d, key]) => (
               <button
                 key={d}
-                onClick={() => setDeptFilter(d)}
+                onClick={() => { setDeptFilter(d); setPage(1); }}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${deptFilter === d ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
               >
                 {t(`stock.${key}`)}
@@ -210,9 +218,9 @@ export default function StockPage() {
           <div className="card p-4 flex flex-wrap gap-3 items-center">
             <div className="relative max-w-sm w-full">
               <Icon name="search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input className="input pl-9" placeholder={t("stock.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} />
+              <input className="input pl-9" placeholder={t("stock.searchPlaceholder")} value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
             </div>
-            <select className="input max-w-[220px]" value={catFilter} onChange={(e) => setCatFilter(e.target.value)}>
+            <select className="input max-w-[220px]" value={catFilter} onChange={(e) => { setCatFilter(e.target.value); setPage(1); }}>
               <option value="">{t("stock.allCategories")}</option>
               {catNames.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -247,7 +255,7 @@ export default function StockPage() {
                 <tbody className="divide-y divide-slate-100">
                   {filtered.length === 0 ? (
                     <tr><td className="table-td text-slate-400" colSpan={11}>{t("stock.noItems")}</td></tr>
-                  ) : filtered.map((p) => {
+                  ) : pageItems.map((p) => {
                     const low = p.trackStock !== false && Number(p.stock) <= Number(p.lowStock || 0);
                     return (
                       <tr key={p.id} className={`hover:bg-slate-50 ${selected.has(p.id) ? "bg-brand-50/50" : ""}`}>
@@ -298,6 +306,15 @@ export default function StockPage() {
                 </tbody>
               </table>
             </div>
+            {filtered.length > 0 && (
+              <div className="flex items-center justify-between gap-3 p-3 border-t border-slate-200 text-sm">
+                <span className="text-slate-500">{t("stock.pageInfo", { page: safePage, pages: pageCount, count: filtered.length })}</span>
+                <div className="flex gap-2">
+                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="btn-secondary !px-3 !py-1 disabled:opacity-40">{t("stock.prevPage")}</button>
+                  <button onClick={() => setPage((p) => Math.min(pageCount, p + 1))} disabled={safePage >= pageCount} className="btn-secondary !px-3 !py-1 disabled:opacity-40">{t("stock.nextPage")}</button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       ) : (
