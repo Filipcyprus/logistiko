@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { money, formatDate } from "@/lib/format";
+import { money, formatDate, formatTime } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
@@ -101,7 +101,10 @@ export default function InvoicesPage() {
                         {i.type === "credit" ? t("invoices.typeCredit") : i.type === "timologio" ? t("invoices.typeInvoice") : i.isPaymentReceipt ? t("invoices.kindPaymentReceipt") : t("invoices.typeReceipt")}
                       </span>
                     </td>
-                    <td className="table-td">{formatDate(i.date)}</td>
+                    <td className="table-td">
+                      {formatDate(i.date)}
+                      {i.createdAt && <div className="text-xs text-slate-400">{formatTime(i.createdAt)}</div>}
+                    </td>
                     <td className="table-td">{i.customer?.name || t("common.retail")}</td>
                     <td className={`table-td text-right ${i.type === "credit" ? "text-red-600" : ""}`}>{money(i.net)}</td>
                     <td className={`table-td text-right ${i.type === "credit" ? "text-red-600" : ""}`}>{money(i.vat)}</td>

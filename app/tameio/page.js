@@ -35,6 +35,10 @@ export default function TillPage() {
   const [countedCash, setCountedCash] = useState("");
   const [closeResult, setCloseResult] = useState(null);
   const [shiftBusy, setShiftBusy] = useState(false);
+  const [stockAdjustOpen, setStockAdjustOpen] = useState(false);
+  const [stockAdjustDirection, setStockAdjustDirection] = useState("out");
+  const [stockAdjustReason, setStockAdjustReason] = useState("");
+  const [stockAdjustSaving, setStockAdjustSaving] = useState(false);
   const searchRef = useRef();
 
   const load = () => {
@@ -171,6 +175,38 @@ export default function TillPage() {
 
   // Ανοίγει το popup επιλογής τρόπου πληρωμής — η πώληση ολοκληρώνεται μόνο αφού διαλέξει
   // ο ταμίας Μετρητά ή Visa εκεί, όχι με προεπιλεγμένο dropdown πριν το πάτημα του κουμπιού.
+  // Κίνηση αποθέματος απευθείας από τα είδη του καλαθιού, ΧΩΡΙΣ να δημιουργηθεί απόδειξη/τιμολόγιο —
+  // π.χ. όταν κάτι δίνεται δωρεάν ή πετάγεται, δεν έχει νόημα να "ολοκληρωθεί" μια πώληση με σκοπό
+  // απλά να αλλάξει το απόθεμα. Ελεύθερα είδη (χωρίς productId) παραλείπονται, αφού δεν έχουν απόθεμα.
+  const openStockAdjust = () => {
+    if (cart.length === 0) { alert(t("pos.errEmptyCart")); return; }
+    setStockAdjustDirection("out");
+    setStockAdjustReason("");
+    setStockAdjustOpen(true);
+  };
+
+  const submitStockAdjust = async () => {
+    setStockAdjustSaving(true);
+    const lines = cart.filter((c) => c.productId);
+    let failed = null;
+    for (const c of lines) {
+      const res = await fetch("/api/stock", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: c.productId, type: stockAdjustDirection, quantity: c.qty,
+          reason: stockAdjustReason.trim() || t(stockAdjustDirection === "out" ? "pos.stockAdjustReasonOutDefault" : "pos.stockAdjustReasonInDefault"),
+        }),
+      });
+      if (!res.ok) { failed = await res.json().catch(() => ({})); break; }
+    }
+    setStockAdjustSaving(false);
+    if (failed) { alert(failed.error ? t(failed.error) : t("common.error")); return; }
+    setStockAdjustOpen(false);
+    setCart([]); setQuery("");
+    load();
+    searchRef.current?.focus();
+  };
+
   const openPayModal = () => {
     if (cart.length === 0) { alert(t("pos.errEmptyCart")); return; }
     setPaymentMethod("cash");
@@ -389,6 +425,9 @@ export default function TillPage() {
               {saving ? t("common.saving") : t("pos.completeSale")}
             </button>
           </div>
+          <button onClick={openStockAdjust} disabled={cart.length === 0} className="btn-ghost w-full text-sm text-slate-500">
+            <Icon name="box" size={14} /> {t("pos.stockAdjustBtn")}
+          </button>
 
           {lastSale && (
             <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-2.5 text-center flex items-center justify-center gap-2 flex-wrap">
@@ -427,6 +466,45 @@ export default function TillPage() {
                 <button onClick={finishCloseShift} className="btn-primary w-full mt-5">{t("common.close")}</button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {stockAdjustOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => !stockAdjustSaving && setStockAdjustOpen(false)}>
+          <div className="card p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-1">{t("pos.stockAdjustTitle")}</h2>
+            <p className="text-sm text-slate-500 mb-4">{t("pos.stockAdjustSub")}</p>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setStockAdjustDirection("out")}
+                className={`py-3 rounded-lg text-sm font-semibold border-2 ${stockAdjustDirection === "out" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+              >
+                − {t("pos.stockAdjustOut")}
+              </button>
+              <button
+                onClick={() => setStockAdjustDirection("in")}
+                className={`py-3 rounded-lg text-sm font-semibold border-2 ${stockAdjustDirection === "in" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+              >
+                + {t("pos.stockAdjustIn")}
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <label className="label">{t("pos.stockAdjustReason")}</label>
+              <input className="input" value={stockAdjustReason} onChange={(e) => setStockAdjustReason(e.target.value)} placeholder={t("pos.stockAdjustReasonPlaceholder")} />
+            </div>
+
+            <div className="mt-3 text-sm text-slate-500 space-y-0.5 max-h-32 overflow-y-auto">
+              {cart.filter((c) => c.productId).map((c, i) => <div key={i}>{c.name} × {c.qty}</div>)}
+            </div>
+            {cart.some((c) => !c.productId) && <p className="text-xs text-amber-600 mt-2">{t("pos.stockAdjustCustomSkipped")}</p>}
+
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setStockAdjustOpen(false)} className="btn-secondary">{t("common.cancel")}</button>
+              <button onClick={submitStockAdjust} disabled={stockAdjustSaving} className="btn-primary">{stockAdjustSaving ? t("common.saving") : t("pos.stockAdjustConfirm")}</button>
+            </div>
           </div>
         </div>
       )}

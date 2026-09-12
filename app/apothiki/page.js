@@ -172,6 +172,26 @@ export default function StockPage() {
     setMoveFor(null); setMove({ type: "in", quantity: 0, reason: "" }); setSaving(false); load();
   };
 
+  // Γρήγορη προσαρμογή αποθέματος απευθείας από τη λίστα (βέλη ή πληκτρολόγηση), χωρίς να χρειάζεται
+  // να ανοίξει κανείς τη σελίδα του προϊόντος και να κατεβεί μέχρι το πεδίο αποθέματος.
+  const quickStockMove = async (p, type, qty) => {
+    const res = await fetch("/api/stock", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId: p.id, type, quantity: qty, reason: t(type === "in" ? "stock.reasonQuickAdd" : "stock.reasonQuickRemove") }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); return; }
+    load();
+  };
+  const quickStockSet = async (p, value) => {
+    if (!Number.isFinite(value) || value < 0) { load(); return; }
+    const res = await fetch("/api/stock", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId: p.id, type: "set", quantity: value, reason: t("stock.reasonQuickSet") }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); }
+    load();
+  };
+
   const stockValue = products.reduce((a, p) => a + Number(p.stock || 0) * Number(p.cost || 0), 0);
 
   return (
@@ -269,8 +289,21 @@ export default function StockPage() {
                         <td className="table-td text-right">{money(p.retailPrice || p.price, cur)}</td>
                         <td className="table-td text-right">{p.saleVatRate ?? p.vatRate ?? 19}%</td>
                         <td className="table-td text-right">
-                          {p.trackStock === false ? <span className="text-slate-400 text-xs">{t("stock.serviceLabel")}</span> :
-                            <span className={`badge ${low ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>{p.stock} {p.unit}</span>}
+                          {p.trackStock === false ? <span className="text-slate-400 text-xs">{t("stock.serviceLabel")}</span> : (
+                            <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => quickStockMove(p, "out", 1)} className="btn-ghost !px-1.5 !py-0.5 text-sm" title={t("stock.reasonQuickRemove")}>−</button>
+                              <input
+                                type="number" step="any"
+                                key={`${p.id}-${p.stock}`}
+                                defaultValue={p.stock}
+                                onBlur={(e) => { const v = Number(e.target.value); if (v !== Number(p.stock)) quickStockSet(p, v); }}
+                                onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                                className={`input !w-16 !py-1 text-right text-sm ${low ? "!border-red-300 !text-red-700 !bg-red-50" : ""}`}
+                              />
+                              <button onClick={() => quickStockMove(p, "in", 1)} className="btn-ghost !px-1.5 !py-0.5 text-sm" title={t("stock.reasonQuickAdd")}>+</button>
+                              <span className="text-xs text-slate-400">{p.unit}</span>
+                            </div>
+                          )}
                         </td>
                         <td className="table-td text-center text-sm">
                           {p.department === "perfumes" && p.trackExpiry && p.warehouseStocks?.length > 0 ? (
