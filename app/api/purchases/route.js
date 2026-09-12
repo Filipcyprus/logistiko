@@ -5,8 +5,9 @@ export async function GET() {
   return NextResponse.json(readDB().purchases || []);
 }
 
-// Παραγγελίες αγοράς: μόνο ποια προϊόντα/ποσότητες θέλουμε να παραγγείλουμε — καμία τιμή.
-// Το πραγματικό κόστος καταχωρείται χειροκίνητα ως Έξοδο όταν έρθει το τιμολόγιο του προμηθευτή.
+// Παραγγελίες αγοράς: ποια προϊόντα/ποσότητες θέλουμε να παραγγείλουμε, με τον κωδικό είδους του
+// προμηθευτή και την τιμή αγοράς (χωρίς ΦΠΑ) ανά είδος — μόνο για αναφορά/σύγκριση. Το πραγματικό
+// έξοδο εξακολουθεί να καταχωρείται χειροκίνητα ως Έξοδο όταν έρθει το τιμολόγιο του προμηθευτή.
 export async function POST(request) {
   const body = await request.json();
   const db = readDB();
@@ -34,6 +35,10 @@ export async function POST(request) {
       description: it.description,
       quantity: Number(it.quantity),
       unit: it.unit || "pcs",
+      code: it.code || "",
+      // Τιμή αγοράς ανά είδος, ΧΩΡΙΣ ΦΠΑ — καθαρά για αναφορά/σύγκριση με το τιμολόγιο του
+      // προμηθευτή όταν έρθει· δεν επηρεάζει κανέναν υπολογισμό ΦΠΑ/εξόδου εδώ.
+      unitCost: it.unitCost != null ? Number(it.unitCost) : 0,
     })),
     status: body.status || "draft", // draft | sent | received
     received: false,

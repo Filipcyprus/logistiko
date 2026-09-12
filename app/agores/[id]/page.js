@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatDate } from "@/lib/format";
+import { formatDate, money } from "@/lib/format";
 import LineItems from "@/components/LineItems";
 import Icon from "@/components/Icon";
 import EmailButton from "@/components/EmailButton";
@@ -105,15 +105,27 @@ export default function PurchaseView() {
 
   // Επεξεργασία ειδών — μόνο όσο η παραγγελία είναι ακόμα "Πρόχειρη". Μόλις σταλεί στον
   // προμηθευτή (ή παραληφθεί), τα είδη κλειδώνουν — ο προμηθευτής έχει ήδη δει/λάβει αυτή τη λίστα.
-  const startEdit = () => { setEditItems((po.items || []).map((it) => ({ ...it }))); setEditing(true); };
+  const startEdit = () => { setEditItems((po.items || []).map((it) => ({ ...it, unitPrice: it.unitCost ?? 0 }))); setEditing(true); };
   const cancelEdit = () => setEditing(false);
   const saveEdit = async () => {
     const valid = editItems.filter((it) => it.description && Number(it.quantity) > 0);
     if (valid.length === 0) { alert(t("purchases.errNeedLine")); return; }
     setSaving(true);
-    await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: valid }) });
+    // Βλ. σχόλιο στο agores/nea/page.js — το LineItems δουλεύει με "unitPrice", αποθηκεύεται ως
+    // "unitCost" (τιμή αγοράς χωρίς ΦΠΑ).
+    const payloadItems = valid.map(({ unitPrice, ...rest }) => ({ ...rest, unitCost: Number(unitPrice) || 0 }));
+    await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: payloadItems }) });
     setSaving(false);
     setEditing(false);
+    load();
+  };
+
+  // Γρήγορη επεξεργασία της τιμής αγοράς ενός είδους απευθείας στην προβολή — δεν χρειάζεται να
+  // μπει κανείς σε πλήρη "Επεξεργασία" (που έτσι κι αλλιώς κλειδώνει μόλις η παραγγελία σταλεί).
+  const updateItemCost = async (idx, value) => {
+    if (!Number.isFinite(value) || value < 0) { load(); return; }
+    const newItems = po.items.map((it, i) => (i === idx ? { ...it, unitCost: value } : it));
+    await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: newItems }) });
     load();
   };
 
@@ -198,14 +210,28 @@ export default function PurchaseView() {
             <thead>
               <tr className="border-b border-slate-300 text-slate-500 text-xs uppercase">
                 <th className="py-2 text-left">{t("invoices.colDescription")}</th>
+                <th className="py-2 text-left">{t("lineItems.colCode")}</th>
                 <th className="py-2 text-right">{t("invoices.colQty")}</th>
+                <th className="py-2 text-right">{t("lineItems.colPurchasePrice")}</th>
               </tr>
             </thead>
             <tbody>
               {po.items.map((it, i) => (
                 <tr key={i} className="border-b border-slate-100">
                   <td className="py-2">{it.description}</td>
+                  <td className="py-2 text-slate-500">{it.code || "—"}</td>
                   <td className="py-2 text-right">{it.quantity} {it.unit}</td>
+                  <td className="py-2 text-right">
+                    <input
+                      type="number" step="any" min="0"
+                      key={`${i}-${it.unitCost}`}
+                      defaultValue={it.unitCost ?? 0}
+                      onBlur={(e) => { const v = Number(e.target.value); if (v !== Number(it.unitCost || 0)) updateItemCost(i, v); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                      className="input !w-24 !py-1 text-right ml-auto no-print"
+                    />
+                    <span className="print-only">{money(it.unitCost || 0, settings.currency || "€")}</span>
+                  </td>
                 </tr>
               ))}
             </tbody>

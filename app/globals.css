@@ -68,9 +68,15 @@ body {
 }
 
 /* Εκτύπωση παραστατικού */
+.print-only {
+  display: none;
+}
 @media print {
   .no-print {
     display: none !important;
+  }
+  .print-only {
+    display: inline !important;
   }
   .print-area {
     box-shadow: none !important;

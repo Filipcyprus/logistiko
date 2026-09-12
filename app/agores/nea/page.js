@@ -91,6 +91,8 @@ export default function NewPurchasePage() {
         description: matched ? matched.name : it.description,
         quantity: it.quantity,
         unit: matched ? matched.unit : t("common.unit"),
+        code: it.code || it.barcode || "",
+        unitPrice: it.unitPrice != null ? it.unitPrice : 0,
       };
     });
     setItems((prev) => {
@@ -107,7 +109,10 @@ export default function NewPurchasePage() {
     if (valid.length === 0) { alert(t("purchases.errNeedLine")); return; }
     if (!supplierId) { alert(t("errors.missingSupplier")); return; }
     setSaving(true);
-    const res = await fetch("/api/purchases", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date, expectedDate, supplierId, notes, items: valid }) });
+    // Το LineItems χρησιμοποιεί το γενικό πεδίο "unitPrice" — εδώ σημαίνει τιμή αγοράς χωρίς ΦΠΑ,
+    // αποθηκεύεται σαν "unitCost" ώστε να μη μπερδεύεται με το unitPrice πώλησης σε τιμολόγια.
+    const payloadItems = valid.map(({ unitPrice, ...rest }) => ({ ...rest, unitCost: Number(unitPrice) || 0 }));
+    const res = await fetch("/api/purchases", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date, expectedDate, supplierId, notes, items: payloadItems }) });
     if (res.ok) { const doc = await res.json(); router.push(`/agores/${doc.id}`); }
     else { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); setSaving(false); }
   };

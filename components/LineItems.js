@@ -9,7 +9,7 @@ import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 export function emptyLine(vatRate = 19, unit = "pcs") {
-  return { productId: null, description: "", quantity: 1, unit, unitPrice: 0, vatRate, discount: 0 };
+  return { productId: null, description: "", quantity: 1, unit, unitPrice: 0, vatRate, discount: 0, code: "" };
 }
 
 export default function LineItems({ items, onChange, products = [], currency = "€", defaultVat = 24, discountTiers, pricing = true }) {
@@ -96,12 +96,14 @@ export default function LineItems({ items, onChange, products = [], currency = "
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
-        <table className={`w-full ${pricing ? "min-w-[860px]" : "min-w-[520px]"}`}>
+        <table className={`w-full ${pricing ? "min-w-[860px]" : "min-w-[700px]"}`}>
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="table-th w-[26%]">{t("lineItems.colItem")}</th>
               <th className="table-th">{t("lineItems.colQty")}</th>
               <th className="table-th">{t("lineItems.colUnit")}</th>
+              {!pricing && <th className="table-th">{t("lineItems.colCode")}</th>}
+              {!pricing && <th className="table-th text-right">{t("lineItems.colPurchasePrice")}</th>}
               {pricing && <th className="table-th text-right">{t("lineItems.colPrice", { currency })}</th>}
               {pricing && <th className="table-th text-right" title={t("lineItems.discountTiersHint")}>{t("lineItems.colDiscount")}</th>}
               {pricing && <th className="table-th text-right">{t("lineItems.colVat")}</th>}
@@ -170,6 +172,8 @@ export default function LineItems({ items, onChange, products = [], currency = "
                     />
                   </td>
                   <td className="table-td"><input className="input !py-1 w-16" value={it.unit} onChange={(e) => setLine(idx, { unit: e.target.value })} /></td>
+                  {!pricing && <td className="table-td"><input className="input !py-1 w-24" value={it.code || ""} onChange={(e) => setLine(idx, { code: e.target.value })} /></td>}
+                  {!pricing && <td className="table-td"><input type="number" step="any" min="0" className="input !py-1 w-24 text-right" value={it.unitPrice} onChange={(e) => setLine(idx, { unitPrice: e.target.value })} /></td>}
                   {pricing && <td className="table-td"><input type="number" step="any" min="0" className="input !py-1 w-24 text-right" value={it.unitPrice} onChange={(e) => setLine(idx, { unitPrice: e.target.value })} /></td>}
                   {pricing && <td className="table-td"><input type="number" step="any" min="0" max="100" className="input !py-1 w-20 text-right" value={it.discount} onChange={(e) => setLine(idx, { discount: e.target.value })} /></td>}
                   {pricing && <td className="table-td"><input type="number" step="any" min="0" className="input !py-1 w-20 text-right" value={it.vatRate} onChange={(e) => setLine(idx, { vatRate: e.target.value })} /></td>}
