@@ -25,11 +25,21 @@ function Stat({ label, value, sub, color = "brand" }) {
 export default function Dashboard() {
   const { t } = useLanguage();
   const [s, setS] = useState(null);
+  const [tbMismatch, setTbMismatch] = useState(null);
 
   useEffect(() => {
     fetch("/api/stats")
       .then((r) => r.json())
       .then(setS)
+      .catch(() => {});
+    // Ισοζύγιο: Χρέωση και Πίστωση πρέπει ΠΑΝΤΑ να βγαίνουν ίσα (βλ. σχόλιο στο
+    // /api/trial-balance) — αν κάποτε δεν βγουν, κάτι έχει σπάσει αλλού (π.χ. χαλασμένη
+    // εγγραφή) και αξίζει άμεση προειδοποίηση εδώ, όχι μόνο αν ανοίξει κανείς το tab.
+    fetch("/api/trial-balance")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((tb) => {
+        if (tb && Math.abs(tb.debitTotal - tb.creditTotal) > 0.01) setTbMismatch(tb);
+      })
       .catch(() => {});
   }, []);
 
@@ -49,6 +59,16 @@ export default function Dashboard() {
           <Icon name="plus" size={16} /> {t("dashboard.newInvoice")}
         </Link>
       </div>
+
+      {tbMismatch && (
+        <Link href="/logistis" className="card p-4 flex items-center gap-3 !border-red-300 bg-red-50 hover:bg-red-100 transition-colors">
+          <Icon name="alert" size={20} className="text-red-600 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-red-700">{t("dashboard.trialBalanceOff")}</div>
+            <div className="text-sm text-red-600">{t("dashboard.trialBalanceOffSub", { debit: money(tbMismatch.debitTotal), credit: money(tbMismatch.creditTotal) })}</div>
+          </div>
+        </Link>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat label={t("dashboard.monthRevenue")} value={money(s.monthRevenue)} sub={t("dashboard.yearRevenue", { value: money(s.yearRevenue) })} color="brand" />

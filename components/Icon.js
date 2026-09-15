@@ -272,6 +272,13 @@ const PATHS = {
       <path d="M2.5 13 12 18.5 21.5 13" />
     </>
   ),
+  alert: (
+    <>
+      <path d="M12 3 2 20h20L12 3z" />
+      <line x1="12" y1="9.5" x2="12" y2="14" />
+      <circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 18, className = "", strokeWidth = 1.75 }) {
