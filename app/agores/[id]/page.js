@@ -27,6 +27,7 @@ export default function PurchaseView() {
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receiveItems, setReceiveItems] = useState([]);
   const [receivePaymentMethod, setReceivePaymentMethod] = useState("cash");
+  const [receiveConsignment, setReceiveConsignment] = useState(false);
   const [scanCode, setScanCode] = useState("");
   const [receiving, setReceiving] = useState(false);
   const scanRef = useRef();
@@ -83,6 +84,7 @@ export default function PurchaseView() {
   const openReceive = () => {
     setReceiveItems((po.items || []).map((it) => ({ ...it, receivedQty: it.quantity })));
     setReceivePaymentMethod("cash");
+    setReceiveConsignment(false);
     setReceiveOpen(true);
     setTimeout(() => scanRef.current?.focus(), 50);
   };
@@ -99,7 +101,16 @@ export default function PurchaseView() {
   };
   const confirmReceive = async () => {
     setReceiving(true);
-    await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "received", items: receiveItems, paymentMethod: receivePaymentMethod }) });
+    // Παραλαβή επί παρακαταθήκης (consignment): το εμπόρευμα μπαίνει στο στοκ αλλά ΔΕΝ το
+    // κατέχουμε ακόμα λογιστικά ούτε έχει πληρωθεί — δεν στέλνουμε καθόλου τρόπο πληρωμής, ώστε το
+    // Ημερολόγιο (lib/ledger.js) να μην καταχωρίσει Απόθεμα/Ταμείο-Τράπεζα γι' αυτήν την παραλαβή.
+    await fetch(`/api/purchases/${id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: "received", items: receiveItems, consignment: receiveConsignment,
+        paymentMethod: receiveConsignment ? null : receivePaymentMethod,
+      }),
+    });
     setReceiving(false);
     setReceiveOpen(false);
     load();
@@ -172,7 +183,11 @@ export default function PurchaseView() {
       {po.received && (
         <div className="card p-3 no-print max-w-3xl mx-auto text-sm text-emerald-700 bg-emerald-50 border-emerald-200 flex items-center gap-2">
           <Icon name="check" size={15} /> {t("purchases.receivedNote")}
-          {po.paymentMethod && <span className="ml-1">— {t(po.paymentMethod === "bank" ? "common.paymentMethods.bank" : "common.paymentMethods.cash")}</span>}
+          {po.consignment ? (
+            <span className="ml-1">— {t("purchases.consignment")}</span>
+          ) : po.paymentMethod && (
+            <span className="ml-1">— {t(po.paymentMethod === "bank" ? "common.paymentMethods.bank" : "common.paymentMethods.cash")}</span>
+          )}
         </div>
       )}
 
@@ -281,24 +296,47 @@ export default function PurchaseView() {
             </div>
 
             <div className="mt-4">
-              <label className="label">{t("purchases.paymentMethodQuestion")}</label>
+              <label className="label">{t("purchases.consignmentQuestion")}</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setReceivePaymentMethod("cash")}
-                  className={`py-2.5 rounded-lg text-sm font-semibold border-2 ${receivePaymentMethod === "cash" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+                  onClick={() => setReceiveConsignment(false)}
+                  className={`py-2.5 rounded-lg text-sm font-semibold border-2 ${!receiveConsignment ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
                 >
-                  {t("common.paymentMethods.cash")}
+                  {t("purchases.realPurchase")}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setReceivePaymentMethod("bank")}
-                  className={`py-2.5 rounded-lg text-sm font-semibold border-2 ${receivePaymentMethod === "bank" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+                  onClick={() => setReceiveConsignment(true)}
+                  className={`py-2.5 rounded-lg text-sm font-semibold border-2 ${receiveConsignment ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
                 >
-                  {t("common.paymentMethods.bank")}
+                  {t("purchases.consignment")}
                 </button>
               </div>
+              {receiveConsignment && <p className="text-xs text-slate-400 mt-1.5">{t("purchases.consignmentHint")}</p>}
             </div>
+
+            {!receiveConsignment && (
+              <div className="mt-4">
+                <label className="label">{t("purchases.paymentMethodQuestion")}</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setReceivePaymentMethod("cash")}
+                    className={`py-2.5 rounded-lg text-sm font-semibold border-2 ${receivePaymentMethod === "cash" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+                  >
+                    {t("common.paymentMethods.cash")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReceivePaymentMethod("bank")}
+                    className={`py-2.5 rounded-lg text-sm font-semibold border-2 ${receivePaymentMethod === "bank" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+                  >
+                    {t("common.paymentMethods.bank")}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setReceiveOpen(false)} className="btn-secondary">{t("common.cancel")}</button>

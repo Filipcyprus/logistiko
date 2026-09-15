@@ -41,7 +41,12 @@ export async function PUT(request, { params }) {
     }
     po.received = true;
     po.receivedAt = new Date().toISOString();
-    po.paymentMethod = patch.paymentMethod === "bank" ? "bank" : "cash";
+    // Παρακαταθήκη (consignment): το εμπόρευμα μπαίνει στο στοκ (βλ. πάνω) αλλά ΔΕΝ το κατέχουμε
+    // ακόμα λογιστικά — δεν έχει πληρωθεί, ούτε είναι ακόμα δικό μας. Χωρίς paymentMethod, το
+    // Ημερολόγιο (lib/ledger.js) δεν καταχωρίζει καμία κίνηση Απόθεμα/Ταμείο-Τράπεζα γι' αυτήν
+    // την παραλαβή — σωστά, αφού καμία τέτοια κίνηση δεν έχει πραγματικά συμβεί ακόμα.
+    po.consignment = !!patch.consignment;
+    po.paymentMethod = po.consignment ? null : (patch.paymentMethod === "bank" ? "bank" : "cash");
   }
 
   // Ο τρόπος πληρωμής (μετρητά/τράπεζα) καταχωρείται κατά την παραλαβή — χρησιμοποιείται από το
