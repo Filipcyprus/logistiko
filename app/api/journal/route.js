@@ -32,9 +32,18 @@ export async function GET(request) {
   // αμέσως ΚΑΙ να μετρηθεί ξανά η ίδια είσπραξη — διπλή καταμέτρηση στο Ταμείο.
   const paidInvoiceIds = new Set((db.payments || []).filter((p) => p.invoiceId).map((p) => p.invoiceId));
 
+  // Μηνιαία κλεισμένες Ζ (βλ. /api/z-report) μέσα στο ζητούμενο διάστημα — οι αποδείξεις (apodeixi)
+  // αυτών των μηνών καταχωρούνται ΜΙΑ φορά, συγκεντρωτικά, παρακάτω (βλ. σχόλιο εκεί) αντί ανά
+  // απόδειξη — έτσι δουλεύει και στην πραγματικότητα ένα ταμείο/POS: η Ζ "κόβει" στα βιβλία, οι
+  // μεμονωμένες αποδείξεις είναι απλώς τα δικαιολογητικά της. Τιμολόγια (πωλήσεις σε πελάτη επί
+  // πιστώσει) καταχωρούνται πάντα ξεχωριστά, ό,τι μήνα κι αν αφορούν.
+  const closedMonthZs = (db.zReports || []).filter((z) => z.mode === "month" && z.period >= from.slice(0, 7) && z.period <= to.slice(0, 7));
+  const closedMonthPeriods = new Set(closedMonthZs.map((z) => z.period));
+
   for (const i of db.invoices || []) {
     if (i.isPaymentReceipt && i.relatedInvoiceId) continue;
     if (i.date < from || i.date > to) continue;
+    if (i.type === "apodeixi" && closedMonthPeriods.has(i.date.slice(0, 7))) continue;
     const total = round2(i.total);
     const net = round2(i.net);
     const vat = round2(i.vat);
@@ -47,6 +56,21 @@ export async function GET(request) {
       id: `inv-${i.id}`, date: i.date, createdAt: i.createdAt, ref: i.number,
       descKey: i.type === "timologio" ? "journal.descInvoice" : "journal.descReceipt",
       descParams: { number: i.number }, lines,
+    });
+  }
+
+  // Μία συγκεντρωτική εγγραφή ανά κλεισμένη Ζ μήνα — βλ. σχόλιο παραπάνω. Ημερομηνία = τελευταία
+  // ημέρα του μήνα, ώστε να μπαίνει σωστά στη χρονολογική σειρά μαζί με τα υπόλοιπα άρθρα.
+  for (const z of closedMonthZs) {
+    const [y, m] = z.period.split("-").map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    const lines = [{ account: "cash", debit: round2(z.total), credit: 0 }];
+    if (z.net) lines.push({ account: "sales", debit: 0, credit: round2(z.net) });
+    if (z.vat) lines.push({ account: "vatOutput", debit: 0, credit: round2(z.vat) });
+    entries.push({
+      id: `z-${z.id}`, date: `${z.period}-${String(lastDay).padStart(2, "0")}`, createdAt: z.closedAt, ref: z.number,
+      descKey: "journal.descZClosing", descParams: { number: z.number, period: z.period },
+      lines,
     });
   }
 

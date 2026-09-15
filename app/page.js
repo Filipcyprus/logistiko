@@ -26,11 +26,19 @@ export default function Dashboard() {
   const { t } = useLanguage();
   const [s, setS] = useState(null);
   const [tbMismatch, setTbMismatch] = useState(null);
+  const [pendingZ, setPendingZ] = useState(null);
 
   useEffect(() => {
     fetch("/api/stats")
       .then((r) => r.json())
       .then(setS)
+      .catch(() => {});
+    // Μηνιαία Ζ που έκλεισε αυτόματα (βλ. scripts/close-monthly-z.js) αλλά δεν έχει τυπωθεί ακόμα —
+    // δεν μπορεί να τυπώσει μόνο του ο server (ο εκτυπωτής είναι τοπικός, στον υπολογιστή του
+    // ταμείου) — δείξε το εδώ, την πρώτη φορά που ανοίγει η εφαρμογή, για ένα κλικ εκτύπωσης.
+    fetch("/api/z-report?history=true")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => setPendingZ((list || []).find((z) => z.auto && !z.printed) || null))
       .catch(() => {});
     // Ισοζύγιο: Χρέωση και Πίστωση πρέπει ΠΑΝΤΑ να βγαίνουν ίσα (βλ. σχόλιο στο
     // /api/trial-balance) — αν κάποτε δεν βγουν, κάτι έχει σπάσει αλλού (π.χ. χαλασμένη
@@ -59,6 +67,16 @@ export default function Dashboard() {
           <Icon name="plus" size={16} /> {t("dashboard.newInvoice")}
         </Link>
       </div>
+
+      {pendingZ && (
+        <Link href={`/z-report?mode=month&month=${pendingZ.period}&autoprint=1`} className="card p-4 flex items-center gap-3 !border-brand-300 bg-brand-50 hover:bg-brand-100 transition-colors">
+          <Icon name="printer" size={20} className="text-brand-600 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-brand-700">{t("dashboard.pendingZTitle", { number: pendingZ.number })}</div>
+            <div className="text-sm text-brand-600">{t("dashboard.pendingZSub", { period: pendingZ.period, total: money(pendingZ.total) })}</div>
+          </div>
+        </Link>
+      )}
 
       {tbMismatch && (
         <Link href="/logistis" className="card p-4 flex items-center gap-3 !border-red-300 bg-red-50 hover:bg-red-100 transition-colors">

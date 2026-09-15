@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { money } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -9,16 +10,22 @@ import { printZReport } from "@/lib/receiptPrinter";
 function today() { return new Date().toISOString().slice(0, 10); }
 function thisMonth() { return new Date().toISOString().slice(0, 7); }
 
-export default function ZReportPage() {
+function ZReportInner() {
   const { t } = useLanguage();
-  const [mode, setMode] = useState("day");
+  const searchParams = useSearchParams();
+  const [mode, setMode] = useState(searchParams.get("mode") === "month" ? "month" : "day");
   const [date, setDate] = useState(today());
-  const [month, setMonth] = useState(thisMonth());
+  const [month, setMonth] = useState(searchParams.get("month") || thisMonth());
+  const autoprint = searchParams.get("autoprint") === "1";
+  const [autoprinted, setAutoprinted] = useState(false);
   const [r, setR] = useState(null);
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState(null);
   const [printerBusy, setPrinterBusy] = useState(false);
   const [printerResult, setPrinterResult] = useState(null);
+  const [closing, setClosing] = useState(false);
+  const [history, setHistory] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -33,6 +40,18 @@ export default function ZReportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
+  // Έφτασε εδώ από το banner στο Dashboard για μια Ζ που έκλεισε αυτόματα και δεν έχει τυπωθεί
+  // ακόμα (?autoprint=1) — τύπωσέ την μία φορά μόλις φορτώσει, μετά σημείωσέ την ως τυπωμένη.
+  // Δεν ξαναπροσπαθεί αν ο χρήστης ακυρώσει τον διάλογο εκτύπωσης — αρκεί που του δόθηκε η ευκαιρία.
+  useEffect(() => {
+    if (!autoprint || autoprinted || !r || !r.closed || r.printed) return;
+    setAutoprinted(true);
+    window.print();
+    fetch("/api/z-report", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.id, printed: true }) })
+      .then(() => setR((prev) => (prev ? { ...prev, printed: true } : prev)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [r, autoprint, autoprinted]);
+
   const methodLabel = (key) => t(`common.paymentMethods.${key}`) || key;
 
   const printOnReceiptPrinter = async () => {
@@ -41,6 +60,25 @@ export default function ZReportPage() {
     const result = await printZReport({ report: r, mode, settings });
     setPrinterResult(result);
     setPrinterBusy(false);
+  };
+
+  // Κλείσιμο (πάγωμα) της περιόδου — φορολογική απαίτηση: μοναδικός, συνεχόμενος αριθμός Ζ που
+  // ΠΟΤΕ δεν ξαναχρησιμοποιείται ή αλλάζει μετά. Idempotent στο API, αλλά ζητάμε επιβεβαίωση εδώ
+  // γιατί είναι μονόδρομος — μόλις κλείσει, τα ποσά αυτής της περιόδου δεν ξαναϋπολογίζονται ποτέ.
+  const closeZ = async () => {
+    if (!confirm(t("zReport.confirmClose"))) return;
+    setClosing(true);
+    const period = mode === "day" ? date : month;
+    const res = await fetch("/api/z-report", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode, period }) });
+    setClosing(false);
+    if (res.ok) setR(await res.json());
+  };
+
+  const toggleHistory = () => {
+    if (!showHistory && !history) {
+      fetch("/api/z-report?history=true").then((x) => x.json()).then(setHistory);
+    }
+    setShowHistory((v) => !v);
   };
 
   return (
@@ -62,12 +100,48 @@ export default function ZReportPage() {
         )}
         <button onClick={load} className="btn-primary">{t("zReport.apply")}</button>
         <div className="flex items-center gap-2 ml-auto">
+          {r && (r.closed ? (
+            <span className="badge bg-emerald-100 text-emerald-700">{t("zReport.closedLabel", { number: r.number })}</span>
+          ) : (
+            <button onClick={closeZ} disabled={closing} className="btn-secondary text-emerald-700"><Icon name="check" size={15} /> {closing ? t("zReport.closing") : t("zReport.closeBtn")}</button>
+          ))}
           {settings?.receiptPrinter?.name && (
             <button onClick={printOnReceiptPrinter} disabled={printerBusy || !r} className="btn-secondary"><Icon name="printer" size={15} /> {printerBusy ? "…" : t("zReport.printReceiptPrinter")}</button>
           )}
           <button onClick={() => window.print()} className="btn-secondary"><Icon name="printer" size={15} /> {t("zReport.print")}</button>
+          <button onClick={toggleHistory} className="btn-secondary">{showHistory ? t("zReport.hideHistory") : t("zReport.showHistory")}</button>
         </div>
       </div>
+
+      {showHistory && (
+        <div className="card overflow-hidden no-print">
+          <div className="px-5 py-3 border-b border-slate-100 font-semibold text-slate-700">{t("zReport.history")}</div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="table-th">{t("zReport.colNumberZ")}</th>
+                  <th className="table-th">{t("zReport.colPeriod")}</th>
+                  <th className="table-th">{t("zReport.colClosedAt")}</th>
+                  <th className="table-th text-right">{t("zReport.colTotal")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {!history || history.length === 0 ? (
+                  <tr><td className="table-td text-slate-400" colSpan={4}>{t("zReport.noHistory")}</td></tr>
+                ) : history.map((z) => (
+                  <tr key={z.id} className="hover:bg-slate-50">
+                    <td className="table-td font-semibold">{z.number}</td>
+                    <td className="table-td">{z.period} {z.auto && <span className="text-xs text-slate-400">({t("zReport.autoClosedNote")})</span>}</td>
+                    <td className="table-td text-sm text-slate-500">{z.closedAt ? new Date(z.closedAt).toLocaleString() : "—"}</td>
+                    <td className="table-td text-right font-semibold">{money(z.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {printerResult && (
         <div className={`no-print text-sm px-4 py-2 rounded-md ${printerResult.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
@@ -82,6 +156,7 @@ export default function ZReportPage() {
             <p className="text-sm text-slate-500">
               {mode === "day" ? t("zReport.printSubtitleDay", { date: r.period }) : t("zReport.printSubtitleMonth", { month: r.period })}
             </p>
+            {r.closed && <p className="text-sm font-semibold mt-1">{t("zReport.closedLabel", { number: r.number })}</p>}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -157,5 +232,13 @@ export default function ZReportPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ZReportPage() {
+  return (
+    <Suspense fallback={null}>
+      <ZReportInner />
+    </Suspense>
   );
 }

@@ -1,19 +1,10 @@
 import { NextResponse } from "next/server";
-import { readDB } from "@/lib/db";
+import { readDB, writeDB, uid } from "@/lib/db";
 
 // Ζ αναφορά (ημερήσια/μηνιαία) — αφορά ΜΟΝΟ αποδείξεις πραγματικής πώλησης (ταμείο), όχι
 // τιμολόγια ούτε αποδείξεις πληρωμής έναντι τιμολογίου (αυτές μετράνε ήδη στο τιμολόγιο).
-// GET /api/z-report?mode=day&date=YYYY-MM-DD
-// GET /api/z-report?mode=month&month=YYYY-MM
-export async function GET(request) {
-  const db = readDB();
-  const { searchParams } = new URL(request.url);
-  const mode = searchParams.get("mode") === "month" ? "month" : "day";
-  const date = searchParams.get("date") || new Date().toISOString().slice(0, 10);
-  const month = searchParams.get("month") || new Date().toISOString().slice(0, 7);
-  const period = mode === "month" ? month : date;
-
-  const inPeriod = (d) => (mode === "month" ? String(d).slice(0, 7) === month : d === date);
+function computeZData(db, mode, period) {
+  const inPeriod = (d) => (mode === "month" ? String(d).slice(0, 7) === period : d === period);
 
   const receipts = (db.invoices || [])
     .filter((i) => i.type === "apodeixi" && !(i.isPaymentReceipt && i.relatedInvoiceId) && inPeriod(i.date))
@@ -84,5 +75,78 @@ export async function GET(request) {
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  return NextResponse.json(result);
+  return result;
+}
+
+// GET /api/z-report?mode=day&date=YYYY-MM-DD
+// GET /api/z-report?mode=month&month=YYYY-MM
+// GET /api/z-report?history=true  → λίστα ήδη κλεισμένων Ζ (πιο πρόσφατη πρώτα)
+export async function GET(request) {
+  const db = readDB();
+  const { searchParams } = new URL(request.url);
+
+  if (searchParams.get("history") === "true") {
+    const list = [...(db.zReports || [])].sort((a, b) => b.number.localeCompare(a.number));
+    return NextResponse.json(list);
+  }
+
+  const mode = searchParams.get("mode") === "month" ? "month" : "day";
+  const date = searchParams.get("date") || new Date().toISOString().slice(0, 10);
+  const month = searchParams.get("month") || new Date().toISOString().slice(0, 7);
+  const period = mode === "month" ? month : date;
+
+  // Αν η περίοδος έχει ήδη κλείσει, δείξε τα ΠΑΓΩΜΕΝΑ νούμερα της — ποτέ ξανα-υπολογισμό. Αλλιώς
+  // μια μεταγενέστερη διόρθωση/backdated εγγραφή θα άλλαζε αθόρυβα μια ήδη "κλειδωμένη" Ζ.
+  const closed = (db.zReports || []).find((z) => z.mode === mode && z.period === period);
+  if (closed) {
+    return NextResponse.json({ ...closed, closed: true });
+  }
+
+  const result = computeZData(db, mode, period);
+  return NextResponse.json({ ...result, closed: false });
+}
+
+// POST /api/z-report  { mode: "day"|"month", period }  — κλείνει (παγώνει) οριστικά την περίοδο
+// με τον επόμενο διαθέσιμο, μοναδικό αριθμό Ζ. Idempotent: αν είναι ήδη κλεισμένη, επιστρέφει
+// την υπάρχουσα εγγραφή αντί να δημιουργήσει διπλότυπο.
+export async function POST(request) {
+  const body = await request.json();
+  const mode = body.mode === "month" ? "month" : "day";
+  const period = body.period;
+  if (!period) return NextResponse.json({ error: "errors.badRequest" }, { status: 400 });
+
+  const db = readDB();
+  const existing = (db.zReports || []).find((z) => z.mode === mode && z.period === period);
+  if (existing) return NextResponse.json({ ...existing, alreadyClosed: true });
+
+  const data = computeZData(db, mode, period);
+  const seq = db.counters.zReport || 1;
+  const number = `${db.settings.zReportPrefix || "Z-"}${String(seq).padStart(5, "0")}`;
+
+  const record = {
+    id: uid(),
+    number,
+    ...data,
+    closedAt: new Date().toISOString(),
+    closedBy: body.closedBy || null,
+    auto: !!body.auto,
+    printed: false,
+  };
+  db.zReports = [record, ...(db.zReports || [])];
+  db.counters.zReport = seq + 1;
+  writeDB(db);
+  return NextResponse.json(record, { status: 201 });
+}
+
+// PUT /api/z-report  { id, printed: true }  — σημείωσε ότι μια κλεισμένη Ζ τυπώθηκε (δεν αλλάζει
+// κανένα ποσό/αριθμό, μόνο αυτή τη σημαία).
+export async function PUT(request) {
+  const body = await request.json();
+  if (!body.id) return NextResponse.json({ error: "errors.badRequest" }, { status: 400 });
+  const db = readDB();
+  const rec = (db.zReports || []).find((z) => z.id === body.id);
+  if (!rec) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
+  rec.printed = !!body.printed;
+  writeDB(db);
+  return NextResponse.json(rec);
 }
