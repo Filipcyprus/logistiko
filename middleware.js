@@ -33,6 +33,7 @@ function isAccountantAllowed(pathname) {
   if (pathname === "/api/auth/logout" || pathname === "/api/auth/me") return true;
   if (pathname === "/api/accountant" || pathname.startsWith("/api/accountant/")) return true;
   if (pathname === "/api/reports") return true;
+  if (pathname === "/api/trial-balance") return true;
   return false;
 }
 

@@ -25,6 +25,9 @@ export default function AccountantPage() {
   const [to, setTo] = useState(today());
   const [report, setReport] = useState(null);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [tbDate, setTbDate] = useState(today());
+  const [tb, setTb] = useState(null);
+  const [loadingTb, setLoadingTb] = useState(false);
 
   useEffect(() => {
     fetch("/api/accountant").then((r) => r.json()).then(setData);
@@ -36,6 +39,12 @@ export default function AccountantPage() {
   };
   useEffect(() => { if (tab === "vat" && !report) loadReport(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
 
+  const loadTrialBalance = () => {
+    setLoadingTb(true);
+    fetch(`/api/trial-balance?to=${tbDate}`).then((r) => r.json()).then(setTb).finally(() => setLoadingTb(false));
+  };
+  useEffect(() => { if (tab === "trial" && !tb) loadTrialBalance(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
+
   if (!data) return <div className="text-slate-400">{t("common.loading")}</div>;
   const cur = data.settings?.currency || "€";
   const categoryLabel = (key) => t(`expenses.categories.${key}`) || key;
@@ -45,6 +54,7 @@ export default function AccountantPage() {
     ["expenses", t("accountant.tabExpenses")],
     ["purchases", t("accountant.tabPurchases")],
     ["vat", t("accountant.tabVat")],
+    ["trial", t("accountant.tabTrialBalance")],
   ];
 
   return (
@@ -191,6 +201,58 @@ export default function AccountantPage() {
               <div className="card p-5"><div className="text-sm text-slate-500">{t("reports.profit")}</div><div className="text-2xl font-bold text-emerald-600">{money(report.profit, cur)}</div></div>
               <div className="card p-5"><div className="text-sm text-slate-500">{t("reports.vatBalance")}</div><div className="text-2xl font-bold text-amber-600">{money(report.vatBalance, cur)}</div><div className="text-xs text-slate-400">{t("reports.vatBalanceSub", { collected: money(report.salesVat, cur), paid: money(report.expensesVat, cur) })}</div></div>
             </div>
+          )}
+        </div>
+      )}
+
+      {tab === "trial" && (
+        <div className="space-y-4">
+          <div className="card p-4 flex flex-wrap items-end gap-3">
+            <div><label className="label">{t("trialBalance.asOf")}</label><input type="date" className="input" value={tbDate} onChange={(e) => setTbDate(e.target.value)} /></div>
+            <button onClick={loadTrialBalance} className="btn-primary">{t("reports.apply")}</button>
+          </div>
+          {loadingTb || !tb ? <div className="text-slate-400">{t("common.loading")}</div> : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="card overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("trialBalance.debit")}</div>
+                  <table className="w-full text-sm">
+                    <tbody className="divide-y divide-slate-100">
+                      <tr><td className="table-td">{t("trialBalance.cash")}</td><td className="table-td text-right">{money(tb.cash, cur)}</td></tr>
+                      <tr><td className="table-td">{t("trialBalance.receivable")}</td><td className="table-td text-right">{money(tb.receivable, cur)}</td></tr>
+                      <tr><td className="table-td">{t("trialBalance.expensesNet")}</td><td className="table-td text-right">{money(tb.expensesNet, cur)}</td></tr>
+                      <tr><td className="table-td">{t("trialBalance.vatInput")}</td><td className="table-td text-right">{money(tb.expensesVat, cur)}</td></tr>
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("common.total")}</td><td className="table-td text-right">{money(tb.debitTotal, cur)}</td></tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <div className="card overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("trialBalance.credit")}</div>
+                  <table className="w-full text-sm">
+                    <tbody className="divide-y divide-slate-100">
+                      <tr><td className="table-td">{t("trialBalance.sales")}</td><td className="table-td text-right">{money(tb.salesNet, cur)}</td></tr>
+                      <tr><td className="table-td">{t("trialBalance.vatOutput")}</td><td className="table-td text-right">{money(tb.salesVat, cur)}</td></tr>
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("common.total")}</td><td className="table-td text-right">{money(tb.creditTotal, cur)}</td></tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              {Math.abs(tb.debitTotal - tb.creditTotal) > 0.01 && (
+                <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{t("trialBalance.mismatch")}</div>
+              )}
+
+              <div className="card p-4 flex items-center justify-between text-sm">
+                <span className="text-slate-500">{t("trialBalance.inventoryNote")}</span>
+                <span className="font-semibold">{money(tb.inventoryValue, cur)}</span>
+              </div>
+
+              <p className="text-xs text-slate-400">{t("trialBalance.note")}</p>
+            </>
           )}
         </div>
       )}
