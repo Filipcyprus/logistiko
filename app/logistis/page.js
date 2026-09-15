@@ -28,6 +28,10 @@ export default function AccountantPage() {
   const [tbDate, setTbDate] = useState(today());
   const [tb, setTb] = useState(null);
   const [loadingTb, setLoadingTb] = useState(false);
+  const [jFrom, setJFrom] = useState(firstOfMonth());
+  const [jTo, setJTo] = useState(today());
+  const [journal, setJournal] = useState(null);
+  const [loadingJournal, setLoadingJournal] = useState(false);
 
   useEffect(() => {
     fetch("/api/accountant").then((r) => r.json()).then(setData);
@@ -45,6 +49,12 @@ export default function AccountantPage() {
   };
   useEffect(() => { if (tab === "trial" && !tb) loadTrialBalance(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
 
+  const loadJournal = (page = 1) => {
+    setLoadingJournal(true);
+    fetch(`/api/journal?from=${jFrom}&to=${jTo}&page=${page}&pageSize=50`).then((r) => r.json()).then(setJournal).finally(() => setLoadingJournal(false));
+  };
+  useEffect(() => { if (tab === "journal" && !journal) loadJournal(1); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
+
   if (!data) return <div className="text-slate-400">{t("common.loading")}</div>;
   const cur = data.settings?.currency || "€";
   const categoryLabel = (key) => t(`expenses.categories.${key}`) || key;
@@ -55,6 +65,7 @@ export default function AccountantPage() {
     ["purchases", t("accountant.tabPurchases")],
     ["vat", t("accountant.tabVat")],
     ["trial", t("accountant.tabTrialBalance")],
+    ["journal", t("accountant.tabJournal")],
   ];
 
   return (
@@ -254,6 +265,60 @@ export default function AccountantPage() {
               <p className="text-xs text-slate-400">{t("trialBalance.note")}</p>
             </>
           )}
+        </div>
+      )}
+
+      {tab === "journal" && (
+        <div className="space-y-4">
+          <div className="card p-4 flex flex-wrap items-end gap-3">
+            <div><label className="label">{t("reports.from")}</label><input type="date" className="input" value={jFrom} onChange={(e) => setJFrom(e.target.value)} /></div>
+            <div><label className="label">{t("reports.to")}</label><input type="date" className="input" value={jTo} onChange={(e) => setJTo(e.target.value)} /></div>
+            <button onClick={() => loadJournal(1)} className="btn-primary">{t("reports.apply")}</button>
+          </div>
+
+          <div className="card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="table-th">{t("journal.colDate")}</th>
+                    <th className="table-th">{t("journal.colRef")}</th>
+                    <th className="table-th">{t("journal.colDescription")}</th>
+                    <th className="table-th">{t("trialBalance.debit")}/{t("trialBalance.credit")}</th>
+                    <th className="table-th text-right">{t("journal.colDebit")}</th>
+                    <th className="table-th text-right">{t("journal.colCredit")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loadingJournal ? (
+                    <tr><td className="table-td text-slate-400" colSpan={6}>{t("common.loading")}</td></tr>
+                  ) : !journal || journal.entries.length === 0 ? (
+                    <tr><td className="table-td text-slate-400" colSpan={6}>{t("journal.noEntries")}</td></tr>
+                  ) : journal.entries.map((jv) => (
+                    jv.lines.map((line, li) => (
+                      <tr key={`${jv.id}-${li}`} className={li === 0 ? "border-t-2 border-slate-200" : ""}>
+                        {li === 0 && <td className="table-td align-top" rowSpan={jv.lines.length}>{formatDate(jv.date)}</td>}
+                        {li === 0 && <td className="table-td align-top font-medium" rowSpan={jv.lines.length}>{jv.ref || "—"}</td>}
+                        {li === 0 && <td className="table-td align-top" rowSpan={jv.lines.length}>{t(jv.descKey, jv.descParams)}</td>}
+                        <td className="table-td text-slate-600">{t(`trialBalance.${line.account}`)}</td>
+                        <td className="table-td text-right">{line.debit ? money(line.debit, cur) : ""}</td>
+                        <td className="table-td text-right">{line.credit ? money(line.credit, cur) : ""}</td>
+                      </tr>
+                    ))
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {journal && journal.total > 0 && (
+              <div className="flex items-center justify-between gap-3 p-3 border-t border-slate-200 text-sm">
+                <span className="text-slate-500">{t("journal.pageInfo", { page: journal.page, pages: journal.pageCount, count: journal.total })}</span>
+                <div className="flex gap-2">
+                  <button onClick={() => loadJournal(journal.page - 1)} disabled={journal.page <= 1} className="btn-secondary !px-3 !py-1 disabled:opacity-40">{t("journal.prevPage")}</button>
+                  <button onClick={() => loadJournal(journal.page + 1)} disabled={journal.page >= journal.pageCount} className="btn-secondary !px-3 !py-1 disabled:opacity-40">{t("journal.nextPage")}</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

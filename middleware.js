@@ -34,6 +34,7 @@ function isAccountantAllowed(pathname) {
   if (pathname === "/api/accountant" || pathname.startsWith("/api/accountant/")) return true;
   if (pathname === "/api/reports") return true;
   if (pathname === "/api/trial-balance") return true;
+  if (pathname === "/api/journal") return true;
   return false;
 }
 
