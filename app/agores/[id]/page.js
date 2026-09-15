@@ -26,6 +26,7 @@ export default function PurchaseView() {
   const fileRef = useRef();
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receiveItems, setReceiveItems] = useState([]);
+  const [receivePaymentMethod, setReceivePaymentMethod] = useState("cash");
   const [scanCode, setScanCode] = useState("");
   const [receiving, setReceiving] = useState(false);
   const scanRef = useRef();
@@ -81,6 +82,7 @@ export default function PurchaseView() {
 
   const openReceive = () => {
     setReceiveItems((po.items || []).map((it) => ({ ...it, receivedQty: it.quantity })));
+    setReceivePaymentMethod("cash");
     setReceiveOpen(true);
     setTimeout(() => scanRef.current?.focus(), 50);
   };
@@ -97,7 +99,7 @@ export default function PurchaseView() {
   };
   const confirmReceive = async () => {
     setReceiving(true);
-    await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "received", items: receiveItems }) });
+    await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "received", items: receiveItems, paymentMethod: receivePaymentMethod }) });
     setReceiving(false);
     setReceiveOpen(false);
     load();
@@ -167,7 +169,12 @@ export default function PurchaseView() {
         </div>
       )}
 
-      {po.received && <div className="card p-3 no-print max-w-3xl mx-auto text-sm text-emerald-700 bg-emerald-50 border-emerald-200 flex items-center gap-2"><Icon name="check" size={15} /> {t("purchases.receivedNote")}</div>}
+      {po.received && (
+        <div className="card p-3 no-print max-w-3xl mx-auto text-sm text-emerald-700 bg-emerald-50 border-emerald-200 flex items-center gap-2">
+          <Icon name="check" size={15} /> {t("purchases.receivedNote")}
+          {po.paymentMethod && <span className="ml-1">— {t(po.paymentMethod === "bank" ? "common.paymentMethods.bank" : "common.paymentMethods.cash")}</span>}
+        </div>
+      )}
 
       <div className="card p-8 print-area max-w-3xl mx-auto">
         <div className="flex justify-between items-start gap-6 border-b border-slate-200 pb-5">
@@ -271,6 +278,26 @@ export default function PurchaseView() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="mt-4">
+              <label className="label">{t("purchases.paymentMethodQuestion")}</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReceivePaymentMethod("cash")}
+                  className={`py-2.5 rounded-lg text-sm font-semibold border-2 ${receivePaymentMethod === "cash" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+                >
+                  {t("common.paymentMethods.cash")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReceivePaymentMethod("bank")}
+                  className={`py-2.5 rounded-lg text-sm font-semibold border-2 ${receivePaymentMethod === "bank" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+                >
+                  {t("common.paymentMethods.bank")}
+                </button>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 mt-5">

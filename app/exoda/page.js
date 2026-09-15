@@ -123,7 +123,7 @@ function ExpensesInner() {
                     <tr key={e.id} className="hover:bg-slate-50">
                       <td className="table-td">{formatDate(e.date)}</td>
                       <td className="table-td"><span className="badge bg-slate-100 text-slate-600">{categoryLabel(e.category)}</span></td>
-                      <td className="table-td font-medium">{e.description}</td>
+                      <td className="table-td font-medium">{e.description}{e.number && <div className="text-xs text-slate-400 font-normal">{e.number}</div>}</td>
                       <td className="table-td">{e.supplier || "—"}</td>
                       <td className="table-td text-right">{money(e.net)}</td>
                       <td className="table-td text-right">{money(e.vat)}</td>

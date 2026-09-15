@@ -49,11 +49,12 @@ export default function SuppliersPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
-              <tr><th className="table-th">{t("suppliers.colName")}</th><th className="table-th">{t("suppliers.colTaxId")}</th><th className="table-th">{t("suppliers.colPhone")}</th><th className="table-th">{t("suppliers.colCity")}</th><th className="table-th"></th></tr>
+              <tr><th className="table-th">{t("suppliers.colCode")}</th><th className="table-th">{t("suppliers.colName")}</th><th className="table-th">{t("suppliers.colTaxId")}</th><th className="table-th">{t("suppliers.colPhone")}</th><th className="table-th">{t("suppliers.colCity")}</th><th className="table-th"></th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 ? <tr><td className="table-td text-slate-400" colSpan={5}>{t("suppliers.noSuppliers")}</td></tr> : filtered.map((s) => (
+              {filtered.length === 0 ? <tr><td className="table-td text-slate-400" colSpan={6}>{t("suppliers.noSuppliers")}</td></tr> : filtered.map((s) => (
                 <tr key={s.id} className="hover:bg-slate-50">
+                  <td className="table-td text-slate-500 font-mono text-xs">{s.code || "—"}</td>
                   <td className="table-td font-medium">{s.name}{s.profession && <div className="text-xs text-slate-400">{s.profession}</div>}</td>
                   <td className="table-td">{s.afm || "—"}</td>
                   <td className="table-td">{s.phone || "—"}</td>

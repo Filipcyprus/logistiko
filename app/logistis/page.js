@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { money, formatDate } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { accountNumber } from "@/lib/accounts";
 
 function firstOfMonth() {
   const d = new Date();
@@ -229,10 +230,13 @@ export default function AccountantPage() {
                   <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("trialBalance.debit")}</div>
                   <table className="w-full text-sm">
                     <tbody className="divide-y divide-slate-100">
-                      <tr><td className="table-td">{t("trialBalance.cash")}</td><td className="table-td text-right">{money(tb.cash, cur)}</td></tr>
-                      <tr><td className="table-td">{t("trialBalance.receivable")}</td><td className="table-td text-right">{money(tb.receivable, cur)}</td></tr>
-                      <tr><td className="table-td">{t("trialBalance.expensesNet")}</td><td className="table-td text-right">{money(tb.expensesNet, cur)}</td></tr>
-                      <tr><td className="table-td">{t("trialBalance.vatInput")}</td><td className="table-td text-right">{money(tb.expensesVat, cur)}</td></tr>
+                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("cash")}</span>{t("trialBalance.cash")}</td><td className="table-td text-right">{money(tb.cash, cur)}</td></tr>
+                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("bank")}</span>{t("trialBalance.bank")}</td><td className="table-td text-right">{money(tb.bank, cur)}</td></tr>
+                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("receivable")}</span>{t("trialBalance.receivable")}</td><td className="table-td text-right">{money(tb.receivable, cur)}</td></tr>
+                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("inventory")}</span>{t("trialBalance.inventory")}</td><td className="table-td text-right">{money(tb.inventory, cur)}</td></tr>
+                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("cogs")}</span>{t("trialBalance.cogs")}</td><td className="table-td text-right">{money(tb.cogs, cur)}</td></tr>
+                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("expensesNet")}</span>{t("trialBalance.expensesNet")}</td><td className="table-td text-right">{money(tb.expensesNet, cur)}</td></tr>
+                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("vatInput")}</span>{t("trialBalance.vatInput")}</td><td className="table-td text-right">{money(tb.expensesVat, cur)}</td></tr>
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("common.total")}</td><td className="table-td text-right">{money(tb.debitTotal, cur)}</td></tr>
@@ -243,8 +247,8 @@ export default function AccountantPage() {
                   <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("trialBalance.credit")}</div>
                   <table className="w-full text-sm">
                     <tbody className="divide-y divide-slate-100">
-                      <tr><td className="table-td">{t("trialBalance.sales")}</td><td className="table-td text-right">{money(tb.salesNet, cur)}</td></tr>
-                      <tr><td className="table-td">{t("trialBalance.vatOutput")}</td><td className="table-td text-right">{money(tb.salesVat, cur)}</td></tr>
+                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("sales")}</span>{t("trialBalance.sales")}</td><td className="table-td text-right">{money(tb.salesNet, cur)}</td></tr>
+                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("vatOutput")}</span>{t("trialBalance.vatOutput")}</td><td className="table-td text-right">{money(tb.salesVat, cur)}</td></tr>
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("common.total")}</td><td className="table-td text-right">{money(tb.creditTotal, cur)}</td></tr>
@@ -257,9 +261,15 @@ export default function AccountantPage() {
                 <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{t("trialBalance.mismatch")}</div>
               )}
 
-              <div className="card p-4 flex items-center justify-between text-sm">
-                <span className="text-slate-500">{t("trialBalance.inventoryNote")}</span>
-                <span className="font-semibold">{money(tb.inventoryValue, cur)}</span>
+              <div className="card p-4 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">{t("trialBalance.physicalInventoryTitle")}</span>
+                  <span className="font-semibold">{money(tb.physicalInventoryValue, cur)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">{t("trialBalance.inventoryVarianceLabel")}</span>
+                  <span className={`font-semibold ${Math.abs(tb.inventoryVariance) > 0.01 ? "text-amber-600" : "text-emerald-600"}`}>{money(tb.inventoryVariance, cur)}</span>
+                </div>
               </div>
 
               <p className="text-xs text-slate-400">{t("trialBalance.note")}</p>
@@ -300,7 +310,11 @@ export default function AccountantPage() {
                         {li === 0 && <td className="table-td align-top" rowSpan={jv.lines.length}>{formatDate(jv.date)}</td>}
                         {li === 0 && <td className="table-td align-top font-medium" rowSpan={jv.lines.length}>{jv.ref || "—"}</td>}
                         {li === 0 && <td className="table-td align-top" rowSpan={jv.lines.length}>{t(jv.descKey, jv.descParams)}</td>}
-                        <td className="table-td text-slate-600">{t(`trialBalance.${line.account}`)}</td>
+                        <td className="table-td text-slate-600">
+                          <span className="text-slate-400 mr-1.5 font-mono text-xs">{line.accountNumber}</span>
+                          {t(`trialBalance.${line.account}`)}
+                          {line.itemLabel && <span className="text-xs text-slate-400"> ({line.itemLabel})</span>}
+                        </td>
                         <td className="table-td text-right">{line.debit ? money(line.debit, cur) : ""}</td>
                         <td className="table-td text-right">{line.credit ? money(line.credit, cur) : ""}</td>
                       </tr>
