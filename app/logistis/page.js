@@ -234,9 +234,9 @@ export default function AccountantPage() {
                       <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("bank")}</span>{t("trialBalance.bank")}</td><td className="table-td text-right">{money(tb.bank, cur)}</td></tr>
                       <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("receivable")}</span>{t("trialBalance.receivable")}</td><td className="table-td text-right">{money(tb.receivable, cur)}</td></tr>
                       <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("inventory")}</span>{t("trialBalance.inventory")}</td><td className="table-td text-right">{money(tb.inventory, cur)}</td></tr>
+                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("vatInput")}</span>{t("trialBalance.vatInput")}</td><td className="table-td text-right">{money(tb.expensesVat, cur)}</td></tr>
                       <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("cogs")}</span>{t("trialBalance.cogs")}</td><td className="table-td text-right">{money(tb.cogs, cur)}</td></tr>
                       <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("expensesNet")}</span>{t("trialBalance.expensesNet")}</td><td className="table-td text-right">{money(tb.expensesNet, cur)}</td></tr>
-                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("vatInput")}</span>{t("trialBalance.vatInput")}</td><td className="table-td text-right">{money(tb.expensesVat, cur)}</td></tr>
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("common.total")}</td><td className="table-td text-right">{money(tb.debitTotal, cur)}</td></tr>
@@ -247,8 +247,8 @@ export default function AccountantPage() {
                   <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("trialBalance.credit")}</div>
                   <table className="w-full text-sm">
                     <tbody className="divide-y divide-slate-100">
-                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("sales")}</span>{t("trialBalance.sales")}</td><td className="table-td text-right">{money(tb.salesNet, cur)}</td></tr>
                       <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("vatOutput")}</span>{t("trialBalance.vatOutput")}</td><td className="table-td text-right">{money(tb.salesVat, cur)}</td></tr>
+                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("sales")}</span>{t("trialBalance.sales")}</td><td className="table-td text-right">{money(tb.salesNet, cur)}</td></tr>
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("common.total")}</td><td className="table-td text-right">{money(tb.creditTotal, cur)}</td></tr>
