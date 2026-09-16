@@ -38,6 +38,8 @@ function isAccountantAllowed(pathname) {
   if (pathname === "/api/profit-loss") return true;
   if (pathname === "/api/balance-sheet") return true;
   if (pathname === "/api/general-ledger") return true;
+  if (pathname === "/api/cash-flow") return true;
+  if (pathname === "/api/aging") return true;
   // Λογιστικό σχέδιο + χειροκίνητα άρθρα: η καταχώριση προσαρμοστικών εγγραφών (αποσβέσεις,
   // δεδουλευμένα, διορθώσεις) είναι ακριβώς η δουλειά του λογιστή.
   if (pathname === "/api/accounts" || pathname.startsWith("/api/accounts/")) return true;

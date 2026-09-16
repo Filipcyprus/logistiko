@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { ensureAccounts } from "@/lib/posting";
-import { ACCOUNT_TYPES, sortByNumber } from "@/lib/accounts";
+import { ACCOUNT_TYPES, ACCOUNT_SUBTYPES, sortByNumber, defaultSubtypeFor } from "@/lib/accounts";
 
 // Λογιστικό Σχέδιο — ο χρήστης μπορεί να προσθέσει δικούς του λογαριασμούς, να μετονομάσει
 // υπάρχοντες και να απενεργοποιήσει όσους δεν χρησιμοποιεί. Οι συστημικοί λογαριασμοί (isSystem)
 // δεν διαγράφονται ποτέ — τους χρειάζεται η αυτόματη καταχώριση.
 export async function GET() {
   const db = readDB();
-  const added = ensureAccounts(db);
-  if (added > 0) writeDB(db); // πρώτη φορά: αποθήκευσε το αρχικό σχέδιο
+  const changed = ensureAccounts(db);
+  if (changed > 0) writeDB(db); // πρώτη φορά, ή συμπλήρωση παλιών λογαριασμών: αποθήκευσέ το
   return NextResponse.json(sortByNumber(db.accounts));
 }
 
@@ -34,6 +34,7 @@ export async function POST(request) {
     nameKey: null,
     systemKey: null,
     type: body.type,
+    subtype: (ACCOUNT_SUBTYPES[body.type] || []).includes(body.subtype) ? body.subtype : defaultSubtypeFor(body.type),
     isSystem: false,
     active: true,
     createdAt: new Date().toISOString(),

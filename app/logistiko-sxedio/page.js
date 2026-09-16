@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { money } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { ACCOUNT_SUBTYPES, defaultSubtypeFor } from "@/lib/accounts";
 
 const TYPES = ["asset", "liability", "equity", "income", "expense"];
 
@@ -15,7 +16,7 @@ const TYPE_COLOR = {
   expense: "bg-rose-100 text-rose-700",
 };
 
-const emptyForm = { id: null, number: "", name: "", type: "expense" };
+const emptyForm = { id: null, number: "", name: "", type: "expense", subtype: defaultSubtypeFor("expense") };
 
 export default function ChartOfAccountsPage() {
   const { t } = useLanguage();
@@ -53,7 +54,7 @@ export default function ChartOfAccountsPage() {
     if (!form.name.trim()) { setError(t("errors.nameRequired")); return; }
     setSaving(true);
     const res = form.id
-      ? await fetch(`/api/accounts/${form.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ number: form.number, name: form.name, type: form.type }) })
+      ? await fetch(`/api/accounts/${form.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ number: form.number, name: form.name, type: form.type, subtype: form.subtype }) })
       : await fetch("/api/accounts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
     setSaving(false);
     if (!res.ok) {
@@ -122,10 +123,13 @@ export default function ChartOfAccountsPage() {
                     {a.isSystem && <span className="badge bg-slate-100 text-slate-500 ml-2 text-xs">{t("coa.builtIn")}</span>}
                     {a.active === false && <span className="badge bg-slate-100 text-slate-500 ml-2 text-xs">{t("coa.inactive")}</span>}
                   </td>
-                  <td className="table-td"><span className={`badge ${TYPE_COLOR[a.type]}`}>{t(`coa.types.${a.type}`)}</span></td>
+                  <td className="table-td">
+                    <span className={`badge ${TYPE_COLOR[a.type]}`}>{t(`coa.types.${a.type}`)}</span>
+                    {a.subtype && <div className="text-xs text-slate-400 mt-0.5">{t(`coa.subtypes.${a.subtype}`)}</div>}
+                  </td>
                   <td className="table-td text-right font-medium">{balances[a.id] != null ? money(balances[a.id], cur) : "—"}</td>
                   <td className="table-td text-right whitespace-nowrap">
-                    <button onClick={() => { setForm({ id: a.id, number: a.number, name: accName(a), type: a.type }); setError(""); }} className="btn-ghost !px-2 !py-1"><Icon name="edit" size={15} /></button>
+                    <button onClick={() => { setForm({ id: a.id, number: a.number, name: accName(a), type: a.type, subtype: a.subtype || defaultSubtypeFor(a.type) }); setError(""); }} className="btn-ghost !px-2 !py-1"><Icon name="edit" size={15} /></button>
                     <button onClick={() => toggleActive(a)} className="btn-ghost !px-2 !py-1" title={a.active === false ? t("coa.showInactive") : t("coa.inactive")}>
                       <Icon name={a.active === false ? "check" : "x"} size={15} />
                     </button>
@@ -150,8 +154,15 @@ export default function ChartOfAccountsPage() {
             <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
 
             <label className="label mt-3">{t("coa.colType")}</label>
-            <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} disabled={!!accounts.find((a) => a.id === form.id)?.isSystem}>
+            <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value, subtype: defaultSubtypeFor(e.target.value) })} disabled={!!accounts.find((a) => a.id === form.id)?.isSystem}>
               {TYPES.map((ty) => <option key={ty} value={ty}>{t(`coa.types.${ty}`)}</option>)}
+            </select>
+
+            {/* Υποκατηγορία ("detail type"): καθορίζει πού μπαίνει ο λογαριασμός στον Ισολογισμό
+                και πώς κατατάσσεται στις Ταμειακές Ροές. */}
+            <label className="label mt-3">{t("coa.colSubtype")}</label>
+            <select className="input" value={form.subtype} onChange={(e) => setForm({ ...form, subtype: e.target.value })}>
+              {(ACCOUNT_SUBTYPES[form.type] || []).map((st) => <option key={st} value={st}>{t(`coa.subtypes.${st}`)}</option>)}
             </select>
 
             {error && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mt-3">{error}</div>}

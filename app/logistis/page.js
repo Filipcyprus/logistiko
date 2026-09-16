@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { money, formatDate, todayISO } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -54,6 +54,16 @@ export default function AccountantPage() {
   const [glTo, setGlTo] = useState(today());
   const [gl, setGl] = useState(null);
   const [loadingGl, setLoadingGl] = useState(false);
+
+  const [cfFrom, setCfFrom] = useState(firstOfMonth());
+  const [cfTo, setCfTo] = useState(today());
+  const [cf, setCf] = useState(null);
+  const [loadingCf, setLoadingCf] = useState(false);
+
+  const [agKind, setAgKind] = useState("ar");
+  const [agDate, setAgDate] = useState(today());
+  const [ag, setAg] = useState(null);
+  const [loadingAg, setLoadingAg] = useState(false);
 
   const [jeDate, setJeDate] = useState(today());
   const [jeMemo, setJeMemo] = useState("");
@@ -111,6 +121,18 @@ export default function AccountantPage() {
     fetch(`/api/general-ledger?accountId=${glAccount}&from=${glFrom}&to=${glTo}`).then((r) => r.json()).then(setGl).finally(() => setLoadingGl(false));
   };
   useEffect(() => { if (tab === "gl" && !gl && glAccount) loadGl(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab, glAccount]);
+
+  const loadCf = () => {
+    setLoadingCf(true);
+    fetch(`/api/cash-flow?from=${cfFrom}&to=${cfTo}`).then((r) => r.json()).then(setCf).finally(() => setLoadingCf(false));
+  };
+  useEffect(() => { if (tab === "cf" && !cf) loadCf(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
+
+  const loadAg = (kind = agKind) => {
+    setLoadingAg(true);
+    fetch(`/api/aging?kind=${kind}&to=${agDate}`).then((r) => r.json()).then(setAg).finally(() => setLoadingAg(false));
+  };
+  useEffect(() => { if (tab === "aging" && !ag) loadAg(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
 
   // --- Χειροκίνητο άρθρο ---
   const setJeLine = (idx, patch) => setJeLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
@@ -170,6 +192,8 @@ export default function AccountantPage() {
     ["entry", t("accountant.tabManualEntry")],
     ["pl", t("accountant.tabProfitLoss")],
     ["bs", t("accountant.tabBalanceSheet")],
+    ["cf", t("accountant.tabCashFlow")],
+    ["aging", t("accountant.tabAging")],
     ["gl", t("accountant.tabGeneralLedger")],
   ];
 
@@ -594,7 +618,13 @@ export default function AccountantPage() {
                 <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("profitLoss.assets")}</div>
                 <table className="w-full text-sm">
                   <tbody className="divide-y divide-slate-100">
-                    {bs.assets.length === 0 ? <tr><td className="table-td text-slate-400" colSpan={2}>—</td></tr> : bs.assets.map((r) => <AccountRow key={r.id} row={r} />)}
+                    {(bs.groups || []).filter((g) => g.side === "assets").map((g) => (
+                      <Fragment key={g.key}>
+                        <tr className="bg-slate-50"><td className="table-td font-semibold text-slate-600" colSpan={2}>{t(`balanceSheet.${g.key}`)}</td></tr>
+                        {g.rows.map((r) => <AccountRow key={r.id} row={r} />)}
+                        <tr className="border-t border-slate-200"><td className="table-td text-slate-500">{t("balanceSheet.subtotal")}</td><td className="table-td text-right font-semibold">{money(g.total, cur)}</td></tr>
+                      </Fragment>
+                    ))}
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("profitLoss.totalAssets")}</td><td className="table-td text-right">{money(bs.totalAssets, cur)}</td></tr>
@@ -605,14 +635,117 @@ export default function AccountantPage() {
                 <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("profitLoss.liabilitiesAndEquity")}</div>
                 <table className="w-full text-sm">
                   <tbody className="divide-y divide-slate-100">
-                    {bs.liabilities.map((r) => <AccountRow key={r.id} row={r} />)}
-                    <tr className="border-t border-slate-200 font-semibold"><td className="table-td">{t("profitLoss.totalLiabilities")}</td><td className="table-td text-right">{money(bs.totalLiabilities, cur)}</td></tr>
+                    {(bs.groups || []).filter((g) => g.side === "liabilities").map((g) => (
+                      <Fragment key={g.key}>
+                        <tr className="bg-slate-50"><td className="table-td font-semibold text-slate-600" colSpan={2}>{t(`balanceSheet.${g.key}`)}</td></tr>
+                        {g.rows.map((r) => <AccountRow key={r.id} row={r} />)}
+                        <tr className="border-t border-slate-200"><td className="table-td text-slate-500">{t("balanceSheet.subtotal")}</td><td className="table-td text-right font-semibold">{money(g.total, cur)}</td></tr>
+                      </Fragment>
+                    ))}
+                    <tr className="font-semibold"><td className="table-td">{t("profitLoss.totalLiabilities")}</td><td className="table-td text-right">{money(bs.totalLiabilities, cur)}</td></tr>
+
+                    <tr className="bg-slate-50"><td className="table-td font-semibold text-slate-600" colSpan={2}>{t("balanceSheet.equity")}</td></tr>
                     {bs.equity.map((r) => <AccountRow key={r.id} row={r} />)}
                     <tr><td className="table-td">{t("profitLoss.currentEarnings")}</td><td className="table-td text-right">{money(bs.netIncome, cur)}</td></tr>
                     <tr className="border-t border-slate-200 font-semibold"><td className="table-td">{t("profitLoss.totalEquity")}</td><td className="table-td text-right">{money(bs.totalEquity, cur)}</td></tr>
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("profitLoss.totalLiabilitiesAndEquity")}</td><td className="table-td text-right">{money(bs.totalLiabilitiesAndEquity, cur)}</td></tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "cf" && (
+        <div className="space-y-4">
+          <div className="card p-4 flex flex-wrap items-end gap-3">
+            <div><label className="label">{t("reports.from")}</label><input type="date" className="input" value={cfFrom} onChange={(e) => setCfFrom(e.target.value)} /></div>
+            <div><label className="label">{t("reports.to")}</label><input type="date" className="input" value={cfTo} onChange={(e) => setCfTo(e.target.value)} /></div>
+            <button onClick={loadCf} className="btn-primary">{t("reports.apply")}</button>
+          </div>
+          {loadingCf || !cf ? <div className="text-slate-400">{t("common.loading")}</div> : (
+            <div className="card overflow-hidden max-w-2xl">
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-slate-100">
+                  <tr><td className="table-td text-slate-500">{t("cashFlow.openingCash")}</td><td className="table-td text-right font-semibold">{money(cf.openingCash, cur)}</td></tr>
+
+                  {[["operating", cf.operating, cf.totalOperating], ["investing", cf.investing, cf.totalInvesting], ["financing", cf.financing, cf.totalFinancing]].map(([key, rows, total]) => (
+                    <Fragment key={key}>
+                      <tr className="bg-slate-50"><td className="table-td font-semibold text-slate-600" colSpan={2}>{t(`cashFlow.${key}`)}</td></tr>
+                      {rows.length === 0 ? (
+                        <tr><td className="table-td text-slate-400" colSpan={2}>—</td></tr>
+                      ) : rows.map((r, i) => (
+                        <tr key={i}>
+                          <td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{r.number}</span>{rowName(r)}</td>
+                          <td className={`table-td text-right ${r.amount < 0 ? "text-red-600" : ""}`}>{money(r.amount, cur)}</td>
+                        </tr>
+                      ))}
+                      <tr className="border-t border-slate-200 font-semibold"><td className="table-td">{t("cashFlow.sectionTotal")}</td><td className="table-td text-right">{money(total, cur)}</td></tr>
+                    </Fragment>
+                  ))}
+
+                  <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("cashFlow.netChange")}</td><td className={`table-td text-right ${cf.netChange < 0 ? "text-red-600" : "text-emerald-700"}`}>{money(cf.netChange, cur)}</td></tr>
+                  <tr className="font-bold text-base"><td className="table-td">{t("cashFlow.closingCash")}</td><td className="table-td text-right">{money(cf.closingCash, cur)}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "aging" && (
+        <div className="space-y-4">
+          <div className="card p-4 flex flex-wrap items-end gap-3">
+            <div className="flex gap-1 bg-slate-100 rounded-md p-1">
+              <button onClick={() => { setAgKind("ar"); setAg(null); loadAg("ar"); }} className={`px-3 py-1.5 rounded text-sm font-medium ${agKind === "ar" ? "bg-white shadow-sm text-slate-800" : "text-slate-500"}`}>{t("aging.customers")}</button>
+              <button onClick={() => { setAgKind("ap"); setAg(null); loadAg("ap"); }} className={`px-3 py-1.5 rounded text-sm font-medium ${agKind === "ap" ? "bg-white shadow-sm text-slate-800" : "text-slate-500"}`}>{t("aging.suppliers")}</button>
+            </div>
+            <div><label className="label">{t("trialBalance.asOf")}</label><input type="date" className="input" value={agDate} onChange={(e) => setAgDate(e.target.value)} /></div>
+            <button onClick={() => loadAg()} className="btn-primary">{t("reports.apply")}</button>
+          </div>
+          {loadingAg || !ag ? <div className="text-slate-400">{t("common.loading")}</div> : (
+            <div className="card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="table-th">{agKind === "ar" ? t("invoices.colCustomer") : t("purchases.colSupplier")}</th>
+                      <th className="table-th text-right">{t("aging.current")}</th>
+                      <th className="table-th text-right">{t("aging.d31")}</th>
+                      <th className="table-th text-right">{t("aging.d61")}</th>
+                      <th className="table-th text-right">{t("aging.d91")}</th>
+                      <th className="table-th text-right">{t("common.total")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {ag.rows.length === 0 ? (
+                      <tr><td className="table-td text-slate-400" colSpan={6}>{t("aging.nothingOutstanding")}</td></tr>
+                    ) : ag.rows.map((r, i) => (
+                      <tr key={i} className="hover:bg-slate-50">
+                        <td className="table-td font-medium">
+                          {r.name}
+                          <div className="text-xs text-slate-400 font-normal">{r.items.map((it) => it.number).join(", ")}</div>
+                        </td>
+                        <td className="table-td text-right">{r.d0 ? money(r.d0, cur) : ""}</td>
+                        <td className="table-td text-right">{r.d31 ? money(r.d31, cur) : ""}</td>
+                        <td className="table-td text-right">{r.d61 ? money(r.d61, cur) : ""}</td>
+                        <td className={`table-td text-right ${r.d91 ? "text-red-600 font-semibold" : ""}`}>{r.d91 ? money(r.d91, cur) : ""}</td>
+                        <td className="table-td text-right font-semibold">{money(r.total, cur)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-slate-300 font-bold">
+                      <td className="table-td">{t("common.total")}</td>
+                      <td className="table-td text-right">{money(ag.totals.d0, cur)}</td>
+                      <td className="table-td text-right">{money(ag.totals.d31, cur)}</td>
+                      <td className="table-td text-right">{money(ag.totals.d61, cur)}</td>
+                      <td className="table-td text-right">{money(ag.totals.d91, cur)}</td>
+                      <td className="table-td text-right">{money(ag.totals.total, cur)}</td>
+                    </tr>
                   </tfoot>
                 </table>
               </div>

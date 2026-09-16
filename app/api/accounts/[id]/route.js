@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB } from "@/lib/db";
-import { ACCOUNT_TYPES } from "@/lib/accounts";
+import { ACCOUNT_TYPES, ACCOUNT_SUBTYPES, defaultSubtypeFor } from "@/lib/accounts";
 
 export async function PUT(request, { params }) {
   const body = await request.json();
@@ -22,6 +22,10 @@ export async function PUT(request, { params }) {
   if (body.type != null && !acc.isSystem) {
     if (!ACCOUNT_TYPES.includes(body.type)) return NextResponse.json({ error: "errors.accountTypeRequired" }, { status: 400 });
     acc.type = body.type;
+    if (!(ACCOUNT_SUBTYPES[acc.type] || []).includes(acc.subtype)) acc.subtype = defaultSubtypeFor(acc.type);
+  }
+  if (body.subtype != null && (ACCOUNT_SUBTYPES[acc.type] || []).includes(body.subtype)) {
+    acc.subtype = body.subtype;
   }
   if (body.active != null) acc.active = !!body.active;
   acc.updatedAt = new Date().toISOString();
