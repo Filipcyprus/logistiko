@@ -8,7 +8,7 @@ import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const CATEGORY_KEYS = ["rawMaterials", "ink", "rent", "utilities", "payroll", "equipment", "shipping", "marketing", "general", "purchaseOrder"];
-const empty = { date: todayISO(), category: "general", description: "", supplier: "", net: 0, vat: 0, amount: 0, paymentMethod: "cash" };
+const empty = { date: todayISO(), category: "general", description: "", supplier: "", net: 0, vat: 0, amount: 0, paymentMethod: "cash", accountId: "" };
 
 const PO_STATUS = {
   draft: { key: "purchases.statusDraft", color: "bg-slate-100 text-slate-600" },
@@ -29,6 +29,7 @@ function ExpensesInner() {
   const [month, setMonth] = useState(todayISO().slice(0, 7));
   const [suppliers, setSuppliers] = useState([]);
   const [settings, setSettings] = useState(null);
+  const [accounts, setAccounts] = useState([]);
 
   const load = () => {
     fetch("/api/expenses").then((r) => r.json()).then(setExpenses);
@@ -38,7 +39,21 @@ function ExpensesInner() {
     load();
     fetch("/api/suppliers").then((r) => r.json()).then(setSuppliers);
     fetch("/api/settings").then((r) => r.json()).then(setSettings);
+    fetch("/api/accounts").then((r) => (r.ok ? r.json() : [])).then(setAccounts);
   }, []);
+
+  const accName = (a) => (a?.name ? a.name : a?.nameKey ? t(a.nameKey) : "");
+  // Ποιον λογαριασμό θα χρεώσει το έξοδο αν δεν επιλεγεί ρητά — ίδια αντιστοίχιση με το
+  // lib/accounts.js, ώστε η φόρμα να δείχνει από πριν πού θα καταλήξει.
+  const CATEGORY_ACCOUNT = {
+    rawMaterials: "expMaterials", ink: "expMaterials", rent: "expRent",
+    utilities: "expUtilities", payroll: "expPayroll", equipment: "expEquipment",
+    shipping: "expShipping", marketing: "expMarketing",
+  };
+  const autoAccountFor = (category) => {
+    const key = CATEGORY_ACCOUNT[category];
+    return accounts.find((a) => a.systemKey === (key || "expensesNet"));
+  };
 
   const switchTab = (tb) => { setTab(tb); router.replace(tb === "purchases" ? "/exoda?tab=purchases" : "/exoda"); };
 
@@ -189,6 +204,18 @@ function ExpensesInner() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div><label className="label">{t("expenses.fieldDate")}</label><input type="date" className="input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
               <div><label className="label">{t("expenses.fieldCategory")}</label><select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{CATEGORY_KEYS.map((k) => <option key={k} value={k}>{categoryLabel(k)}</option>)}</select></div>
+              <div className="sm:col-span-2">
+                <label className="label">{t("expenses.fieldAccount")}</label>
+                <select className="input" value={form.accountId || ""} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
+                  <option value="">
+                    {t("expenses.accountFromCategory")}
+                    {autoAccountFor(form.category) ? ` — ${autoAccountFor(form.category).number} ${accName(autoAccountFor(form.category))}` : ""}
+                  </option>
+                  {accounts.filter((a) => a.type === "expense" && a.active !== false).map((a) => (
+                    <option key={a.id} value={a.id}>{a.number} — {accName(a)}</option>
+                  ))}
+                </select>
+              </div>
               <div className="sm:col-span-2"><label className="label">{t("expenses.fieldDescription")}</label><input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
               <div><label className="label">{t("expenses.fieldSupplier")}</label><input className="input" list="supplier-list" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} /><datalist id="supplier-list">{suppliers.map((s) => <option key={s.id} value={s.name} />)}</datalist></div>
               <div><label className="label">{t("expenses.fieldPaymentMethod")}</label><select className="input" value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
