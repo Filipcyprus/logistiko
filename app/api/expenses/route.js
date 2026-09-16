@@ -24,10 +24,16 @@ export async function POST(request) {
     category: body.category || "general",
     description: body.description.trim(),
     supplier: body.supplier || "",
+    // Σύνδεση με καρτέλα προμηθευτή όταν το όνομα ταιριάζει — χρειάζεται για να μπορεί να
+    // εξοφληθεί αργότερα ένα απλήρωτο τιμολόγιο (βλ. /api/supplier-payments).
+    supplierId: body.supplierId || null,
     net: Number(body.net || 0),
     vat: Number(body.vat || 0),
     amount: Number(body.amount || 0),
+    // "credit" = ήρθε το τιμολόγιο αλλά δεν πληρώθηκε ακόμα.
     paymentMethod: body.paymentMethod || "cash",
+    paidAmount: body.paymentMethod === "credit" ? 0 : Number(body.amount || 0),
+    paid: body.paymentMethod !== "credit",
     // Προαιρετικός συγκεκριμένος λογαριασμός εξόδου (π.χ. 5200 Ενοίκια) — αλλιώς γενικά έξοδα.
     accountId: body.accountId || null,
     notes: body.notes || "",

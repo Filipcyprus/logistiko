@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readDB, writeDB } from "@/lib/db";
 import { repostSource, removeEntriesBySource } from "@/lib/posting";
 import { entryForExpense } from "@/lib/postingRules";
+import { syncExpensePaid } from "@/lib/payables";
 
 // Κάθε αλλαγή/διαγραφή εξόδου ΠΡΕΠΕΙ να ενημερώνει και το Γενικό Καθολικό — αλλιώς τα βιβλία
 // δείχνουν ποσό που δεν υπάρχει πια στα παραστατικά. Σε κλειδωμένη περίοδο δεν αλλάζει τίποτα:
@@ -17,6 +18,8 @@ export async function PUT(request, { params }) {
   if (!rec) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
 
   Object.assign(rec, patch, { updatedAt: new Date().toISOString() });
+  // Το ποσό ή ο τρόπος πληρωμής μπορεί να άλλαξε — ξαναϋπολόγισε τι μένει απλήρωτο.
+  syncExpensePaid(db, rec);
 
   try {
     repostSource(db, "expense", rec.id, entryForExpense(db, rec));

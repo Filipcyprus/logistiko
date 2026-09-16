@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-const empty = { name: "", afm: "", profession: "", address: "", city: "", phone: "", email: "", notes: "" };
+const empty = { name: "", afm: "", profession: "", address: "", city: "", phone: "", email: "", notes: "", consignmentDefault: false };
 
 export default function SuppliersPage() {
   const { t } = useLanguage();
@@ -55,7 +55,11 @@ export default function SuppliersPage() {
               {filtered.length === 0 ? <tr><td className="table-td text-slate-400" colSpan={6}>{t("suppliers.noSuppliers")}</td></tr> : filtered.map((s) => (
                 <tr key={s.id} className="hover:bg-slate-50">
                   <td className="table-td text-slate-500 font-mono text-xs">{s.code || "—"}</td>
-                  <td className="table-td font-medium">{s.name}{s.profession && <div className="text-xs text-slate-400">{s.profession}</div>}</td>
+                  <td className="table-td font-medium">
+                    {s.name}
+                    {s.consignmentDefault && <span className="badge bg-amber-100 text-amber-700 ml-2 text-xs font-normal">{t("suppliers.consignmentBadge")}</span>}
+                    {s.profession && <div className="text-xs text-slate-400">{s.profession}</div>}
+                  </td>
                   <td className="table-td">{s.afm || "—"}</td>
                   <td className="table-td">{s.phone || "—"}</td>
                   <td className="table-td">{s.city || "—"}</td>
@@ -83,6 +87,15 @@ export default function SuppliersPage() {
               <div><label className="label">{t("suppliers.fieldCity")}</label><input className="input" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
               <div className="sm:col-span-2"><label className="label">{t("suppliers.fieldEmail")}</label><input className="input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div className="sm:col-span-2"><label className="label">{t("suppliers.fieldNotes")}</label><textarea className="input" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+              <div className="sm:col-span-2">
+                <label className="flex items-start gap-2.5 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+                  <input type="checkbox" className="mt-0.5" checked={!!form.consignmentDefault} onChange={(e) => setForm({ ...form, consignmentDefault: e.target.checked })} />
+                  <span>
+                    <span className="text-sm font-medium text-slate-700">{t("suppliers.fieldConsignmentDefault")}</span>
+                    <span className="block text-xs text-slate-400 mt-0.5">{t("suppliers.fieldConsignmentDefaultHint")}</span>
+                  </span>
+                </label>
+              </div>
             </div>
             <div className="flex justify-end gap-2 mt-5"><button onClick={() => setForm(null)} className="btn-secondary">{t("common.cancel")}</button><button onClick={save} disabled={saving} className="btn-primary">{saving ? t("common.saving") : t("common.save")}</button></div>
           </div>

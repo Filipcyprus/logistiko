@@ -26,6 +26,10 @@ export async function POST(request) {
     phone: body.phone || "",
     email: body.email || "",
     notes: body.notes || "",
+    // Προμηθευτής που δουλεύει συνήθως με παρακαταθήκη. ΔΕΝ είναι κανόνας: ισχύει για κάποια μόνο
+    // από τα είδη του, γι' αυτό η ερώτηση γίνεται ούτως ή άλλως σε κάθε παραλαβή — αυτό εδώ ορίζει
+    // απλώς ποια απάντηση είναι προεπιλεγμένη.
+    consignmentDefault: !!body.consignmentDefault,
     createdAt: new Date().toISOString(),
   };
   db.suppliers = [rec, ...(db.suppliers || [])];

@@ -7,6 +7,7 @@ import { formatDate, money, todayISO } from "@/lib/format";
 import LineItems from "@/components/LineItems";
 import Icon from "@/components/Icon";
 import EmailButton from "@/components/EmailButton";
+import ReviewDialog from "@/components/ReviewDialog";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const STATUS = {
@@ -33,6 +34,8 @@ export default function PurchaseView() {
   const [payingSupplier, setPayingSupplier] = useState(false);
   const [scanCode, setScanCode] = useState("");
   const [receiving, setReceiving] = useState(false);
+  const [receiveChecks, setReceiveChecks] = useState(null);
+  const [supplier, setSupplier] = useState(null);
   const scanRef = useRef();
   const [editing, setEditing] = useState(false);
   const [editItems, setEditItems] = useState([]);
@@ -54,6 +57,14 @@ export default function PurchaseView() {
     document.title = po.number;
     return () => { document.title = prevTitle; };
   }, [po]);
+
+  // Η καρτέλα του προμηθευτή διαβάζεται ζωντανά, όχι από το αντίγραφο πάνω στην παραγγελία: το
+  // αντίγραφο κρατήθηκε τη στιγμή της παραγγελίας και μπορεί να μη γνωρίζει ότι ο προμηθευτής
+  // δουλεύει με παρακαταθήκη.
+  useEffect(() => {
+    if (!po?.supplierId) return;
+    fetch(`/api/suppliers/${po.supplierId}`).then((r) => (r.ok ? r.json() : null)).then(setSupplier);
+  }, [po?.supplierId]);
 
   if (notFound) return <div className="text-slate-500">{t("common.notFound")} <Link href="/exoda?tab=purchases" className="text-brand-600">{t("common.returnLink")}</Link></div>;
   if (!po || !settings) return <div className="text-slate-400">{t("common.loading")}</div>;
@@ -108,7 +119,9 @@ export default function PurchaseView() {
   const openReceive = () => {
     setReceiveItems((po.items || []).map((it) => ({ ...it, receivedQty: it.quantity })));
     setReceivePaymentMethod("cash");
-    setReceiveConsignment(false);
+    // Ο προμηθευτής που δουλεύει συνήθως με παρακαταθήκη ορίζει μόνο την προεπιλογή — η ερώτηση
+    // μένει, γιατί δεν έρχονται όλα τα είδη του με παρακαταθήκη.
+    setReceiveConsignment(!!supplier?.consignmentDefault);
     setReceiveOpen(true);
     setTimeout(() => scanRef.current?.focus(), 50);
   };
@@ -123,6 +136,44 @@ export default function PurchaseView() {
     }
     setScanCode("");
   };
+  // Η παραλαβή είναι το βήμα που κινεί ΚΑΙ απόθεμα ΚΑΙ βιβλία, και δεν ξαναγίνεται — οπότε ό,τι
+  // λείπει πρέπει να φανεί πριν, όχι μετά.
+  const receiveChecksFor = () => {
+    const out = [];
+    const lines = receiveItems.filter((it) => Number(it.receivedQty || 0) > 0);
+    if (lines.length === 0) { out.push({ level: "error", text: t("review.recNothing") }); return out; }
+
+    const noCost = lines.filter((it) => !(Number(it.unitCost) > 0));
+    if (noCost.length > 0 && !receiveConsignment) {
+      out.push({ level: "warn", text: t("review.recNoCost", { count: noCost.length, items: noCost.slice(0, 3).map((it) => it.description).join(", ") }) });
+    }
+
+    const different = lines.filter((it) => Number(it.receivedQty) !== Number(it.quantity));
+    const missing = receiveItems.filter((it) => !(Number(it.receivedQty) > 0) && Number(it.quantity) > 0);
+    if (different.length > 0) out.push({ level: "warn", text: t("review.recQtyDiffers", { count: different.length }) });
+    if (missing.length > 0) out.push({ level: "warn", text: t("review.recMissingLines", { count: missing.length }) });
+
+    if (!po.attachment) out.push({ level: "warn", text: t("review.recNoInvoice") });
+
+    const total = lines.reduce((a, it) => a + Number(it.receivedQty || 0) * Number(it.unitCost || 0), 0);
+    if (receiveConsignment) {
+      out.push({ level: "info", text: t("review.recConsignment") });
+      if (supplier && !supplier.consignmentDefault) out.push({ level: "warn", text: t("review.recConsignmentUnusual", { name: supplier.name }) });
+    } else {
+      out.push({ level: "info", text: t("review.recWillPost", { total: money(total, cur) }) });
+      if (receivePaymentMethod === "credit") out.push({ level: "info", text: t("review.recOnAccount") });
+      if (supplier?.consignmentDefault) out.push({ level: "warn", text: t("review.recNotConsignmentUnusual", { name: supplier.name }) });
+    }
+
+    return out;
+  };
+
+  const requestReceive = () => {
+    const found = receiveChecksFor();
+    if (found.length > 0) { setReceiveChecks(found); return; }
+    confirmReceive();
+  };
+
   const confirmReceive = async () => {
     setReceiving(true);
     // Παραλαβή επί παρακαταθήκης (consignment): το εμπόρευμα μπαίνει στο στοκ αλλά ΔΕΝ το
@@ -136,6 +187,7 @@ export default function PurchaseView() {
       }),
     });
     setReceiving(false);
+    setReceiveChecks(null);
     setReceiveOpen(false);
     load();
   };
@@ -328,6 +380,9 @@ export default function PurchaseView() {
 
             <div className="mt-4">
               <label className="label">{t("purchases.consignmentQuestion")}</label>
+              {supplier?.consignmentDefault && (
+                <p className="text-xs text-amber-600 mb-1.5">{t("purchases.supplierUsuallyConsignment", { name: supplier.name })}</p>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -379,11 +434,21 @@ export default function PurchaseView() {
 
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setReceiveOpen(false)} className="btn-secondary">{t("common.cancel")}</button>
-              <button onClick={confirmReceive} disabled={receiving} className="btn-primary">{receiving ? t("common.saving") : t("purchases.confirmReceiveBtn")}</button>
+              <button onClick={requestReceive} disabled={receiving} className="btn-primary">{receiving ? t("common.saving") : t("purchases.confirmReceiveBtn")}</button>
             </div>
           </div>
         </div>
       )}
+
+      <ReviewDialog
+        open={!!receiveChecks}
+        title={t("review.recTitle")}
+        checks={receiveChecks || []}
+        busy={receiving}
+        confirmLabel={t("purchases.confirmReceiveBtn")}
+        onCancel={() => setReceiveChecks(null)}
+        onConfirm={confirmReceive}
+      />
 
       {paySupplierOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => !payingSupplier && setPaySupplierOpen(false)}>
