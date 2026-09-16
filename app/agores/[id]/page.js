@@ -127,7 +127,7 @@ export default function PurchaseView() {
     setReceiving(true);
     // Παραλαβή επί παρακαταθήκης (consignment): το εμπόρευμα μπαίνει στο στοκ αλλά ΔΕΝ το
     // κατέχουμε ακόμα λογιστικά ούτε έχει πληρωθεί — δεν στέλνουμε καθόλου τρόπο πληρωμής, ώστε το
-    // Ημερολόγιο (lib/ledger.js) να μην καταχωρίσει Απόθεμα/Ταμείο-Τράπεζα γι' αυτήν την παραλαβή.
+    // Ημερολόγιο (lib/postingRules.js) να μην καταχωρίσει Απόθεμα/Ταμείο-Τράπεζα γι' αυτήν την παραλαβή.
     await fetch(`/api/purchases/${id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

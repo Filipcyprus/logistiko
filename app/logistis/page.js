@@ -1,16 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { money, formatDate } from "@/lib/format";
+import { money, formatDate, todayISO } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { accountNumber, ACCOUNTS } from "@/lib/accounts";
 
 function firstOfMonth() {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
 }
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { return todayISO(); }
 
 const PO_STATUS_COLOR = {
   draft: "bg-slate-100 text-slate-600",
@@ -18,37 +17,62 @@ const PO_STATUS_COLOR = {
   received: "bg-emerald-100 text-emerald-700",
 };
 
+const emptyLine = () => ({ accountId: "", debit: "", credit: "", memo: "" });
+
 export default function AccountantPage() {
   const { t } = useLanguage();
   const [tab, setTab] = useState("invoices");
   const [data, setData] = useState(null);
+  const [accounts, setAccounts] = useState([]);
+
   const [from, setFrom] = useState(firstOfMonth());
   const [to, setTo] = useState(today());
   const [report, setReport] = useState(null);
   const [loadingReport, setLoadingReport] = useState(false);
+
   const [tbDate, setTbDate] = useState(today());
   const [tb, setTb] = useState(null);
   const [loadingTb, setLoadingTb] = useState(false);
+
   const [jFrom, setJFrom] = useState(firstOfMonth());
   const [jTo, setJTo] = useState(today());
+  const [jQuery, setJQuery] = useState("");
   const [journal, setJournal] = useState(null);
   const [loadingJournal, setLoadingJournal] = useState(false);
+
   const [plFrom, setPlFrom] = useState(firstOfMonth());
   const [plTo, setPlTo] = useState(today());
   const [pl, setPl] = useState(null);
   const [loadingPl, setLoadingPl] = useState(false);
+
   const [bsDate, setBsDate] = useState(today());
   const [bs, setBs] = useState(null);
   const [loadingBs, setLoadingBs] = useState(false);
-  const [glAccount, setGlAccount] = useState("cash");
+
+  const [glAccount, setGlAccount] = useState("");
   const [glFrom, setGlFrom] = useState(firstOfMonth());
   const [glTo, setGlTo] = useState(today());
   const [gl, setGl] = useState(null);
   const [loadingGl, setLoadingGl] = useState(false);
 
+  const [jeDate, setJeDate] = useState(today());
+  const [jeMemo, setJeMemo] = useState("");
+  const [jeLines, setJeLines] = useState([emptyLine(), emptyLine()]);
+  const [jePosting, setJePosting] = useState(false);
+  const [jeResult, setJeResult] = useState(null);
+
   useEffect(() => {
     fetch("/api/accountant").then((r) => r.json()).then(setData);
+    fetch("/api/accounts").then((r) => (r.ok ? r.json() : [])).then((list) => {
+      setAccounts(list);
+      if (list.length > 0) setGlAccount((cur) => cur || list[0].id);
+    });
   }, []);
+
+  // Ονομασία λογαριασμού: ο χρήστης μπορεί να τη μετονομάσει (name)· αλλιώς δείχνουμε τη
+  // μεταφρασμένη ονομασία του ενσωματωμένου λογαριασμού.
+  const accName = (a) => (a?.name ? a.name : a?.nameKey ? t(a.nameKey) : "");
+  const rowName = (r) => (r.name ? r.name : r.nameKey ? t(r.nameKey) : "");
 
   const loadReport = () => {
     setLoadingReport(true);
@@ -64,7 +88,8 @@ export default function AccountantPage() {
 
   const loadJournal = (page = 1) => {
     setLoadingJournal(true);
-    fetch(`/api/journal?from=${jFrom}&to=${jTo}&page=${page}&pageSize=50`).then((r) => r.json()).then(setJournal).finally(() => setLoadingJournal(false));
+    const qs = `from=${jFrom}&to=${jTo}&page=${page}&pageSize=50${jQuery ? `&q=${encodeURIComponent(jQuery)}` : ""}`;
+    fetch(`/api/journal?${qs}`).then((r) => r.json()).then(setJournal).finally(() => setLoadingJournal(false));
   };
   useEffect(() => { if (tab === "journal" && !journal) loadJournal(1); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
 
@@ -81,10 +106,55 @@ export default function AccountantPage() {
   useEffect(() => { if (tab === "bs" && !bs) loadBs(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
 
   const loadGl = () => {
+    if (!glAccount) return;
     setLoadingGl(true);
-    fetch(`/api/general-ledger?account=${glAccount}&from=${glFrom}&to=${glTo}`).then((r) => r.json()).then(setGl).finally(() => setLoadingGl(false));
+    fetch(`/api/general-ledger?accountId=${glAccount}&from=${glFrom}&to=${glTo}`).then((r) => r.json()).then(setGl).finally(() => setLoadingGl(false));
   };
-  useEffect(() => { if (tab === "gl" && !gl) loadGl(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
+  useEffect(() => { if (tab === "gl" && !gl && glAccount) loadGl(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab, glAccount]);
+
+  // --- Χειροκίνητο άρθρο ---
+  const setJeLine = (idx, patch) => setJeLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  const jeDebitTotal = Math.round(jeLines.reduce((a, l) => a + (Number(l.debit) || 0), 0) * 100) / 100;
+  const jeCreditTotal = Math.round(jeLines.reduce((a, l) => a + (Number(l.credit) || 0), 0) * 100) / 100;
+  const jeDiff = Math.round((jeDebitTotal - jeCreditTotal) * 100) / 100;
+  const jeBalanced = Math.abs(jeDiff) < 0.005 && jeDebitTotal > 0;
+
+  const postJe = async () => {
+    setJePosting(true);
+    setJeResult(null);
+    const lines = jeLines
+      .filter((l) => l.accountId && (Number(l.debit) || Number(l.credit)))
+      .map((l) => ({ accountId: l.accountId, debit: Number(l.debit) || 0, credit: Number(l.credit) || 0, memo: l.memo }));
+    const res = await fetch("/api/journal-entries", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: jeDate, memo: jeMemo, lines }),
+    });
+    setJePosting(false);
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setJeResult({ ok: true, number: body.number });
+      setJeMemo("");
+      setJeLines([emptyLine(), emptyLine()]);
+      setTb(null); setPl(null); setBs(null); setGl(null); setJournal(null);
+    } else {
+      setJeResult({ ok: false, error: body.error ? t(body.error) : t("common.error") });
+    }
+  };
+
+  const reverseEntry = async (entry) => {
+    if (!confirm(t("manualEntry.confirmReverse", { number: entry.number }))) return;
+    const res = await fetch(`/api/journal-entries?reverse=${entry.id}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: todayISO() }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      alert(body.error ? t(body.error) : t("common.error"));
+      return;
+    }
+    setTb(null); setPl(null); setBs(null); setGl(null);
+    loadJournal(journal?.page || 1);
+  };
 
   if (!data) return <div className="text-slate-400">{t("common.loading")}</div>;
   const cur = data.settings?.currency || "€";
@@ -97,10 +167,22 @@ export default function AccountantPage() {
     ["vat", t("accountant.tabVat")],
     ["trial", t("accountant.tabTrialBalance")],
     ["journal", t("accountant.tabJournal")],
+    ["entry", t("accountant.tabManualEntry")],
     ["pl", t("accountant.tabProfitLoss")],
     ["bs", t("accountant.tabBalanceSheet")],
     ["gl", t("accountant.tabGeneralLedger")],
   ];
+
+  // Κοινή γραμμή λογαριασμού για τις καταστάσεις: "1000  Ταμείο ........ 123,45 €"
+  const AccountRow = ({ row, value }) => (
+    <tr>
+      <td className="table-td">
+        <span className="text-slate-400 mr-1.5 font-mono text-xs">{row.number}</span>
+        {rowName(row)}
+      </td>
+      <td className="table-td text-right">{money(value ?? row.balance, cur)}</td>
+    </tr>
+  );
 
   return (
     <div className="space-y-6">
@@ -258,42 +340,43 @@ export default function AccountantPage() {
           </div>
           {loadingTb || !tb ? <div className="text-slate-400">{t("common.loading")}</div> : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="card overflow-hidden">
-                  <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("trialBalance.debit")}</div>
+              <div className="card overflow-hidden">
+                <div className="overflow-x-auto">
                   <table className="w-full text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="table-th">{t("coa.colNumber")}</th>
+                        <th className="table-th">{t("coa.colName")}</th>
+                        <th className="table-th">{t("coa.colType")}</th>
+                        <th className="table-th text-right">{t("trialBalance.debit")}</th>
+                        <th className="table-th text-right">{t("trialBalance.credit")}</th>
+                      </tr>
+                    </thead>
                     <tbody className="divide-y divide-slate-100">
-                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("cash")}</span>{t("trialBalance.cash")}</td><td className="table-td text-right">{money(tb.cash, cur)}</td></tr>
-                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("bank")}</span>{t("trialBalance.bank")}</td><td className="table-td text-right">{money(tb.bank, cur)}</td></tr>
-                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("receivable")}</span>{t("trialBalance.receivable")}</td><td className="table-td text-right">{money(tb.receivable, cur)}</td></tr>
-                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("inventory")}</span>{t("trialBalance.inventory")}</td><td className="table-td text-right">{money(tb.inventory, cur)}</td></tr>
-                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("vatInput")}</span>{t("trialBalance.vatInput")}</td><td className="table-td text-right">{money(tb.expensesVat, cur)}</td></tr>
-                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("cogs")}</span>{t("trialBalance.cogs")}</td><td className="table-td text-right">{money(tb.cogs, cur)}</td></tr>
-                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("expensesNet")}</span>{t("trialBalance.expensesNet")}</td><td className="table-td text-right">{money(tb.expensesNet, cur)}</td></tr>
+                      {tb.lines.length === 0 ? (
+                        <tr><td className="table-td text-slate-400" colSpan={5}>{t("journal.noEntries")}</td></tr>
+                      ) : tb.lines.map((l) => (
+                        <tr key={l.id} className="hover:bg-slate-50">
+                          <td className="table-td font-mono text-xs text-slate-500">{l.number}</td>
+                          <td className="table-td font-medium">{rowName(l)}</td>
+                          <td className="table-td text-slate-500 text-xs">{t(`coa.types.${l.type}`)}</td>
+                          <td className="table-td text-right">{l.debitBalance ? money(l.debitBalance, cur) : ""}</td>
+                          <td className="table-td text-right">{l.creditBalance ? money(l.creditBalance, cur) : ""}</td>
+                        </tr>
+                      ))}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("common.total")}</td><td className="table-td text-right">{money(tb.debitTotal, cur)}</td></tr>
-                    </tfoot>
-                  </table>
-                </div>
-                <div className="card overflow-hidden">
-                  <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("trialBalance.credit")}</div>
-                  <table className="w-full text-sm">
-                    <tbody className="divide-y divide-slate-100">
-                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("payable")}</span>{t("trialBalance.payable")}</td><td className="table-td text-right">{money(tb.payable, cur)}</td></tr>
-                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("vatOutput")}</span>{t("trialBalance.vatOutput")}</td><td className="table-td text-right">{money(tb.salesVat, cur)}</td></tr>
-                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("sales")}</span>{t("trialBalance.sales")}</td><td className="table-td text-right">{money(tb.salesNet, cur)}</td></tr>
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("common.total")}</td><td className="table-td text-right">{money(tb.creditTotal, cur)}</td></tr>
+                      <tr className="border-t-2 border-slate-300 font-bold">
+                        <td className="table-td" colSpan={3}>{t("common.total")}</td>
+                        <td className="table-td text-right">{money(tb.totalDebit, cur)}</td>
+                        <td className="table-td text-right">{money(tb.totalCredit, cur)}</td>
+                      </tr>
                     </tfoot>
                   </table>
                 </div>
               </div>
 
-              {Math.abs(tb.debitTotal - tb.creditTotal) > 0.01 && (
-                <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{t("trialBalance.mismatch")}</div>
-              )}
+              {!tb.balanced && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{t("trialBalance.mismatch")}</div>}
 
               <div className="card p-4 space-y-2 text-sm">
                 <div className="flex items-center justify-between">
@@ -317,6 +400,7 @@ export default function AccountantPage() {
           <div className="card p-4 flex flex-wrap items-end gap-3">
             <div><label className="label">{t("reports.from")}</label><input type="date" className="input" value={jFrom} onChange={(e) => setJFrom(e.target.value)} /></div>
             <div><label className="label">{t("reports.to")}</label><input type="date" className="input" value={jTo} onChange={(e) => setJTo(e.target.value)} /></div>
+            <div className="flex-1 min-w-[180px]"><label className="label">{t("journal.search")}</label><input className="input" value={jQuery} onChange={(e) => setJQuery(e.target.value)} placeholder={t("journal.searchPlaceholder")} /></div>
             <button onClick={() => loadJournal(1)} className="btn-primary">{t("reports.apply")}</button>
           </div>
 
@@ -325,32 +409,50 @@ export default function AccountantPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
+                    <th className="table-th">{t("journal.colEntryNo")}</th>
                     <th className="table-th">{t("journal.colDate")}</th>
-                    <th className="table-th">{t("journal.colRef")}</th>
                     <th className="table-th">{t("journal.colDescription")}</th>
-                    <th className="table-th">{t("trialBalance.debit")}/{t("trialBalance.credit")}</th>
+                    <th className="table-th">{t("manualEntry.colAccount")}</th>
                     <th className="table-th text-right">{t("journal.colDebit")}</th>
                     <th className="table-th text-right">{t("journal.colCredit")}</th>
+                    <th className="table-th"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {loadingJournal ? (
-                    <tr><td className="table-td text-slate-400" colSpan={6}>{t("common.loading")}</td></tr>
+                    <tr><td className="table-td text-slate-400" colSpan={7}>{t("common.loading")}</td></tr>
                   ) : !journal || journal.entries.length === 0 ? (
-                    <tr><td className="table-td text-slate-400" colSpan={6}>{t("journal.noEntries")}</td></tr>
+                    <tr><td className="table-td text-slate-400" colSpan={7}>{t("journal.noEntries")}</td></tr>
                   ) : journal.entries.map((jv) => (
                     jv.lines.map((line, li) => (
                       <tr key={`${jv.id}-${li}`} className={li === 0 ? "border-t-2 border-slate-200" : ""}>
+                        {li === 0 && (
+                          <td className="table-td align-top font-semibold font-mono text-xs" rowSpan={jv.lines.length}>
+                            {jv.number}
+                            {jv.reversedBy && <div className="badge bg-amber-100 text-amber-700 mt-1">{t("manualEntry.reversedBadge")}</div>}
+                            {jv.reversalOf && <div className="badge bg-slate-100 text-slate-600 mt-1">{t("manualEntry.reversalBadge")}</div>}
+                          </td>
+                        )}
                         {li === 0 && <td className="table-td align-top" rowSpan={jv.lines.length}>{formatDate(jv.date)}</td>}
-                        {li === 0 && <td className="table-td align-top font-medium" rowSpan={jv.lines.length}>{jv.ref || "—"}</td>}
-                        {li === 0 && <td className="table-td align-top" rowSpan={jv.lines.length}>{t(jv.descKey, jv.descParams)}</td>}
+                        {li === 0 && (
+                          <td className="table-td align-top" rowSpan={jv.lines.length}>
+                            {jv.memoKey ? t(jv.memoKey, jv.memoParams) : jv.memo || "—"}
+                          </td>
+                        )}
                         <td className="table-td text-slate-600">
                           <span className="text-slate-400 mr-1.5 font-mono text-xs">{line.accountNumber}</span>
-                          {t(`trialBalance.${line.account}`)}
+                          {line.accountName || (line.accountNameKey ? t(line.accountNameKey) : "")}
                           {line.itemLabel && <span className="text-xs text-slate-400"> ({line.itemLabel})</span>}
                         </td>
                         <td className="table-td text-right">{line.debit ? money(line.debit, cur) : ""}</td>
                         <td className="table-td text-right">{line.credit ? money(line.credit, cur) : ""}</td>
+                        {li === 0 && (
+                          <td className="table-td align-top text-right" rowSpan={jv.lines.length}>
+                            {!jv.reversedBy && !jv.reversalOf && (
+                              <button onClick={() => reverseEntry(jv)} className="btn-ghost !px-2 !py-1 text-xs text-amber-700">{t("manualEntry.reverse")}</button>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     ))
                   ))}
@@ -370,6 +472,80 @@ export default function AccountantPage() {
         </div>
       )}
 
+      {tab === "entry" && (
+        <div className="space-y-4 max-w-4xl">
+          <p className="text-sm text-slate-500">{t("manualEntry.subtitle")}</p>
+
+          <div className="card p-4 flex flex-wrap items-end gap-3">
+            <div><label className="label">{t("manualEntry.date")}</label><input type="date" className="input" value={jeDate} onChange={(e) => setJeDate(e.target.value)} /></div>
+            <div className="flex-1 min-w-[220px]"><label className="label">{t("manualEntry.memo")}</label><input className="input" value={jeMemo} onChange={(e) => setJeMemo(e.target.value)} placeholder={t("manualEntry.memoPlaceholder")} /></div>
+          </div>
+
+          <div className="card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="table-th">{t("manualEntry.colAccount")}</th>
+                    <th className="table-th">{t("manualEntry.colMemo")}</th>
+                    <th className="table-th text-right w-32">{t("journal.colDebit")}</th>
+                    <th className="table-th text-right w-32">{t("journal.colCredit")}</th>
+                    <th className="table-th w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {jeLines.map((l, idx) => (
+                    <tr key={idx}>
+                      <td className="table-td">
+                        <select className="input !py-1" value={l.accountId} onChange={(e) => setJeLine(idx, { accountId: e.target.value })}>
+                          <option value="">{t("manualEntry.selectAccount")}</option>
+                          {accounts.filter((a) => a.active !== false).map((a) => (
+                            <option key={a.id} value={a.id}>{a.number} — {accName(a)}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="table-td"><input className="input !py-1" value={l.memo} onChange={(e) => setJeLine(idx, { memo: e.target.value })} /></td>
+                      <td className="table-td"><input type="number" step="any" min="0" className="input !py-1 text-right" value={l.debit} onChange={(e) => setJeLine(idx, { debit: e.target.value, credit: e.target.value ? "" : l.credit })} /></td>
+                      <td className="table-td"><input type="number" step="any" min="0" className="input !py-1 text-right" value={l.credit} onChange={(e) => setJeLine(idx, { credit: e.target.value, debit: e.target.value ? "" : l.debit })} /></td>
+                      <td className="table-td text-right">
+                        <button onClick={() => setJeLines((prev) => prev.filter((_, i) => i !== idx))} disabled={jeLines.length <= 2} className="btn-ghost !px-2 !py-1 text-red-500 disabled:opacity-30"><Icon name="x" size={14} /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-slate-300 font-bold">
+                    <td className="table-td" colSpan={2}>{t("manualEntry.totals")}</td>
+                    <td className="table-td text-right">{money(jeDebitTotal, cur)}</td>
+                    <td className="table-td text-right">{money(jeCreditTotal, cur)}</td>
+                    <td></td>
+                  </tr>
+                  <tr>
+                    <td className="table-td text-slate-500" colSpan={2}>{t("manualEntry.difference")}</td>
+                    <td className="table-td text-right" colSpan={2}>
+                      <span className={jeBalanced ? "text-emerald-700 font-semibold" : "text-red-600 font-semibold"}>
+                        {money(jeDiff, cur)} · {jeBalanced ? t("manualEntry.balanced") : t("manualEntry.notBalanced")}
+                      </span>
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div className="p-3 border-t border-slate-100 flex items-center justify-between gap-3">
+              <button onClick={() => setJeLines((prev) => [...prev, emptyLine()])} className="btn-secondary"><Icon name="plus" size={15} /> {t("manualEntry.addLine")}</button>
+              <button onClick={postJe} disabled={!jeBalanced || jePosting} className="btn-primary disabled:opacity-40">{jePosting ? t("manualEntry.posting") : t("manualEntry.post")}</button>
+            </div>
+          </div>
+
+          {jeResult && (
+            <div className={`text-sm rounded-lg px-3 py-2 ${jeResult.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+              {jeResult.ok ? t("manualEntry.posted", { number: jeResult.number }) : jeResult.error}
+            </div>
+          )}
+        </div>
+      )}
+
       {tab === "pl" && (
         <div className="space-y-4">
           <div className="card p-4 flex flex-wrap items-end gap-3">
@@ -378,14 +554,27 @@ export default function AccountantPage() {
             <button onClick={loadPl} className="btn-primary">{t("reports.apply")}</button>
           </div>
           {loadingPl || !pl ? <div className="text-slate-400">{t("common.loading")}</div> : (
-            <div className="card overflow-hidden max-w-lg">
+            <div className="card overflow-hidden max-w-2xl">
               <table className="w-full text-sm">
                 <tbody className="divide-y divide-slate-100">
-                  <tr><td className="table-td font-medium">{t("profitLoss.salesNet")}</td><td className="table-td text-right">{money(pl.salesNet, cur)}</td></tr>
-                  <tr><td className="table-td text-slate-500">{t("profitLoss.cogs")}</td><td className="table-td text-right text-red-600">({money(pl.cogs, cur)})</td></tr>
+                  <tr className="bg-slate-50"><td className="table-td font-semibold" colSpan={2}>{t("profitLoss.salesNet")}</td></tr>
+                  {pl.income.map((r) => <AccountRow key={r.id} row={r} />)}
+                  <tr className="border-t border-slate-200 font-semibold"><td className="table-td">{t("profitLoss.totalIncome")}</td><td className="table-td text-right">{money(pl.totalIncome, cur)}</td></tr>
+
+                  <tr className="bg-slate-50"><td className="table-td font-semibold" colSpan={2}>{t("profitLoss.cogs")}</td></tr>
+                  {pl.cogsRows.map((r) => <AccountRow key={r.id} row={r} />)}
                   <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("profitLoss.grossProfit")}</td><td className="table-td text-right">{money(pl.grossProfit, cur)}</td></tr>
-                  <tr><td className="table-td text-slate-500">{t("profitLoss.expensesNet")}</td><td className="table-td text-right text-red-600">({money(pl.expensesNet, cur)})</td></tr>
-                  <tr className="border-t-2 border-slate-300 font-bold text-base"><td className="table-td">{t("profitLoss.netIncome")}</td><td className={`table-td text-right ${pl.netIncome < 0 ? "text-red-600" : "text-emerald-700"}`}>{money(pl.netIncome, cur)}</td></tr>
+
+                  <tr className="bg-slate-50"><td className="table-td font-semibold" colSpan={2}>{t("profitLoss.expensesNet")}</td></tr>
+                  {pl.opexRows.length === 0 ? (
+                    <tr><td className="table-td text-slate-400" colSpan={2}>—</td></tr>
+                  ) : pl.opexRows.map((r) => <AccountRow key={r.id} row={r} />)}
+                  <tr className="border-t border-slate-200 font-semibold"><td className="table-td">{t("profitLoss.totalOpex")}</td><td className="table-td text-right">{money(pl.totalOpex, cur)}</td></tr>
+
+                  <tr className="border-t-2 border-slate-300 font-bold text-base">
+                    <td className="table-td">{t("profitLoss.netIncome")}</td>
+                    <td className={`table-td text-right ${pl.netIncome < 0 ? "text-red-600" : "text-emerald-700"}`}>{money(pl.netIncome, cur)}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -405,10 +594,7 @@ export default function AccountantPage() {
                 <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("profitLoss.assets")}</div>
                 <table className="w-full text-sm">
                   <tbody className="divide-y divide-slate-100">
-                    <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("cash")}</span>{t("trialBalance.cash")}</td><td className="table-td text-right">{money(bs.cash, cur)}</td></tr>
-                    <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("bank")}</span>{t("trialBalance.bank")}</td><td className="table-td text-right">{money(bs.bank, cur)}</td></tr>
-                    <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("receivable")}</span>{t("trialBalance.receivable")}</td><td className="table-td text-right">{money(bs.receivable, cur)}</td></tr>
-                    <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("inventory")}</span>{t("trialBalance.inventory")}</td><td className="table-td text-right">{money(bs.inventory, cur)}</td></tr>
+                    {bs.assets.length === 0 ? <tr><td className="table-td text-slate-400" colSpan={2}>—</td></tr> : bs.assets.map((r) => <AccountRow key={r.id} row={r} />)}
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("profitLoss.totalAssets")}</td><td className="table-td text-right">{money(bs.totalAssets, cur)}</td></tr>
@@ -419,10 +605,11 @@ export default function AccountantPage() {
                 <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("profitLoss.liabilitiesAndEquity")}</div>
                 <table className="w-full text-sm">
                   <tbody className="divide-y divide-slate-100">
-                    <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("payable")}</span>{t("trialBalance.payable")}</td><td className="table-td text-right">{money(bs.payable, cur)}</td></tr>
-                    <tr><td className="table-td">{t("profitLoss.vatNet")}</td><td className="table-td text-right">{money(bs.vatNet, cur)}</td></tr>
+                    {bs.liabilities.map((r) => <AccountRow key={r.id} row={r} />)}
                     <tr className="border-t border-slate-200 font-semibold"><td className="table-td">{t("profitLoss.totalLiabilities")}</td><td className="table-td text-right">{money(bs.totalLiabilities, cur)}</td></tr>
-                    <tr><td className="table-td">{t("profitLoss.retainedEarnings")}</td><td className="table-td text-right">{money(bs.retainedEarnings, cur)}</td></tr>
+                    {bs.equity.map((r) => <AccountRow key={r.id} row={r} />)}
+                    <tr><td className="table-td">{t("profitLoss.currentEarnings")}</td><td className="table-td text-right">{money(bs.netIncome, cur)}</td></tr>
+                    <tr className="border-t border-slate-200 font-semibold"><td className="table-td">{t("profitLoss.totalEquity")}</td><td className="table-td text-right">{money(bs.totalEquity, cur)}</td></tr>
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("profitLoss.totalLiabilitiesAndEquity")}</td><td className="table-td text-right">{money(bs.totalLiabilitiesAndEquity, cur)}</td></tr>
@@ -440,9 +627,7 @@ export default function AccountantPage() {
             <div>
               <label className="label">{t("generalLedger.account")}</label>
               <select className="input" value={glAccount} onChange={(e) => setGlAccount(e.target.value)}>
-                {Object.keys(ACCOUNTS).map((key) => (
-                  <option key={key} value={key}>{accountNumber(key)} — {t(`trialBalance.${key}`)}</option>
-                ))}
+                {accounts.map((a) => <option key={a.id} value={a.id}>{a.number} — {accName(a)}</option>)}
               </select>
             </div>
             <div><label className="label">{t("reports.from")}</label><input type="date" className="input" value={glFrom} onChange={(e) => setGlFrom(e.target.value)} /></div>
@@ -456,7 +641,7 @@ export default function AccountantPage() {
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
                       <th className="table-th">{t("journal.colDate")}</th>
-                      <th className="table-th">{t("journal.colRef")}</th>
+                      <th className="table-th">{t("journal.colEntryNo")}</th>
                       <th className="table-th">{t("journal.colDescription")}</th>
                       <th className="table-th text-right">{t("journal.colDebit")}</th>
                       <th className="table-th text-right">{t("journal.colCredit")}</th>
@@ -468,16 +653,19 @@ export default function AccountantPage() {
                       <td className="table-td" colSpan={5}>{t("generalLedger.openingBalance")}</td>
                       <td className="table-td text-right font-semibold">{money(gl.openingBalance, cur)}</td>
                     </tr>
-                    {gl.lines.length === 0 ? (
+                    {gl.rows.length === 0 ? (
                       <tr><td className="table-td text-slate-400" colSpan={6}>{t("journal.noEntries")}</td></tr>
-                    ) : gl.lines.map((l, i) => (
-                      <tr key={i}>
-                        <td className="table-td">{formatDate(l.date)}</td>
-                        <td className="table-td font-medium">{l.ref || "—"}</td>
-                        <td className="table-td">{t(l.descKey, l.descParams)}</td>
-                        <td className="table-td text-right">{l.debit ? money(l.debit, cur) : ""}</td>
-                        <td className="table-td text-right">{l.credit ? money(l.credit, cur) : ""}</td>
-                        <td className="table-td text-right">{money(l.balance, cur)}</td>
+                    ) : gl.rows.map((r) => (
+                      <tr key={r.entryId} className="hover:bg-slate-50">
+                        <td className="table-td">{formatDate(r.date)}</td>
+                        <td className="table-td font-mono text-xs text-slate-500">{r.number}</td>
+                        <td className="table-td">
+                          {r.memoKey ? t(r.memoKey, r.memoParams) : r.memo || "—"}
+                          {r.itemLabel && <span className="text-xs text-slate-400"> ({r.itemLabel})</span>}
+                        </td>
+                        <td className="table-td text-right">{r.debit ? money(r.debit, cur) : ""}</td>
+                        <td className="table-td text-right">{r.credit ? money(r.credit, cur) : ""}</td>
+                        <td className="table-td text-right">{money(r.balance, cur)}</td>
                       </tr>
                     ))}
                   </tbody>

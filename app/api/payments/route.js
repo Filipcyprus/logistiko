@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server";
+import { postEntry } from "@/lib/posting";
+import { entryForPayment, entryForInvoice } from "@/lib/postingRules";
 
 export async function GET() {
   return NextResponse.json(readDB().payments || []);
@@ -80,6 +82,17 @@ export async function POST(request) {
   }
 
   db.payments.unshift(payment);
+
+  // Η είσπραξη μεταφέρει το ποσό από Πελάτες σε Ταμείο/Τράπεζα. Η απόδειξη πληρωμής που εκδίδεται
+  // παραπάνω ΔΕΝ καταχωρίζεται ξεχωριστά — είναι το ίδιο χρήμα (βλ. lib/postingRules.js).
+  try {
+    const entryInput = entryForPayment(db, payment);
+    if (entryInput) postEntry(db, { ...entryInput, source: { type: "payment", id: payment.id } });
+  } catch (e) {
+    if (e.code === "PERIOD_LOCKED") return NextResponse.json({ error: "errors.periodLocked" }, { status: 400 });
+    throw e;
+  }
+
   writeDB(db);
   return NextResponse.json({ ...payment, receipt }, { status: 201 });
 }

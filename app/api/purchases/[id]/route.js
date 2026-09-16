@@ -3,6 +3,8 @@ import { readDB, writeDB, uid } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server";
 import { logActivity } from "@/lib/audit";
 import { incrementWarehouseStocks } from "@/lib/stockHelpers";
+import { postEntry, removeEntriesBySource } from "@/lib/posting";
+import { entryForPurchaseReceipt } from "@/lib/postingRules";
 
 export async function GET(_req, { params }) {
   const rec = (readDB().purchases || []).find((x) => x.id === params.id);
@@ -43,7 +45,7 @@ export async function PUT(request, { params }) {
     po.receivedAt = new Date().toISOString();
     // Παρακαταθήκη (consignment): το εμπόρευμα μπαίνει στο στοκ (βλ. πάνω) αλλά ΔΕΝ το κατέχουμε
     // ακόμα λογιστικά — δεν έχει πληρωθεί, ούτε είναι ακόμα δικό μας. Χωρίς paymentMethod, το
-    // Ημερολόγιο (lib/ledger.js) δεν καταχωρίζει καμία κίνηση Απόθεμα/Ταμείο-Τράπεζα γι' αυτήν
+    // Ημερολόγιο (lib/postingRules.js) δεν καταχωρίζει καμία κίνηση Απόθεμα/Ταμείο-Τράπεζα γι' αυτήν
     // την παραλαβή — σωστά, αφού καμία τέτοια κίνηση δεν έχει πραγματικά συμβεί ακόμα.
     // "credit" = επί πιστώσει (θα πληρωθεί αργότερα στον προμηθευτή) — βλ. /api/supplier-payments.
     po.consignment = !!patch.consignment;
@@ -80,6 +82,18 @@ export async function PUT(request, { params }) {
   }
   Object.assign(po, patch, { updatedAt: new Date().toISOString() });
 
+  // Η αγορά καταχωρίζεται λογιστικά τη στιγμή της παραλαβής (όχι της παραγγελίας) — τότε αποκτάται
+  // το εμπόρευμα και δημιουργείται η υποχρέωση/πληρωμή.
+  if (justReceived) {
+    try {
+      const entryInput = entryForPurchaseReceipt(db, po);
+      if (entryInput) postEntry(db, { ...entryInput, source: { type: "purchase", id: po.id } });
+    } catch (e) {
+      if (e.code === "PERIOD_LOCKED") return NextResponse.json({ error: "errors.periodLocked" }, { status: 400 });
+      throw e;
+    }
+  }
+
   writeDB(db);
   if (justReceived) await logActivity(request, "stock_receive", { number: po.number, totalQty: receivedTotalQty });
   return NextResponse.json(po);
@@ -87,6 +101,12 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(_req, { params }) {
   const db = readDB();
+  try {
+    removeEntriesBySource(db, "purchase", params.id);
+  } catch (e) {
+    if (e.code === "PERIOD_LOCKED") return NextResponse.json({ error: "errors.periodLocked" }, { status: 400 });
+    throw e;
+  }
   db.purchases = (db.purchases || []).filter((x) => x.id !== params.id);
   writeDB(db);
   return NextResponse.json({ ok: true });

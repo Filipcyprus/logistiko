@@ -4,6 +4,8 @@ import { computeTotals } from "@/lib/format";
 import { serverT } from "@/lib/i18n/server";
 import { logActivity } from "@/lib/audit";
 import { decrementWarehouseStocks } from "@/lib/stockHelpers";
+import { postEntry } from "@/lib/posting";
+import { entryForInvoice } from "@/lib/postingRules";
 
 // Χωρίς αυτό, το Next.js μπορεί να "παγώσει" αυτό το route σε στατικό αποτέλεσμα κατά το build
 // (δεν διαβάζει cookies/headers, οπότε φαίνεται "στατικό") — ό,τι αλλαγή γίνεται απευθείας στο
@@ -132,6 +134,18 @@ export async function POST(request) {
       src.invoiceId = invoice.id;
       src.invoiceNumber = invoice.number;
     }
+  }
+
+  // Λογιστική καταχώριση στο Γενικό Καθολικό — γίνεται ΤΩΡΑ, τη στιγμή της πώλησης, όχι
+  // υπολογιστικά αργότερα. Αν η περίοδος είναι κλειδωμένη, η πώληση δεν καταχωρίζεται καθόλου.
+  try {
+    const entryInput = entryForInvoice(db, invoice);
+    if (entryInput) postEntry(db, { ...entryInput, source: { type: "invoice", id: invoice.id } });
+  } catch (e) {
+    if (e.code === "PERIOD_LOCKED") {
+      return NextResponse.json({ error: "errors.periodLocked" }, { status: 400 });
+    }
+    throw e;
   }
 
   writeDB(db);

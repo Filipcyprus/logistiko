@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { list, readDB, writeDB, uid } from "@/lib/db";
+import { postEntry } from "@/lib/posting";
+import { entryForExpense } from "@/lib/postingRules";
 
 export async function GET() {
   return NextResponse.json(list("expenses"));
@@ -26,11 +28,22 @@ export async function POST(request) {
     vat: Number(body.vat || 0),
     amount: Number(body.amount || 0),
     paymentMethod: body.paymentMethod || "cash",
+    // Προαιρετικός συγκεκριμένος λογαριασμός εξόδου (π.χ. 5200 Ενοίκια) — αλλιώς γενικά έξοδα.
+    accountId: body.accountId || null,
     notes: body.notes || "",
     createdAt: new Date().toISOString(),
   };
   db.expenses = [rec, ...(db.expenses || [])];
   db.counters.expense = seq + 1;
+
+  try {
+    const entryInput = entryForExpense(db, rec);
+    if (entryInput) postEntry(db, { ...entryInput, source: { type: "expense", id: rec.id } });
+  } catch (e) {
+    if (e.code === "PERIOD_LOCKED") return NextResponse.json({ error: "errors.periodLocked" }, { status: 400 });
+    throw e;
+  }
+
   writeDB(db);
   return NextResponse.json(rec, { status: 201 });
 }

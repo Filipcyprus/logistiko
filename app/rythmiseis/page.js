@@ -226,6 +226,23 @@ export default function SettingsPage() {
       </div>
 
       <div className="card p-6 space-y-4">
+        <h2 className="font-semibold text-slate-700">{t("closeBooks.title")}</h2>
+        <p className="text-sm text-slate-500">{t("closeBooks.subtitle")}</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="label">{t("closeBooks.lockedThrough")}</label>
+            <input type="date" className="input" value={s.lockedThrough || ""} onChange={(e) => upd({ lockedThrough: e.target.value })} />
+          </div>
+          {s.lockedThrough && (
+            <button onClick={() => upd({ lockedThrough: "" })} className="btn-secondary">{t("closeBooks.clear")}</button>
+          )}
+        </div>
+        <p className={`text-sm ${s.lockedThrough ? "text-amber-700" : "text-slate-400"}`}>
+          {s.lockedThrough ? t("closeBooks.lockedNote", { date: s.lockedThrough }) : t("closeBooks.open")}
+        </p>
+      </div>
+
+      <div className="card p-6 space-y-4">
         <h2 className="font-semibold text-slate-700">{t("settings.mailSection")}</h2>
         <p className="text-sm text-slate-500">{t("settings.mailDescription")}</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

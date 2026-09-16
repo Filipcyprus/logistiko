@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server";
 import { decrementWarehouseStocks, incrementWarehouseStocks } from "@/lib/stockHelpers";
+import { removeEntriesBySource } from "@/lib/posting";
 
 export async function GET(_req, { params }) {
   const db = readDB();
@@ -15,6 +16,15 @@ export async function DELETE(_req, { params }) {
   const db = readDB();
   const inv = db.invoices.find((x) => x.id === params.id);
   if (!inv) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
+
+  // Αφαίρεση της λογιστικής εγγραφής — επιτρέπεται μόνο σε ανοιχτή περίοδο. Σε κλειδωμένη, η
+  // σωστή κίνηση είναι αντιλογισμός, όχι διαγραφή (βλ. lib/posting.js).
+  try {
+    removeEntriesBySource(db, "invoice", inv.id);
+  } catch (e) {
+    if (e.code === "PERIOD_LOCKED") return NextResponse.json({ error: "errors.periodLocked" }, { status: 400 });
+    throw e;
+  }
 
   const isCredit = inv.type === "credit";
   // Κανονικό παραστατικό: είχε βγάλει στοκ → επιστροφή (+). Πιστωτικό: είχε προσθέσει στοκ → αφαίρεση (−).

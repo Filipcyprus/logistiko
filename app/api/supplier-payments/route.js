@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
+import { postEntry } from "@/lib/posting";
+import { entryForSupplierPayment } from "@/lib/postingRules";
 
 export async function GET() {
   return NextResponse.json(readDB().supplierPayments || []);
@@ -46,6 +48,15 @@ export async function POST(request) {
   }
 
   db.supplierPayments = [payment, ...(db.supplierPayments || [])];
+
+  try {
+    const entryInput = entryForSupplierPayment(db, payment);
+    if (entryInput) postEntry(db, { ...entryInput, source: { type: "supplierPayment", id: payment.id } });
+  } catch (e) {
+    if (e.code === "PERIOD_LOCKED") return NextResponse.json({ error: "errors.periodLocked" }, { status: 400 });
+    throw e;
+  }
+
   writeDB(db);
   return NextResponse.json(payment, { status: 201 });
 }
