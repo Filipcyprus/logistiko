@@ -35,6 +35,9 @@ function isAccountantAllowed(pathname) {
   if (pathname === "/api/reports") return true;
   if (pathname === "/api/trial-balance") return true;
   if (pathname === "/api/journal") return true;
+  if (pathname === "/api/profit-loss") return true;
+  if (pathname === "/api/balance-sheet") return true;
+  if (pathname === "/api/general-ledger") return true;
   return false;
 }
 

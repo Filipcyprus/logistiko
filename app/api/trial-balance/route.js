@@ -30,9 +30,10 @@ export async function GET(request) {
   const expensesVat = get("vatInput");
   const salesNet = -get("sales"); // sales is naturally a credit balance (negative here) — flip for display
   const salesVat = -get("vatOutput");
+  const payable = -get("payable"); // ίδια λογική — φυσικά πιστωτικό υπόλοιπο
 
   const debitTotal = round2(cash + bank + receivable + inventory + cogs + expensesNet + expensesVat);
-  const creditTotal = round2(salesNet + salesVat);
+  const creditTotal = round2(salesNet + salesVat + payable);
 
   const physicalInventoryValue = round2(
     (db.products || []).reduce((a, p) => a + Number(p.stock || 0) * Number(p.cost || 0), 0)
@@ -41,7 +42,7 @@ export async function GET(request) {
   return NextResponse.json({
     to,
     cash, bank, receivable, inventory, cogs, expensesNet, expensesVat,
-    salesNet, salesVat,
+    salesNet, salesVat, payable,
     debitTotal, creditTotal,
     physicalInventoryValue,
     inventoryVariance: round2(physicalInventoryValue - inventory),

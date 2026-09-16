@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { money, formatDate } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { accountNumber } from "@/lib/accounts";
+import { accountNumber, ACCOUNTS } from "@/lib/accounts";
 
 function firstOfMonth() {
   const d = new Date();
@@ -33,6 +33,18 @@ export default function AccountantPage() {
   const [jTo, setJTo] = useState(today());
   const [journal, setJournal] = useState(null);
   const [loadingJournal, setLoadingJournal] = useState(false);
+  const [plFrom, setPlFrom] = useState(firstOfMonth());
+  const [plTo, setPlTo] = useState(today());
+  const [pl, setPl] = useState(null);
+  const [loadingPl, setLoadingPl] = useState(false);
+  const [bsDate, setBsDate] = useState(today());
+  const [bs, setBs] = useState(null);
+  const [loadingBs, setLoadingBs] = useState(false);
+  const [glAccount, setGlAccount] = useState("cash");
+  const [glFrom, setGlFrom] = useState(firstOfMonth());
+  const [glTo, setGlTo] = useState(today());
+  const [gl, setGl] = useState(null);
+  const [loadingGl, setLoadingGl] = useState(false);
 
   useEffect(() => {
     fetch("/api/accountant").then((r) => r.json()).then(setData);
@@ -56,6 +68,24 @@ export default function AccountantPage() {
   };
   useEffect(() => { if (tab === "journal" && !journal) loadJournal(1); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
 
+  const loadPl = () => {
+    setLoadingPl(true);
+    fetch(`/api/profit-loss?from=${plFrom}&to=${plTo}`).then((r) => r.json()).then(setPl).finally(() => setLoadingPl(false));
+  };
+  useEffect(() => { if (tab === "pl" && !pl) loadPl(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
+
+  const loadBs = () => {
+    setLoadingBs(true);
+    fetch(`/api/balance-sheet?to=${bsDate}`).then((r) => r.json()).then(setBs).finally(() => setLoadingBs(false));
+  };
+  useEffect(() => { if (tab === "bs" && !bs) loadBs(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
+
+  const loadGl = () => {
+    setLoadingGl(true);
+    fetch(`/api/general-ledger?account=${glAccount}&from=${glFrom}&to=${glTo}`).then((r) => r.json()).then(setGl).finally(() => setLoadingGl(false));
+  };
+  useEffect(() => { if (tab === "gl" && !gl) loadGl(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
+
   if (!data) return <div className="text-slate-400">{t("common.loading")}</div>;
   const cur = data.settings?.currency || "€";
   const categoryLabel = (key) => t(`expenses.categories.${key}`) || key;
@@ -67,6 +97,9 @@ export default function AccountantPage() {
     ["vat", t("accountant.tabVat")],
     ["trial", t("accountant.tabTrialBalance")],
     ["journal", t("accountant.tabJournal")],
+    ["pl", t("accountant.tabProfitLoss")],
+    ["bs", t("accountant.tabBalanceSheet")],
+    ["gl", t("accountant.tabGeneralLedger")],
   ];
 
   return (
@@ -247,6 +280,7 @@ export default function AccountantPage() {
                   <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("trialBalance.credit")}</div>
                   <table className="w-full text-sm">
                     <tbody className="divide-y divide-slate-100">
+                      <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("payable")}</span>{t("trialBalance.payable")}</td><td className="table-td text-right">{money(tb.payable, cur)}</td></tr>
                       <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("vatOutput")}</span>{t("trialBalance.vatOutput")}</td><td className="table-td text-right">{money(tb.salesVat, cur)}</td></tr>
                       <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("sales")}</span>{t("trialBalance.sales")}</td><td className="table-td text-right">{money(tb.salesNet, cur)}</td></tr>
                     </tbody>
@@ -333,6 +367,130 @@ export default function AccountantPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {tab === "pl" && (
+        <div className="space-y-4">
+          <div className="card p-4 flex flex-wrap items-end gap-3">
+            <div><label className="label">{t("reports.from")}</label><input type="date" className="input" value={plFrom} onChange={(e) => setPlFrom(e.target.value)} /></div>
+            <div><label className="label">{t("reports.to")}</label><input type="date" className="input" value={plTo} onChange={(e) => setPlTo(e.target.value)} /></div>
+            <button onClick={loadPl} className="btn-primary">{t("reports.apply")}</button>
+          </div>
+          {loadingPl || !pl ? <div className="text-slate-400">{t("common.loading")}</div> : (
+            <div className="card overflow-hidden max-w-lg">
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-slate-100">
+                  <tr><td className="table-td font-medium">{t("profitLoss.salesNet")}</td><td className="table-td text-right">{money(pl.salesNet, cur)}</td></tr>
+                  <tr><td className="table-td text-slate-500">{t("profitLoss.cogs")}</td><td className="table-td text-right text-red-600">({money(pl.cogs, cur)})</td></tr>
+                  <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("profitLoss.grossProfit")}</td><td className="table-td text-right">{money(pl.grossProfit, cur)}</td></tr>
+                  <tr><td className="table-td text-slate-500">{t("profitLoss.expensesNet")}</td><td className="table-td text-right text-red-600">({money(pl.expensesNet, cur)})</td></tr>
+                  <tr className="border-t-2 border-slate-300 font-bold text-base"><td className="table-td">{t("profitLoss.netIncome")}</td><td className={`table-td text-right ${pl.netIncome < 0 ? "text-red-600" : "text-emerald-700"}`}>{money(pl.netIncome, cur)}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "bs" && (
+        <div className="space-y-4">
+          <div className="card p-4 flex flex-wrap items-end gap-3">
+            <div><label className="label">{t("trialBalance.asOf")}</label><input type="date" className="input" value={bsDate} onChange={(e) => setBsDate(e.target.value)} /></div>
+            <button onClick={loadBs} className="btn-primary">{t("reports.apply")}</button>
+          </div>
+          {loadingBs || !bs ? <div className="text-slate-400">{t("common.loading")}</div> : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="card overflow-hidden">
+                <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("profitLoss.assets")}</div>
+                <table className="w-full text-sm">
+                  <tbody className="divide-y divide-slate-100">
+                    <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("cash")}</span>{t("trialBalance.cash")}</td><td className="table-td text-right">{money(bs.cash, cur)}</td></tr>
+                    <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("bank")}</span>{t("trialBalance.bank")}</td><td className="table-td text-right">{money(bs.bank, cur)}</td></tr>
+                    <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("receivable")}</span>{t("trialBalance.receivable")}</td><td className="table-td text-right">{money(bs.receivable, cur)}</td></tr>
+                    <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("inventory")}</span>{t("trialBalance.inventory")}</td><td className="table-td text-right">{money(bs.inventory, cur)}</td></tr>
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("profitLoss.totalAssets")}</td><td className="table-td text-right">{money(bs.totalAssets, cur)}</td></tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div className="card overflow-hidden">
+                <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-sm text-slate-600">{t("profitLoss.liabilitiesAndEquity")}</div>
+                <table className="w-full text-sm">
+                  <tbody className="divide-y divide-slate-100">
+                    <tr><td className="table-td"><span className="text-slate-400 mr-1.5 font-mono text-xs">{accountNumber("payable")}</span>{t("trialBalance.payable")}</td><td className="table-td text-right">{money(bs.payable, cur)}</td></tr>
+                    <tr><td className="table-td">{t("profitLoss.vatNet")}</td><td className="table-td text-right">{money(bs.vatNet, cur)}</td></tr>
+                    <tr className="border-t border-slate-200 font-semibold"><td className="table-td">{t("profitLoss.totalLiabilities")}</td><td className="table-td text-right">{money(bs.totalLiabilities, cur)}</td></tr>
+                    <tr><td className="table-td">{t("profitLoss.retainedEarnings")}</td><td className="table-td text-right">{money(bs.retainedEarnings, cur)}</td></tr>
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-slate-300 font-bold"><td className="table-td">{t("profitLoss.totalLiabilitiesAndEquity")}</td><td className="table-td text-right">{money(bs.totalLiabilitiesAndEquity, cur)}</td></tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "gl" && (
+        <div className="space-y-4">
+          <div className="card p-4 flex flex-wrap items-end gap-3">
+            <div>
+              <label className="label">{t("generalLedger.account")}</label>
+              <select className="input" value={glAccount} onChange={(e) => setGlAccount(e.target.value)}>
+                {Object.keys(ACCOUNTS).map((key) => (
+                  <option key={key} value={key}>{accountNumber(key)} — {t(`trialBalance.${key}`)}</option>
+                ))}
+              </select>
+            </div>
+            <div><label className="label">{t("reports.from")}</label><input type="date" className="input" value={glFrom} onChange={(e) => setGlFrom(e.target.value)} /></div>
+            <div><label className="label">{t("reports.to")}</label><input type="date" className="input" value={glTo} onChange={(e) => setGlTo(e.target.value)} /></div>
+            <button onClick={loadGl} className="btn-primary">{t("reports.apply")}</button>
+          </div>
+          {loadingGl || !gl ? <div className="text-slate-400">{t("common.loading")}</div> : (
+            <div className="card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="table-th">{t("journal.colDate")}</th>
+                      <th className="table-th">{t("journal.colRef")}</th>
+                      <th className="table-th">{t("journal.colDescription")}</th>
+                      <th className="table-th text-right">{t("journal.colDebit")}</th>
+                      <th className="table-th text-right">{t("journal.colCredit")}</th>
+                      <th className="table-th text-right">{t("generalLedger.balance")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr className="bg-slate-50">
+                      <td className="table-td" colSpan={5}>{t("generalLedger.openingBalance")}</td>
+                      <td className="table-td text-right font-semibold">{money(gl.openingBalance, cur)}</td>
+                    </tr>
+                    {gl.lines.length === 0 ? (
+                      <tr><td className="table-td text-slate-400" colSpan={6}>{t("journal.noEntries")}</td></tr>
+                    ) : gl.lines.map((l, i) => (
+                      <tr key={i}>
+                        <td className="table-td">{formatDate(l.date)}</td>
+                        <td className="table-td font-medium">{l.ref || "—"}</td>
+                        <td className="table-td">{t(l.descKey, l.descParams)}</td>
+                        <td className="table-td text-right">{l.debit ? money(l.debit, cur) : ""}</td>
+                        <td className="table-td text-right">{l.credit ? money(l.credit, cur) : ""}</td>
+                        <td className="table-td text-right">{money(l.balance, cur)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-slate-300 font-bold">
+                      <td className="table-td" colSpan={5}>{t("generalLedger.closingBalance")}</td>
+                      <td className="table-td text-right">{money(gl.closingBalance, cur)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

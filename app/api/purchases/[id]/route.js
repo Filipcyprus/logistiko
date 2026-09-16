@@ -45,8 +45,16 @@ export async function PUT(request, { params }) {
     // ακόμα λογιστικά — δεν έχει πληρωθεί, ούτε είναι ακόμα δικό μας. Χωρίς paymentMethod, το
     // Ημερολόγιο (lib/ledger.js) δεν καταχωρίζει καμία κίνηση Απόθεμα/Ταμείο-Τράπεζα γι' αυτήν
     // την παραλαβή — σωστά, αφού καμία τέτοια κίνηση δεν έχει πραγματικά συμβεί ακόμα.
+    // "credit" = επί πιστώσει (θα πληρωθεί αργότερα στον προμηθευτή) — βλ. /api/supplier-payments.
     po.consignment = !!patch.consignment;
-    po.paymentMethod = po.consignment ? null : (patch.paymentMethod === "bank" ? "bank" : "cash");
+    if (po.consignment) {
+      po.paymentMethod = null;
+    } else if (patch.paymentMethod === "credit") {
+      po.paymentMethod = "credit";
+      po.paidAmount = 0;
+    } else {
+      po.paymentMethod = patch.paymentMethod === "bank" ? "bank" : "cash";
+    }
   }
 
   // Ο τρόπος πληρωμής (μετρητά/τράπεζα) καταχωρείται κατά την παραλαβή — χρησιμοποιείται από το

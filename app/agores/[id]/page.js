@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatDate, money } from "@/lib/format";
+import { formatDate, money, todayISO } from "@/lib/format";
 import LineItems from "@/components/LineItems";
 import Icon from "@/components/Icon";
 import EmailButton from "@/components/EmailButton";
@@ -28,6 +28,9 @@ export default function PurchaseView() {
   const [receiveItems, setReceiveItems] = useState([]);
   const [receivePaymentMethod, setReceivePaymentMethod] = useState("cash");
   const [receiveConsignment, setReceiveConsignment] = useState(false);
+  const [paySupplierOpen, setPaySupplierOpen] = useState(false);
+  const [paySupplierForm, setPaySupplierForm] = useState({ amount: "", method: "cash", date: todayISO(), notes: "" });
+  const [payingSupplier, setPayingSupplier] = useState(false);
   const [scanCode, setScanCode] = useState("");
   const [receiving, setReceiving] = useState(false);
   const scanRef = useRef();
@@ -54,6 +57,27 @@ export default function PurchaseView() {
 
   if (notFound) return <div className="text-slate-500">{t("common.notFound")} <Link href="/exoda?tab=purchases" className="text-brand-600">{t("common.returnLink")}</Link></div>;
   if (!po || !settings) return <div className="text-slate-400">{t("common.loading")}</div>;
+
+  const cur = settings.currency || "€";
+  const poTotal = Math.round((po.items || []).reduce((a, it) => a + Number(it.quantity || 0) * Number(it.unitCost || 0), 0) * 100) / 100;
+  const poPaidAmount = Number(po.paidAmount || 0);
+
+  const openPaySupplier = () => {
+    setPaySupplierForm({ amount: String(Math.max(0, Math.round((poTotal - poPaidAmount) * 100) / 100)), method: "cash", date: todayISO(), notes: "" });
+    setPaySupplierOpen(true);
+  };
+  const submitPaySupplier = async () => {
+    const amount = Number(paySupplierForm.amount);
+    if (!amount || amount <= 0) { alert(t("purchases.errInvalidAmount")); return; }
+    setPayingSupplier(true);
+    await fetch("/api/supplier-payments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ supplierId: po.supplierId, purchaseId: po.id, amount, method: paySupplierForm.method, date: paySupplierForm.date, notes: paySupplierForm.notes }),
+    });
+    setPayingSupplier(false);
+    setPaySupplierOpen(false);
+    load();
+  };
 
   const setStatus = async (status) => {
     await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
@@ -181,12 +205,19 @@ export default function PurchaseView() {
       )}
 
       {po.received && (
-        <div className="card p-3 no-print max-w-3xl mx-auto text-sm text-emerald-700 bg-emerald-50 border-emerald-200 flex items-center gap-2">
-          <Icon name="check" size={15} /> {t("purchases.receivedNote")}
-          {po.consignment ? (
-            <span className="ml-1">— {t("purchases.consignment")}</span>
-          ) : po.paymentMethod && (
-            <span className="ml-1">— {t(po.paymentMethod === "bank" ? "common.paymentMethods.bank" : "common.paymentMethods.cash")}</span>
+        <div className="card p-3 no-print max-w-3xl mx-auto text-sm text-emerald-700 bg-emerald-50 border-emerald-200 flex items-center justify-between gap-2 flex-wrap">
+          <span className="flex items-center gap-2">
+            <Icon name="check" size={15} /> {t("purchases.receivedNote")}
+            {po.consignment ? (
+              <span className="ml-1">— {t("purchases.consignment")}</span>
+            ) : po.paymentMethod === "credit" ? (
+              <span className="ml-1">— {t("purchases.onAccount")}: {money(poPaidAmount, cur)} / {money(poTotal, cur)} {t("purchases.paidSuffix")}</span>
+            ) : po.paymentMethod && (
+              <span className="ml-1">— {t(po.paymentMethod === "bank" ? "common.paymentMethods.bank" : "common.paymentMethods.cash")}</span>
+            )}
+          </span>
+          {po.paymentMethod === "credit" && !po.paid && (
+            <button onClick={openPaySupplier} className="btn-secondary !py-1 !px-2.5 text-xs">{t("purchases.recordPayment")}</button>
           )}
         </div>
       )}
@@ -319,7 +350,7 @@ export default function PurchaseView() {
             {!receiveConsignment && (
               <div className="mt-4">
                 <label className="label">{t("purchases.paymentMethodQuestion")}</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setReceivePaymentMethod("cash")}
@@ -334,13 +365,47 @@ export default function PurchaseView() {
                   >
                     {t("common.paymentMethods.bank")}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setReceivePaymentMethod("credit")}
+                    className={`py-2.5 rounded-lg text-sm font-semibold border-2 ${receivePaymentMethod === "credit" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+                  >
+                    {t("purchases.onAccount")}
+                  </button>
                 </div>
+                {receivePaymentMethod === "credit" && <p className="text-xs text-slate-400 mt-1.5">{t("purchases.onAccountHint")}</p>}
               </div>
             )}
 
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setReceiveOpen(false)} className="btn-secondary">{t("common.cancel")}</button>
               <button onClick={confirmReceive} disabled={receiving} className="btn-primary">{receiving ? t("common.saving") : t("purchases.confirmReceiveBtn")}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {paySupplierOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => !payingSupplier && setPaySupplierOpen(false)}>
+          <div className="card p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-1">{t("purchases.recordPayment")}</h2>
+            <p className="text-sm text-slate-500 mb-4">{t("purchases.recordPaymentSub", { number: po.number })}</p>
+
+            <label className="label">{t("common.amount")}</label>
+            <input type="number" step="any" min="0" className="input" value={paySupplierForm.amount} onChange={(e) => setPaySupplierForm({ ...paySupplierForm, amount: e.target.value })} />
+
+            <label className="label mt-3">{t("purchases.paymentMethodQuestion")}</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setPaySupplierForm({ ...paySupplierForm, method: "cash" })} className={`py-2 rounded-lg text-sm font-semibold border-2 ${paySupplierForm.method === "cash" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}>{t("common.paymentMethods.cash")}</button>
+              <button type="button" onClick={() => setPaySupplierForm({ ...paySupplierForm, method: "bank" })} className={`py-2 rounded-lg text-sm font-semibold border-2 ${paySupplierForm.method === "bank" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}>{t("common.paymentMethods.bank")}</button>
+            </div>
+
+            <label className="label mt-3">{t("purchases.date")}</label>
+            <input type="date" className="input" value={paySupplierForm.date} onChange={(e) => setPaySupplierForm({ ...paySupplierForm, date: e.target.value })} />
+
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setPaySupplierOpen(false)} className="btn-secondary">{t("common.cancel")}</button>
+              <button onClick={submitPaySupplier} disabled={payingSupplier} className="btn-primary">{payingSupplier ? t("common.saving") : t("purchases.recordPayment")}</button>
             </div>
           </div>
         </div>
