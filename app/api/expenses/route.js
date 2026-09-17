@@ -29,6 +29,9 @@ export async function POST(request) {
     supplierId: body.supplierId || null,
     net: Number(body.net || 0),
     vat: Number(body.vat || 0),
+    // Ο συντελεστής που επιλέχθηκε στη φόρμα (19/9/5/0 ή "custom") — καθαρά για να ξανανοίγει η
+    // επεξεργασία σωστά επιλεγμένη· η ίδια η καταχώριση (net/vat/amount) δεν εξαρτάται από αυτό.
+    vatRate: body.vatRate ?? null,
     amount: Number(body.amount || 0),
     // "credit" = ήρθε το τιμολόγιο αλλά δεν πληρώθηκε ακόμα.
     paymentMethod: body.paymentMethod || "cash",

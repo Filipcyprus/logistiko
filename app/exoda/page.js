@@ -9,7 +9,23 @@ import ReviewDialog from "@/components/ReviewDialog";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const CATEGORY_KEYS = ["rawMaterials", "ink", "rent", "utilities", "payroll", "equipment", "shipping", "marketing", "general", "purchaseOrder"];
-const empty = { date: todayISO(), category: "general", description: "", supplier: "", net: 0, vat: 0, amount: 0, paymentMethod: "cash", accountId: "" };
+const empty = { date: todayISO(), category: "general", description: "", supplier: "", net: 0, vat: 0, vatRate: 19, amount: 0, paymentMethod: "cash", accountId: "" };
+
+// Οι συνηθισμένοι συντελεστές ΦΠΑ Κύπρου — 19% κανονικός, 9% (ξενοδοχεία/εστίαση), 5% (βιβλία,
+// τρόφιμα, φάρμακα κ.λπ.), 0% (απαλλαγές/εξαγωγές). "custom" = ό,τι ποσό γράψει ο χρήστης, χωρίς
+// να ξαναϋπολογιστεί όταν αλλάζει το καθαρό ποσό.
+const VAT_RATES = [19, 9, 5, 0];
+
+// Ανοίγοντας παλιό έξοδο για επεξεργασία, μάντεψε ποιον συντελεστή είχε (δεν αποθηκευόταν πριν) —
+// αλλιώς κάθε παλιά εγγραφή θα άνοιγε σαν "Custom" χωρίς λόγο.
+function inferVatRate(e) {
+  const net = Number(e.net || 0);
+  const vat = Number(e.vat || 0);
+  if (!net) return e.vatRate ?? 19;
+  const pct = Math.round((vat / net) * 10000) / 100;
+  const match = VAT_RATES.find((r) => Math.abs(r - pct) < 0.05);
+  return e.vatRate ?? match ?? "custom";
+}
 
 const round2 = (n) => Math.round(Number(n || 0) * 100) / 100;
 
@@ -90,11 +106,22 @@ function ExpensesInner() {
   const filtered = expenses.filter((e) => !month || (e.date || "").startsWith(month));
   const total = filtered.reduce((a, x) => a + Number(x.amount || 0), 0);
   const categoryLabel = (key) => t(`expenses.categories.${key}`) || key;
-  const defaultVatRate = settings?.vatRate ?? 19;
+  // Χρεώνει το ΦΠΑ με βάση τον επιλεγμένο συντελεστή — εκτός αν είναι "custom", οπότε ο χρήστης
+  // το γράφει ο ίδιος και δεν ξαναϋπολογίζεται όσο αλλάζει το καθαρό ποσό.
+  const updNet = (netInput) => {
+    const net = Number(netInput) || 0;
+    if (form.vatRate === "custom") {
+      setForm({ ...form, net: netInput, amount: Math.round((net + Number(form.vat)) * 100) / 100 });
+      return;
+    }
+    const vat = Math.round(net * (Number(form.vatRate) / 100) * 100) / 100;
+    setForm({ ...form, net: netInput, vat, amount: Math.round((net + vat) * 100) / 100 });
+  };
 
-  const updNet = (net) => {
-    const vat = form.vatIncluded ? form.vat : Math.round(Number(net) * (defaultVatRate / 100) * 100) / 100;
-    setForm({ ...form, net, vat, amount: Math.round((Number(net) + Number(vat)) * 100) / 100 });
+  const updVatRate = (rate) => {
+    if (rate === "custom") { setForm({ ...form, vatRate: "custom" }); return; }
+    const vat = Math.round(Number(form.net) * (Number(rate) / 100) * 100) / 100;
+    setForm({ ...form, vatRate: rate, vat, amount: Math.round((Number(form.net) + vat) * 100) / 100 });
   };
 
   // Έλεγχος πριν μπει το έξοδο στα βιβλία. Πιάνει τα λάθη που δεν φαίνονται μετά: ποσό χωρίς ΦΠΑ
@@ -113,7 +140,9 @@ function ExpensesInner() {
     if (round2(net + vat) !== round2(amount)) {
       out.push({ level: "warn", text: t("review.expTotalMismatch", { sum: money(round2(net + vat)), total: money(amount) }) });
     }
-    if (amount > 0 && !vat) out.push({ level: "warn", text: t("review.expNoVat") });
+    // Μηδενικό ΦΠΑ δεν προειδοποιεί όταν επιλέχθηκε ρητά ο συντελεστής 0% — μόνο όταν φαίνεται
+    // ξεχασμένο (π.χ. έμεινε στο "Custom" χωρίς να μπει ποτέ ποσό).
+    if (amount > 0 && !vat && form.vatRate !== 0) out.push({ level: "warn", text: t("review.expNoVat") });
     if (!form.supplier.trim()) out.push({ level: "warn", text: t("review.expNoSupplier") });
     if (!form.attachment) out.push({ level: "warn", text: t("review.expNoInvoice") });
 
@@ -267,7 +296,7 @@ function ExpensesInner() {
                         {e.purchaseOrderId && (
                           <Link href={`/agores/${e.purchaseOrderId}`} title={t("expenses.viewPO")} className="btn-ghost !px-2 !py-1 inline-flex"><Icon name="external" size={15} /></Link>
                         )}
-                        <button onClick={() => setForm({ ...empty, ...e })} className="btn-ghost !px-2 !py-1"><Icon name="edit" size={15} /></button>
+                        <button onClick={() => setForm({ ...empty, ...e, vatRate: inferVatRate(e) })} className="btn-ghost !px-2 !py-1"><Icon name="edit" size={15} /></button>
                         <button onClick={() => del(e.id)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={15} /></button>
                       </td>
                     </tr>
@@ -350,8 +379,21 @@ function ExpensesInner() {
               {form.paymentMethod === "credit" && <p className="text-xs text-amber-600 mt-1">{t("expenses.notPaidYetHint")}</p>}
               </div>
               <div><label className="label">{t("expenses.fieldNet")}</label><input type="number" step="any" className="input" value={form.net} onChange={(e) => updNet(e.target.value)} /></div>
-              <div><label className="label">{t("common.vat")}</label><input type="number" step="any" className="input" value={form.vat} onChange={(e) => setForm({ ...form, vat: e.target.value, amount: Math.round((Number(form.net) + Number(e.target.value)) * 100) / 100 })} /></div>
-              <div className="sm:col-span-2"><label className="label">{t("expenses.fieldTotal")}</label><input type="number" step="any" className="input font-semibold" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
+              <div>
+                <label className="label">{t("expenses.fieldVatRate")}</label>
+                <select className="input" value={form.vatRate} onChange={(e) => updVatRate(e.target.value)}>
+                  {VAT_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}
+                  <option value="custom">{t("expenses.vatRateCustom")}</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">{t("common.vat")}</label>
+                <input
+                  type="number" step="any" className="input" value={form.vat}
+                  onChange={(e) => setForm({ ...form, vat: e.target.value, vatRate: "custom", amount: Math.round((Number(form.net) + Number(e.target.value)) * 100) / 100 })}
+                />
+              </div>
+              <div><label className="label">{t("expenses.fieldTotal")}</label><input type="number" step="any" className="input font-semibold" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
 
               <div className="sm:col-span-2">
                 <label className="label">{t("expenses.fieldInvoice")}</label>
