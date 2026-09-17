@@ -68,12 +68,19 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
 
   const upd = (patch) => setForm((prev) => ({ ...prev, ...patch }));
 
-  const onImage = (e) => {
+  // Η φωτογραφία ανεβαίνει ως ΑΡΧΕΙΟ (/api/uploads), όχι ως base64 μέσα στο προϊόν: το /api/products
+  // επιστρέφει ΟΛΑ τα προϊόντα σε ΚΑΘΕ φόρτωση Ταμείου/Αποθήκης — μερικές εκατοντάδες φωτογραφίες
+  // μέσα στα ίδια τα δεδομένα θα σήμαιναν πολλά MB σε κάθε άνοιγμα, σε κάθε συσκευή.
+  const onImage = async (e) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => upd({ image: reader.result });
-    reader.readAsDataURL(file);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/uploads", { method: "POST", body: formData });
+    if (!res.ok) { alert(t("common.error")); return; }
+    const uploaded = await res.json();
+    upd({ image: uploaded.url });
   };
 
   const round2 = (n) => Math.round(n * 100) / 100;
