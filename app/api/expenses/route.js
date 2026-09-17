@@ -36,6 +36,9 @@ export async function POST(request) {
     paid: body.paymentMethod !== "credit",
     // Προαιρετικός συγκεκριμένος λογαριασμός εξόδου (π.χ. 5200 Ενοίκια) — αλλιώς γενικά έξοδα.
     accountId: body.accountId || null,
+    // Σύνδεσμος προς το ανεβασμένο παραστατικό ({ url, name, type, size }) — το ίδιο το αρχείο
+    // ζει στον δίσκο, βλ. /api/uploads.
+    attachment: body.attachment || null,
     notes: body.notes || "",
     createdAt: new Date().toISOString(),
   };

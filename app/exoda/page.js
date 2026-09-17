@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { money, formatDate, todayISO } from "@/lib/format";
@@ -36,6 +36,8 @@ function ExpensesInner() {
   const [checks, setChecks] = useState(null);
   const [payForm, setPayForm] = useState(null);
   const [paying, setPaying] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef();
 
   const load = () => {
     fetch("/api/expenses").then((r) => r.json()).then(setExpenses);
@@ -113,6 +115,7 @@ function ExpensesInner() {
     }
     if (amount > 0 && !vat) out.push({ level: "warn", text: t("review.expNoVat") });
     if (!form.supplier.trim()) out.push({ level: "warn", text: t("review.expNoSupplier") });
+    if (!form.attachment) out.push({ level: "warn", text: t("review.expNoInvoice") });
 
     const dup = expenses.find((e) => e.id !== form.id && e.date === form.date && round2(e.amount) === round2(amount) && (e.supplier || "") === (form.supplier || ""));
     if (dup) out.push({ level: "warn", text: t("review.expDuplicate", { number: dup.number || "", description: dup.description }) });
@@ -140,6 +143,23 @@ function ExpensesInner() {
     const url = form.id ? `/api/expenses/${form.id}` : "/api/expenses";
     await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     setChecks(null); setForm(null); setSaving(false); load();
+  };
+
+  // Το παραστατικό φυλάσσεται ως αρχείο στον δίσκο (/api/uploads) και στο έξοδο μένει μόνο ο
+  // σύνδεσμος. Αν έμπαινε base64 μέσα στο db.json, κάθε αίτημα του app (μέχρι και κάθε σκανάρισμα
+  // στο Ταμείο) θα κουβαλούσε ολόκληρες τις φωτογραφίες των τιμολογίων.
+  const onAttach = async (ev) => {
+    const file = ev.target.files?.[0];
+    ev.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/uploads", { method: "POST", body: formData });
+    setUploading(false);
+    if (!res.ok) { alert(t("common.error")); return; }
+    const uploaded = await res.json();
+    setForm((f) => ({ ...f, attachment: { url: uploaded.url, name: uploaded.name, type: uploaded.type, size: uploaded.size } }));
   };
 
   const openPay = (e) => {
@@ -242,7 +262,7 @@ function ExpensesInner() {
                           <button onClick={() => openPay(e)} title={t("purchases.recordPayment")} className="btn-ghost !px-2 !py-1 text-emerald-600"><Icon name="wallet" size={15} /></button>
                         )}
                         {e.attachment && (
-                          <a href={e.attachment.data} download={e.attachment.name} title={t("expenses.viewInvoice")} className="btn-ghost !px-2 !py-1 inline-flex"><Icon name="download" size={15} /></a>
+                          <a href={e.attachment.url || e.attachment.data} download={e.attachment.name} target="_blank" rel="noreferrer" title={t("expenses.viewInvoice")} className="btn-ghost !px-2 !py-1 inline-flex"><Icon name="download" size={15} /></a>
                         )}
                         {e.purchaseOrderId && (
                           <Link href={`/agores/${e.purchaseOrderId}`} title={t("expenses.viewPO")} className="btn-ghost !px-2 !py-1 inline-flex"><Icon name="external" size={15} /></Link>
@@ -332,6 +352,26 @@ function ExpensesInner() {
               <div><label className="label">{t("expenses.fieldNet")}</label><input type="number" step="any" className="input" value={form.net} onChange={(e) => updNet(e.target.value)} /></div>
               <div><label className="label">{t("common.vat")}</label><input type="number" step="any" className="input" value={form.vat} onChange={(e) => setForm({ ...form, vat: e.target.value, amount: Math.round((Number(form.net) + Number(e.target.value)) * 100) / 100 })} /></div>
               <div className="sm:col-span-2"><label className="label">{t("expenses.fieldTotal")}</label><input type="number" step="any" className="input font-semibold" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
+
+              <div className="sm:col-span-2">
+                <label className="label">{t("expenses.fieldInvoice")}</label>
+                {form.attachment ? (
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2.5">
+                    <a href={form.attachment.url || form.attachment.data} download={form.attachment.name} target="_blank" rel="noreferrer" className="text-sm text-brand-700 hover:underline flex items-center gap-2 truncate">
+                      <Icon name="invoice" size={15} className="shrink-0" /> <span className="truncate">{form.attachment.name}</span>
+                    </a>
+                    <button type="button" onClick={() => setForm({ ...form, attachment: null })} className="btn-ghost !px-2 !py-1 text-red-500 shrink-0"><Icon name="trash" size={14} /></button>
+                  </div>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="btn-secondary w-full justify-center">
+                      <Icon name="upload" size={15} /> {uploading ? t("common.saving") : t("expenses.attachInvoice")}
+                    </button>
+                    <p className="text-xs text-slate-400 mt-1">{t("expenses.attachInvoiceHint")}</p>
+                  </>
+                )}
+                <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={onAttach} />
+              </div>
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setForm(null)} className="btn-secondary">{t("common.cancel")}</button>

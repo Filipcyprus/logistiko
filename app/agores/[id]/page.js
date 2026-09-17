@@ -100,16 +100,23 @@ export default function PurchaseView() {
     router.push("/exoda?tab=purchases");
   };
 
-  const onAttach = (e) => {
+  // Το τιμολόγιο ανεβαίνει ως ΑΡΧΕΙΟ στον δίσκο (/api/uploads), όχι ως base64 μέσα στο db.json:
+  // κάθε αίτημα του app διαβάζει/αντιγράφει ολόκληρη τη βάση, οπότε μερικές φωτογραφίες
+  // τιμολογίων μέσα της θα γονάτιζαν ακόμα και το Ταμείο.
+  const onAttach = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ attachment: { data: reader.result, name: file.name, type: file.type } }) });
-      load();
-    };
-    reader.readAsDataURL(file);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/uploads", { method: "POST", body: formData });
+    if (!res.ok) { alert(t("common.error")); return; }
+    const uploaded = await res.json();
+    await fetch(`/api/purchases/${id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attachment: { url: uploaded.url, name: uploaded.name, type: uploaded.type, size: uploaded.size } }),
+    });
+    load();
   };
   const removeAttachment = async () => {
     await fetch(`/api/purchases/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ attachment: null }) });
@@ -249,7 +256,8 @@ export default function PurchaseView() {
 
       {po.attachment && (
         <div className="card p-3 no-print max-w-3xl mx-auto flex items-center justify-between gap-3">
-          <a href={po.attachment.data} download={po.attachment.name} className="text-sm text-brand-700 hover:underline flex items-center gap-2">
+          {/* url = αρχείο στον δίσκο (νέος τρόπος), data = παλιά base64 επισύναψη — δούλεψε και με τα δύο. */}
+          <a href={po.attachment.url || po.attachment.data} download={po.attachment.name} target="_blank" rel="noreferrer" className="text-sm text-brand-700 hover:underline flex items-center gap-2">
             <Icon name="invoice" size={15} /> {po.attachment.name}
           </a>
           <button onClick={removeAttachment} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button>
