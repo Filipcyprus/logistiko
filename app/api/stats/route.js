@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readDB } from "@/lib/db";
+import { purchaseVat } from "@/lib/purchaseMath";
 
 export async function GET() {
   const db = readDB();
@@ -28,7 +29,11 @@ export async function GET() {
 
   const monthExpenses = sum(expenses.filter((e) => inMonth(e.date)), (e) => e.amount);
   const yearExpenses = sum(expenses.filter((e) => inYear(e.date)), (e) => e.amount);
-  const monthVatPaid = sum(expenses.filter((e) => inMonth(e.date)), (e) => e.vat);
+  // ΦΠΑ εισροών του μήνα = από έξοδα + από παραλαβές αγορών (όχι παρακαταθήκη).
+  const receivedPurchases = (db.purchases || []).filter((p) => p.received && !p.consignment && p.paymentMethod);
+  const monthVatPaid =
+    sum(expenses.filter((e) => inMonth(e.date)), (e) => e.vat) +
+    sum(receivedPurchases.filter((p) => inMonth(p.receivedAt || p.date)), (p) => purchaseVat(p));
 
   const unpaid = invoices.filter((i) => i.status === "unpaid");
   const unpaidTotal = sum(unpaid, (i) => i.total);

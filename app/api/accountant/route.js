@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readDB } from "@/lib/db";
+import { purchaseNet, purchaseVat, purchaseTotal } from "@/lib/purchaseMath";
 
 // Μόνο ανάγνωση — συνοπτικά στοιχεία για τον λογιστή (πωλήσεις, έξοδα, αγορές).
 // Η πρόσβαση περιορίζεται στο middleware (ρόλος "accountant" ή "owner").
@@ -24,10 +25,11 @@ export async function GET() {
     number: p.number,
     date: p.date,
     supplier: p.supplier?.name || "",
-    net: p.net,
-    vat: p.vat,
-    total: p.total,
+    net: purchaseNet(p),
+    vat: purchaseVat(p),
+    total: purchaseTotal(p),
     status: p.status,
+    consignment: !!p.consignment,
     attachment: p.attachment || null,
   }));
 

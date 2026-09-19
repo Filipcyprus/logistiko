@@ -64,7 +64,7 @@ export default function ReportsPage() {
             <div className="card p-5"><div className="text-sm text-slate-500">{t("reports.salesTotal")}</div><div className="text-2xl font-bold text-brand-700">{money(r.salesTotal)}</div><div className="text-xs text-slate-400">{t("reports.salesNetSub", { value: money(r.salesNet) })}</div></div>
             <div className="card p-5"><div className="text-sm text-slate-500">{t("reports.expensesTotal")}</div><div className="text-2xl font-bold text-red-600">{money(r.expensesTotal)}</div><div className="text-xs text-slate-400">{t("reports.salesNetSub", { value: money(r.expensesNet) })}</div></div>
             <div className="card p-5"><div className="text-sm text-slate-500">{t("reports.profit")}</div><div className="text-2xl font-bold text-emerald-600">{money(r.profit)}</div></div>
-            <div className="card p-5"><div className="text-sm text-slate-500">{t("reports.vatBalance")}</div><div className="text-2xl font-bold text-amber-600">{money(r.vatBalance)}</div><div className="text-xs text-slate-400">{t("reports.vatBalanceSub", { collected: money(r.salesVat), paid: money(r.expensesVat) })}</div></div>
+            <div className="card p-5"><div className="text-sm text-slate-500">{t("reports.vatBalance")}</div><div className="text-2xl font-bold text-amber-600">{money(r.vatBalance)}</div><div className="text-xs text-slate-400">{t("reports.vatBalanceSub", { collected: money(r.salesVat), paid: money(r.vatPaid ?? r.expensesVat) })}</div></div>
           </div>
 
           {/* Ανά πελάτη */}

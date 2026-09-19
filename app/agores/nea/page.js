@@ -93,6 +93,7 @@ export default function NewPurchasePage() {
         unit: matched ? matched.unit : t("common.unit"),
         code: it.code || it.barcode || "",
         unitPrice: it.unitPrice != null ? it.unitPrice : 0,
+        vatRate: Number(matched?.vatRate) > 0 ? Number(matched.vatRate) : (settings?.vatRate ?? 19),
       };
     });
     setItems((prev) => {

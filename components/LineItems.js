@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { money, computeTotals } from "@/lib/format";
 import { quantityDiscountPercentForProduct } from "@/lib/pricing";
 import { productMatchesQuery } from "@/lib/productSearch";
+import { lineNet, lineVat, purchaseNet, purchaseVat, purchaseTotal } from "@/lib/purchaseMath";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
@@ -23,6 +24,13 @@ export default function LineItems({ items, onChange, products = [], currency = "
   const [menuPos, setMenuPos] = useState(null);
   const inputRefs = useRef({});
   const menuRef = useRef(null);
+
+  // Παραγγελία Αγοράς (χωρίς τιμολόγηση): η γραμμή κρατά την τιμή αγοράς ως "unitPrice" εδώ και
+  // αποθηκεύεται ως "unitCost" — οι υπολογισμοί ΦΠΑ/συνόλου είναι κοινοί με τον server.
+  const asPurchaseLine = (it) => ({ quantity: it.quantity, unitCost: it.unitPrice, vatRate: it.vatRate });
+  const purchaseLineTotal = (it) => { const l = asPurchaseLine(it); return lineNet(l) + lineVat(l); };
+  const purchasePo = { items: items.map(asPurchaseLine) };
+  const purchaseTotals = { net: purchaseNet(purchasePo), vat: purchaseVat(purchasePo), total: purchaseTotal(purchasePo) };
 
   useEffect(() => {
     if (openIdx == null) return;
@@ -66,7 +74,13 @@ export default function LineItems({ items, onChange, products = [], currency = "
     const p = products.find((x) => x.id === productId);
     if (!p) return;
     // Χωρίς τιμές (π.χ. Παραγγελίες Αγοράς): μόνο περιγραφή/μονάδα, καμία τιμή/έκπτωση/ΦΠΑ.
-    if (!pricing) { setLine(idx, { productId: p.id, description: p.name, unit: p.unit }); return; }
+    if (!pricing) {
+      const patch = { productId: p.id, description: p.name, unit: p.unit, code: items[idx].code || p.code || "" };
+      // ΦΠΑ αγοράς του προϊόντος, αν έχει οριστεί — αλλιώς μένει ό,τι είχε η γραμμή (προεπιλογή ρυθμίσεων).
+      if (Number(p.vatRate) > 0) patch.vatRate = Number(p.vatRate);
+      setLine(idx, patch);
+      return;
+    }
     // If Retail Price is set, use it (VAT already included). Otherwise use Wholesale Price + VAT
     const unitPrice = p.retailPrice && p.retailPrice > 0 ? p.retailPrice : p.price;
     const vatRate = p.retailPrice && p.retailPrice > 0 ? 0 : (p.saleVatRate != null ? p.saleVatRate : 19);
@@ -96,7 +110,7 @@ export default function LineItems({ items, onChange, products = [], currency = "
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
-        <table className={`w-full ${pricing ? "min-w-[860px]" : "min-w-[700px]"}`}>
+        <table className={`w-full ${pricing ? "min-w-[860px]" : "min-w-[860px]"}`}>
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="table-th w-[26%]">{t("lineItems.colItem")}</th>
@@ -104,6 +118,8 @@ export default function LineItems({ items, onChange, products = [], currency = "
               <th className="table-th">{t("lineItems.colUnit")}</th>
               {!pricing && <th className="table-th">{t("lineItems.colCode")}</th>}
               {!pricing && <th className="table-th text-right">{t("lineItems.colPurchasePrice")}</th>}
+              {!pricing && <th className="table-th text-right">{t("lineItems.colVat")}</th>}
+              {!pricing && <th className="table-th text-right">{t("lineItems.colTotal")}</th>}
               {pricing && <th className="table-th text-right">{t("lineItems.colPrice", { currency })}</th>}
               {pricing && <th className="table-th text-right" title={t("lineItems.discountTiersHint")}>{t("lineItems.colDiscount")}</th>}
               {pricing && <th className="table-th text-right">{t("lineItems.colVat")}</th>}
@@ -174,6 +190,8 @@ export default function LineItems({ items, onChange, products = [], currency = "
                   <td className="table-td"><input className="input !py-1 w-16" value={it.unit} onChange={(e) => setLine(idx, { unit: e.target.value })} /></td>
                   {!pricing && <td className="table-td"><input className="input !py-1 w-24" value={it.code || ""} onChange={(e) => setLine(idx, { code: e.target.value })} /></td>}
                   {!pricing && <td className="table-td"><input type="number" step="any" min="0" className="input !py-1 w-24 text-right" value={it.unitPrice} onChange={(e) => setLine(idx, { unitPrice: e.target.value })} /></td>}
+                  {!pricing && <td className="table-td"><input type="number" step="any" min="0" className="input !py-1 w-16 text-right" value={it.vatRate ?? 0} onChange={(e) => setLine(idx, { vatRate: e.target.value })} /></td>}
+                  {!pricing && <td className="table-td text-right font-semibold whitespace-nowrap">{money(purchaseLineTotal(it), currency)}</td>}
                   {pricing && <td className="table-td"><input type="number" step="any" min="0" className="input !py-1 w-24 text-right" value={it.unitPrice} onChange={(e) => setLine(idx, { unitPrice: e.target.value })} /></td>}
                   {pricing && <td className="table-td"><input type="number" step="any" min="0" max="100" className="input !py-1 w-20 text-right" value={it.discount} onChange={(e) => setLine(idx, { discount: e.target.value })} /></td>}
                   {pricing && <td className="table-td"><input type="number" step="any" min="0" className="input !py-1 w-20 text-right" value={it.vatRate} onChange={(e) => setLine(idx, { vatRate: e.target.value })} /></td>}
@@ -185,8 +203,15 @@ export default function LineItems({ items, onChange, products = [], currency = "
           </tbody>
         </table>
       </div>
-      <div className="p-3 border-t border-slate-100">
+      <div className="p-3 border-t border-slate-100 flex items-start justify-between gap-4 flex-wrap">
         <button onClick={addLine} className="btn-secondary"><Icon name="plus" size={15} /> {t("lineItems.addLine")}</button>
+        {!pricing && (
+          <div className="text-sm space-y-0.5 min-w-[200px]">
+            <div className="flex justify-between gap-6"><span className="text-slate-500">{t("common.net")}</span><span>{money(purchaseTotals.net, currency)}</span></div>
+            <div className="flex justify-between gap-6"><span className="text-slate-500">{t("common.vat")}</span><span>{money(purchaseTotals.vat, currency)}</span></div>
+            <div className="flex justify-between gap-6 font-bold border-t border-slate-200 pt-1"><span>{t("common.total")}</span><span>{money(purchaseTotals.total, currency)}</span></div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import LineItems from "@/components/LineItems";
 import Icon from "@/components/Icon";
 import EmailButton from "@/components/EmailButton";
 import ReviewDialog from "@/components/ReviewDialog";
+import { purchaseNet, purchaseVat, purchaseTotal, lineVat, effectiveQty } from "@/lib/purchaseMath";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const STATUS = {
@@ -70,7 +71,10 @@ export default function PurchaseView() {
   if (!po || !settings) return <div className="text-slate-400">{t("common.loading")}</div>;
 
   const cur = settings.currency || "€";
-  const poTotal = Math.round((po.items || []).reduce((a, it) => a + Number(it.quantity || 0) * Number(it.unitCost || 0), 0) * 100) / 100;
+  // Σύνολο = καθαρό + ΦΠΑ: αυτό που πληρώνεται/οφείλεται στον προμηθευτή (βλ. lib/purchaseMath.js).
+  const poNet = purchaseNet(po);
+  const poVat = purchaseVat(po);
+  const poTotal = purchaseTotal(po);
   const poPaidAmount = Number(po.paidAmount || 0);
 
   const openPaySupplier = () => {
@@ -132,6 +136,7 @@ export default function PurchaseView() {
     setReceiveOpen(true);
     setTimeout(() => scanRef.current?.focus(), 50);
   };
+  const updateReceiveVat = (idx, rate) => setReceiveItems((prev) => prev.map((it, i) => (i === idx ? { ...it, vatRate: rate } : it)));
   const updateReceiveQty = (idx, qty) => setReceiveItems((prev) => prev.map((it, i) => (i === idx ? { ...it, receivedQty: Math.max(0, Number(qty)) } : it)));
   const onScan = (e) => {
     if (e.key !== "Enter") return;
@@ -162,12 +167,19 @@ export default function PurchaseView() {
 
     if (!po.attachment) out.push({ level: "warn", text: t("review.recNoInvoice") });
 
-    const total = lines.reduce((a, it) => a + Number(it.receivedQty || 0) * Number(it.unitCost || 0), 0);
+    const receiving = { items: lines };
+    const rNet = purchaseNet(receiving);
+    const rVat = purchaseVat(receiving);
+    const rTotal = purchaseTotal(receiving);
     if (receiveConsignment) {
       out.push({ level: "info", text: t("review.recConsignment") });
       if (supplier && !supplier.consignmentDefault) out.push({ level: "warn", text: t("review.recConsignmentUnusual", { name: supplier.name }) });
     } else {
-      out.push({ level: "info", text: t("review.recWillPost", { total: money(total, cur) }) });
+      if (rVat > 0) {
+        out.push({ level: "info", text: t("review.recWillPostVat", { net: money(rNet, cur), vat: money(rVat, cur), total: money(rTotal, cur) }) });
+      } else {
+        out.push({ level: "warn", text: t("review.recNoVat", { total: money(rTotal, cur) }) });
+      }
       if (receivePaymentMethod === "credit") out.push({ level: "info", text: t("review.recOnAccount") });
       if (supplier?.consignmentDefault) out.push({ level: "warn", text: t("review.recNotConsignmentUnusual", { name: supplier.name }) });
     }
@@ -201,7 +213,7 @@ export default function PurchaseView() {
 
   // Επεξεργασία ειδών — μόνο όσο η παραγγελία είναι ακόμα "Πρόχειρη". Μόλις σταλεί στον
   // προμηθευτή (ή παραληφθεί), τα είδη κλειδώνουν — ο προμηθευτής έχει ήδη δει/λάβει αυτή τη λίστα.
-  const startEdit = () => { setEditItems((po.items || []).map((it) => ({ ...it, unitPrice: it.unitCost ?? 0 }))); setEditing(true); };
+  const startEdit = () => { setEditItems((po.items || []).map((it) => ({ ...it, unitPrice: it.unitCost ?? 0, vatRate: it.vatRate ?? 0 }))); setEditing(true); };
   const cancelEdit = () => setEditing(false);
   const saveEdit = async () => {
     const valid = editItems.filter((it) => it.description && Number(it.quantity) > 0);
@@ -326,6 +338,8 @@ export default function PurchaseView() {
                 <th className="py-2 text-left">{t("lineItems.colCode")}</th>
                 <th className="py-2 text-right">{t("invoices.colQty")}</th>
                 <th className="py-2 text-right">{t("lineItems.colPurchasePrice")}</th>
+                <th className="py-2 text-right">{t("lineItems.colVat")}</th>
+                <th className="py-2 text-right">{t("lineItems.colTotal")}</th>
               </tr>
             </thead>
             <tbody>
@@ -345,9 +359,16 @@ export default function PurchaseView() {
                     />
                     <span className="print-only">{money(it.unitCost || 0, settings.currency || "€")}</span>
                   </td>
+                  <td className="py-2 text-right text-slate-500">{Number(it.vatRate || 0)}%</td>
+                  <td className="py-2 text-right font-medium">{money(Number(effectiveQty(it)) * Number(it.unitCost || 0) + lineVat(it), cur)}</td>
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr><td colSpan={5} className="pt-3 text-right text-slate-500">{t("common.net")}</td><td className="pt-3 text-right">{money(poNet, cur)}</td></tr>
+              <tr><td colSpan={5} className="text-right text-slate-500">{t("common.vat")}</td><td className="text-right">{money(poVat, cur)}</td></tr>
+              <tr className="font-bold"><td colSpan={5} className="pt-1 text-right border-t border-slate-300">{t("common.total")}</td><td className="pt-1 text-right border-t border-slate-300">{money(poTotal, cur)}</td></tr>
+            </tfoot>
           </table>
         )}
 
@@ -372,6 +393,7 @@ export default function PurchaseView() {
                     <th className="table-th">{t("invoices.colDescription")}</th>
                     <th className="table-th text-right">{t("purchases.ordered")}</th>
                     <th className="table-th text-right">{t("purchases.received")}</th>
+                    <th className="table-th text-right">{t("lineItems.colVat")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -380,6 +402,7 @@ export default function PurchaseView() {
                       <td className="table-td">{it.description}</td>
                       <td className="table-td text-right text-slate-400">{it.quantity} {it.unit}</td>
                       <td className="table-td text-right"><input type="number" step="any" min="0" className="input !w-24 !py-1 text-right ml-auto" value={it.receivedQty} onChange={(e) => updateReceiveQty(idx, e.target.value)} /></td>
+                      <td className="table-td text-right"><input type="number" step="any" min="0" className="input !w-16 !py-1 text-right ml-auto" value={it.vatRate ?? 0} onChange={(e) => updateReceiveVat(idx, e.target.value)} /></td>
                     </tr>
                   ))}
                 </tbody>

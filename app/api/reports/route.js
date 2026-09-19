@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readDB } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server";
+import { purchaseVat } from "@/lib/purchaseMath";
 
 // Αναφορές για συγκεκριμένη περίοδο: ?from=YYYY-MM-DD&to=YYYY-MM-DD
 export async function GET(request) {
@@ -20,7 +21,14 @@ export async function GET(request) {
 
   // ΦΠΑ
   const vatCollected = sum(invoices, (i) => i.vat);
-  const vatPaid = sum(expenses, (e) => e.vat);
+  // ΦΠΑ εισροών: από έξοδα ΚΑΙ από παραλαβές αγορών που πληρώθηκαν/οφείλονται (όχι παρακαταθήκη —
+  // εκεί δεν έχει καταχωριστεί τίποτα). Ημερομηνία = ημέρα παραλαβής, όπως στο Καθολικό.
+  const receivedPurchases = (db.purchases || []).filter(
+    (p) => p.received && !p.consignment && p.paymentMethod && inRange((p.receivedAt || p.date || "").slice(0, 10))
+  );
+  const purchasesVat = sum(receivedPurchases, (p) => purchaseVat(p));
+  const expensesVatOnly = sum(expenses, (e) => e.vat);
+  const vatPaid = Math.round((expensesVatOnly + purchasesVat) * 100) / 100;
 
   // Ανά πελάτη
   const retailLabel = serverT(db.settings.language, "common.retail");
@@ -69,7 +77,9 @@ export async function GET(request) {
     salesTotal: sum(invoices, (i) => i.total),
     invoiceCount: invoices.length,
     expensesNet: sum(expenses, (e) => e.net || e.amount),
-    expensesVat: vatPaid,
+    expensesVat: expensesVatOnly,
+    purchasesVat,
+    vatPaid,
     expensesTotal: sum(expenses, (e) => e.amount),
     vatBalance: Math.round((vatCollected - vatPaid) * 100) / 100,
     profit: Math.round((sum(invoices, (i) => i.net) - sum(expenses, (e) => e.net || e.amount)) * 100) / 100,

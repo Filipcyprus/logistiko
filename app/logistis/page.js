@@ -286,7 +286,7 @@ export default function AccountantPage() {
                     <td className="table-td text-right font-semibold">{money(e.amount, cur)}</td>
                     <td className="table-td">
                       {e.attachment ? (
-                        <a href={e.attachment.data} download={e.attachment.name} className="btn-ghost !px-2 !py-1 inline-flex" title={t("expenses.viewInvoice")}><Icon name="download" size={15} /></a>
+                        <a href={e.attachment.url || e.attachment.data} download={e.attachment.name} target="_blank" rel="noreferrer" className="btn-ghost !px-2 !py-1 inline-flex" title={t("expenses.viewInvoice")}><Icon name="download" size={15} /></a>
                       ) : "—"}
                     </td>
                   </tr>
@@ -327,7 +327,7 @@ export default function AccountantPage() {
                     <td className="table-td"><span className={`badge ${PO_STATUS_COLOR[po.status] || PO_STATUS_COLOR.draft}`}>{t(`purchases.status${po.status.charAt(0).toUpperCase()}${po.status.slice(1)}`)}</span></td>
                     <td className="table-td">
                       {po.attachment ? (
-                        <a href={po.attachment.data} download={po.attachment.name} className="btn-ghost !px-2 !py-1 inline-flex" title={t("expenses.viewInvoice")}><Icon name="download" size={15} /></a>
+                        <a href={po.attachment.url || po.attachment.data} download={po.attachment.name} target="_blank" rel="noreferrer" className="btn-ghost !px-2 !py-1 inline-flex" title={t("expenses.viewInvoice")}><Icon name="download" size={15} /></a>
                       ) : "—"}
                     </td>
                   </tr>
@@ -350,7 +350,7 @@ export default function AccountantPage() {
               <div className="card p-5"><div className="text-sm text-slate-500">{t("reports.salesTotal")}</div><div className="text-2xl font-bold text-brand-700">{money(report.salesTotal, cur)}</div><div className="text-xs text-slate-400">{t("reports.salesNetSub", { value: money(report.salesNet, cur) })}</div></div>
               <div className="card p-5"><div className="text-sm text-slate-500">{t("reports.expensesTotal")}</div><div className="text-2xl font-bold text-red-600">{money(report.expensesTotal, cur)}</div><div className="text-xs text-slate-400">{t("reports.salesNetSub", { value: money(report.expensesNet, cur) })}</div></div>
               <div className="card p-5"><div className="text-sm text-slate-500">{t("reports.profit")}</div><div className="text-2xl font-bold text-emerald-600">{money(report.profit, cur)}</div></div>
-              <div className="card p-5"><div className="text-sm text-slate-500">{t("reports.vatBalance")}</div><div className="text-2xl font-bold text-amber-600">{money(report.vatBalance, cur)}</div><div className="text-xs text-slate-400">{t("reports.vatBalanceSub", { collected: money(report.salesVat, cur), paid: money(report.expensesVat, cur) })}</div></div>
+              <div className="card p-5"><div className="text-sm text-slate-500">{t("reports.vatBalance")}</div><div className="text-2xl font-bold text-amber-600">{money(report.vatBalance, cur)}</div><div className="text-xs text-slate-400">{t("reports.vatBalanceSub", { collected: money(report.salesVat, cur), paid: money(report.vatPaid ?? report.expensesVat, cur) })}</div></div>
             </div>
           )}
         </div>

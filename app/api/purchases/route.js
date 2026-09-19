@@ -39,6 +39,9 @@ export async function POST(request) {
       // Τιμή αγοράς ανά είδος, ΧΩΡΙΣ ΦΠΑ — καθαρά για αναφορά/σύγκριση με το τιμολόγιο του
       // προμηθευτή όταν έρθει· δεν επηρεάζει κανέναν υπολογισμό ΦΠΑ/εξόδου εδώ.
       unitCost: it.unitCost != null ? Number(it.unitCost) : 0,
+      // ΦΠΑ που χρεώνει ο προμηθευτής στη γραμμή (%) — μαζί με το καθαρό δίνει το ποσό που
+      // πληρώνεται, και το ΦΠΑ εισροών που δικαιούσαι να συμψηφίσεις.
+      vatRate: it.vatRate != null && it.vatRate !== "" ? Number(it.vatRate) : 0,
     })),
     status: body.status || "draft", // draft | sent | received
     received: false,

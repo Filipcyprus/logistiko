@@ -77,6 +77,9 @@ export async function PUT(request, { params }) {
           unit: it.unit || "pcs",
           code: it.code || "",
           unitCost: it.unitCost != null ? Number(it.unitCost) : 0,
+          vatRate: it.vatRate != null && it.vatRate !== "" ? Number(it.vatRate) : 0,
+          // Τι παραλήφθηκε πραγματικά (μπαίνει μόνο στην παραλαβή) — από αυτό βγαίνει το ποσό.
+          ...(it.receivedQty != null && it.receivedQty !== "" ? { receivedQty: Number(it.receivedQty) } : {}),
         })),
     };
   }

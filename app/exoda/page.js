@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { money, formatDate, todayISO } from "@/lib/format";
 import Icon from "@/components/Icon";
 import ReviewDialog from "@/components/ReviewDialog";
+import { purchaseTotal } from "@/lib/purchaseMath";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const CATEGORY_KEYS = ["rawMaterials", "ink", "rent", "utilities", "payroll", "equipment", "shipping", "marketing", "general", "purchaseOrder"];
@@ -142,7 +143,7 @@ function ExpensesInner() {
     }
     // Μηδενικό ΦΠΑ δεν προειδοποιεί όταν επιλέχθηκε ρητά ο συντελεστής 0% — μόνο όταν φαίνεται
     // ξεχασμένο (π.χ. έμεινε στο "Custom" χωρίς να μπει ποτέ ποσό).
-    if (amount > 0 && !vat && form.vatRate !== 0) out.push({ level: "warn", text: t("review.expNoVat") });
+    if (amount > 0 && !vat && String(form.vatRate) !== "0") out.push({ level: "warn", text: t("review.expNoVat") });
     if (!form.supplier.trim()) out.push({ level: "warn", text: t("review.expNoSupplier") });
     if (!form.attachment) out.push({ level: "warn", text: t("review.expNoInvoice") });
 
@@ -326,7 +327,7 @@ function ExpensesInner() {
                   <tr><td className="table-td text-slate-400" colSpan={7}>{t("purchases.noEntries")}</td></tr>
                 ) : purchases.map((po) => {
                   const st = PO_STATUS[po.status] || PO_STATUS.draft;
-                  const total = round2((po.items || []).reduce((a, it) => a + Number(it.quantity || 0) * Number(it.unitCost || 0), 0));
+                  const total = purchaseTotal(po);
                   return (
                     <tr key={po.id} className="hover:bg-slate-50">
                       <td className="table-td font-semibold"><Link href={`/agores/${po.id}`} className="text-brand-700 hover:underline">{po.number}</Link></td>
