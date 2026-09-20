@@ -146,6 +146,10 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
             <datalist id={catListId}>{categories.map((c) => <option key={c} value={c} />)}</datalist>
           </div>
           <div>
+            <label className="label">{t("stock.fieldSubcategory")}</label>
+            <input className="input" value={form.subcategory || ""} onChange={(e) => upd({ subcategory: e.target.value })} />
+          </div>
+          <div>
             <label className="label">{t("stock.fieldSupplier")}</label>
             <select className="input" value={form.supplierId || ""} onChange={(e) => upd({ supplierId: e.target.value })}>
               <option value="">{t("stock.noSupplier")}</option>

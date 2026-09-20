@@ -317,7 +317,7 @@ export default function StockPage() {
                           {p.image ? <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden"><img src={p.image} alt="" className="w-full h-full object-contain" /></div> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300"><Icon name="image" size={16} /></div>}
                         </td>
                         <td className="table-td text-slate-500 text-sm">{p.sku || "—"}</td>
-                        <td className="table-td font-medium">{p.name}{p.category && <div className="text-xs text-slate-400">{p.category}</div>}</td>
+                        <td className="table-td font-medium">{p.name}{(p.category || p.subcategory) && <div className="text-xs text-slate-400">{[p.category, p.subcategory].filter(Boolean).join(" › ")}</div>}</td>
                         <td className="table-td">
                           <input
                             list="brand-list" placeholder="—"

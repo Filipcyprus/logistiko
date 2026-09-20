@@ -17,6 +17,7 @@ export default function PortalPage() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("");
   const [brand, setBrand] = useState("");
+  const [sub, setSub] = useState("");
   const [cart, setCart] = useState({}); // productId -> qty
   const [notes, setNotes] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
@@ -48,14 +49,21 @@ export default function PortalPage() {
     return data.products.filter((p) => {
       if (cat && p.category !== cat) return false;
       if (brand && p.brand !== brand) return false;
+      if (sub && p.subcategory !== sub) return false;
       if (!q) return true;
       const query = q.toLowerCase();
       return p.name.toLowerCase().includes(query) || (p.code || "").toLowerCase().includes(query) || (p.brand || "").toLowerCase().includes(query);
     });
-  }, [data, q, cat, brand]);
+  }, [data, q, cat, brand, sub]);
 
   // Κατηγορία και μάρκα φιλτράρουν η μία την άλλη: όταν διαλέξεις μάρκα, η λίστα κατηγοριών δείχνει
   // μόνο όσες έχει αυτή η μάρκα (και αντίστροφα) — έτσι δεν καταλήγεις σε συνδυασμό χωρίς προϊόντα.
+  // Υποκατηγορίες: μόνο όσες υπάρχουν στην επιλεγμένη κατηγορία/μάρκα (και εμφανίζεται μόνο αν υπάρχουν).
+  const subOptions = useMemo(() => {
+    if (!data) return [];
+    const pool = data.products.filter((p) => (!cat || p.category === cat) && (!brand || p.brand === brand));
+    return Array.from(new Set(pool.map((p) => p.subcategory).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  }, [data, cat, brand]);
   const brandOptions = useMemo(() => {
     if (!data) return [];
     const pool = cat ? data.products.filter((p) => p.category === cat) : data.products;
@@ -184,15 +192,21 @@ export default function PortalPage() {
               <input className="input pl-9" placeholder={t("portal.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             {data.categories.length > 0 && (
-              <select className="input max-w-[220px]" value={cat} onChange={(e) => { const v = e.target.value; setCat(v); if (brand && v && !data.products.some((p) => p.category === v && p.brand === brand)) setBrand(""); }}>
+              <select className="input max-w-[220px]" value={cat} onChange={(e) => { const v = e.target.value; setCat(v); setSub(""); if (brand && v && !data.products.some((p) => p.category === v && p.brand === brand)) setBrand(""); }}>
                 <option value="">{t("portal.allCategories")}</option>
                 {categoryOptions.map((c) => <option key={c}>{c}</option>)}
               </select>
             )}
             {(data.brands || []).length > 0 && (
-              <select className="input max-w-[220px]" value={brand} onChange={(e) => { const v = e.target.value; setBrand(v); if (cat && v && !data.products.some((p) => p.brand === v && p.category === cat)) setCat(""); }}>
+              <select className="input max-w-[220px]" value={brand} onChange={(e) => { const v = e.target.value; setBrand(v); setSub(""); if (cat && v && !data.products.some((p) => p.brand === v && p.category === cat)) setCat(""); }}>
                 <option value="">{t("portal.allBrands")}</option>
                 {brandOptions.map((b) => <option key={b}>{b}</option>)}
+              </select>
+            )}
+            {subOptions.length > 0 && (
+              <select className="input max-w-[220px]" value={sub} onChange={(e) => setSub(e.target.value)}>
+                <option value="">{t("portal.allSubcategories")}</option>
+                {subOptions.map((s) => <option key={s}>{s}</option>)}
               </select>
             )}
           </div>

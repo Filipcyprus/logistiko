@@ -36,6 +36,8 @@ export async function POST(request) {
     name: body.name.trim(),
     brand: body.brand || "",
     category: body.category || "",
+    // Υποκατηγορία (π.χ. Εργαλεία › τρίμμερ) — προαιρετική, κάτω από την κατηγορία.
+    subcategory: body.subcategory || "",
     supplierId: body.supplierId || "",
     department: body.department || "",
     productType,

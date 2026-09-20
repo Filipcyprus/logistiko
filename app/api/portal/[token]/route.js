@@ -35,7 +35,7 @@ export async function GET(_req, { params }) {
     const discountPercent = hasCustomPrice ? 0 : (ruleDisc !== null ? ruleDisc : disc);
     const finalPrice = hasCustomPrice ? customPriceMap.get(p.id) : Math.round(p.price * (1 - discountPercent / 100) * 100) / 100;
     return {
-      id: p.id, code: p.code, name: p.name, category: p.category, brand: p.brand || "",
+      id: p.id, code: p.code, name: p.name, category: p.category, subcategory: p.subcategory || "", brand: p.brand || "",
       // Ο συντελεστής ΦΠΑ πρέπει να είναι αυτός της ΠΩΛΗΣΗΣ (saleVatRate), όχι της αγοράς
       // (vatRate) — αλλιώς ο πελάτης B2B χρεώνεται με λάθος ΦΠΑ σε αυτή την παραγγελία.
       unit: p.unit, price: p.price, retailPrice: p.retailPrice, vatRate: p.saleVatRate ?? p.vatRate ?? 19,
