@@ -57,6 +57,9 @@ export async function GET(_req, { params }) {
       creditBalance: Math.round((Number(c.creditBalance) || 0) * 100) / 100,
     },
     categories: Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort(),
+    // Μάρκες από τα προϊόντα που βλέπει ΑΥΤΟΣ ο πελάτης (μετά το φίλτρο επαγγέλματος) — όχι από
+    // ολόκληρο τον κατάλογο, αλλιώς θα έβλεπε μάρκες που δεν του πουλάμε.
+    brands: Array.from(new Set(products.map((p) => p.brand).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
     quantityDiscounts: s.quantityDiscounts || null,
     products,
     orders,
