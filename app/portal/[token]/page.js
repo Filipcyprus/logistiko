@@ -197,6 +197,13 @@ export default function PortalPage() {
             </div>
           )}
 
+          {notVatRegistered && (
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 flex items-start gap-2">
+              <Icon name="note" size={15} className="text-slate-400 shrink-0 mt-0.5" />
+              <span>{t("portal.noVatShort")}</span>
+            </div>
+          )}
+
           {(data.notices || []).filter((n) => !dismissed.includes(n.id)).map((n) => (
             <div key={n.id} className="card p-4 border-l-4 border-l-brand-600 bg-brand-50/40 flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -258,7 +265,7 @@ export default function PortalPage() {
                         {notVatRegistered ? (
                           <>
                             <div className="text-base font-bold text-brand-700">{money(net, cur)} <span className="text-xs font-normal text-slate-400">{t("portal.perUnit", { unit: p.unit })}</span></div>
-                            <div className="text-[11px] text-slate-400">{t("portal.noVatShort")}</div>
+                            <div className="text-[11px] text-slate-400">{t("portal.noVatCard")}</div>
                           </>
                         ) : (
                           <>
@@ -273,17 +280,20 @@ export default function PortalPage() {
                       {hasQtyDiscount && tiers.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
                           <div className="font-semibold text-slate-700 mb-2">{t("stock.qtyDiscountTitle")}</div>
-                          <div className="grid grid-cols-3 gap-1 mb-2">
-                            <div>
-                              <div className="text-slate-500 text-xs">1–{tiers[0].min - 1}</div>
-                              <div className="font-semibold text-slate-700">{money(net, cur)}</div>
-                            </div>
-                            {tiers.map((tier, i) => (
-                              <div key={tier.min}>
-                                <div className="text-slate-500 text-xs">{tier.min}{tiers[i + 1] ? `–${tiers[i + 1].min - 1}` : "+"}</div>
-                                <div className="font-semibold text-emerald-600">{money(Math.round(net * (1 - tier.percent / 100) * 100) / 100, cur)}</div>
-                              </div>
-                            ))}
+                          {/* Smallest quantity first, one column per step: 1–11 · 12–23 · 24+ */}
+                          <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `repeat(${Math.min(tiers.length + 1, 4)}, minmax(0, 1fr))` }}>
+                            {[{ min: 1, percent: 0 }, ...tiers].map((tier, i, all) => {
+                              const next = all[i + 1];
+                              const label = next ? (next.min - 1 > tier.min ? `${tier.min}–${next.min - 1}` : `${tier.min}`) : `${tier.min}+`;
+                              const active = inCart > 0 && tier.min <= inCart && (!next || inCart < next.min);
+                              return (
+                                <div key={tier.min} className={`rounded px-1 py-0.5 ${active ? "bg-emerald-50 ring-1 ring-emerald-200" : ""}`}>
+                                  <div className="text-slate-500 text-xs">{label}</div>
+                                  <div className={`font-semibold ${tier.percent > 0 ? "text-emerald-600" : "text-slate-700"}`}>{money(Math.round(net * (1 - tier.percent / 100) * 100) / 100, cur)}</div>
+                                  {tier.percent > 0 && <div className="text-[10px] text-slate-400">−{tier.percent}%</div>}
+                                </div>
+                              );
+                            })}
                           </div>
                           <div className="text-slate-600 text-xs italic">{t("stock.bulkPricingCTA")}</div>
                         </div>

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { DEFAULT_QUANTITY_DISCOUNT_TIERS } from "@/lib/pricing";
+import { DEFAULT_QUANTITY_DISCOUNT_TIERS, sortDiscountTiers } from "@/lib/pricing";
 import { testPrint, listPrinters, testOpenDrawer } from "@/lib/receiptPrinter";
 
 const QTY_DISCOUNT_PRODUCT_TYPES = [
@@ -115,7 +115,11 @@ export default function SettingsPage() {
   const save = async () => {
     setSaveError("");
     try {
-      const res = await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) });
+      // Quantity-discount steps are stored smallest quantity first, whatever order they were typed in.
+      const payload = s.quantityDiscounts
+        ? { ...s, quantityDiscounts: Object.fromEntries(Object.entries(s.quantityDiscounts).map(([type, tiers]) => [type, Array.isArray(tiers) ? sortDiscountTiers(tiers) : tiers])) }
+        : s;
+      const res = await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         setSaveError(err.error ? t(err.error) : `${t("common.error")} (HTTP ${res.status})`);
