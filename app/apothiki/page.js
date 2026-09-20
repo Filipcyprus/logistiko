@@ -174,13 +174,30 @@ export default function StockPage() {
 
   // Γρήγορη προσαρμογή αποθέματος απευθείας από τη λίστα (βέλη ή πληκτρολόγηση), χωρίς να χρειάζεται
   // να ανοίξει κανείς τη σελίδα του προϊόντος και να κατεβεί μέχρι το πεδίο αποθέματος.
-  const quickStockMove = async (p, type, qty) => {
-    const res = await fetch("/api/stock", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId: p.id, type, quantity: qty, reason: t(type === "in" ? "stock.reasonQuickAdd" : "stock.reasonQuickRemove") }),
+  // Χονδρική/λιανική τιμή απευθείας από τη λίστα. Αποθηκεύεται με Enter ή όταν φύγεις από το
+  // πλαίσιο. Η λιανική μπορεί να αδειάσει (= δεν έχει λιανική, χρησιμοποιείται η χονδρική)· η
+  // χονδρική όχι — άδεια θα γινόταν 0 και το προϊόν θα πουλιόταν δωρεάν. Ενημερώνεται μόνο η
+  // γραμμή που άλλαξε, όχι ολόκληρη η λίστα (3.500 προϊόντα ξαναφορτώνονταν σε κάθε αλλαγή).
+  // `el` = το ίδιο το πλαίσιο: αν η τιμή δεν γίνεται δεκτή, το πλαίσιο γυρνά σε αυτό που ισχύει
+  // (αλλιώς θα έμενε γραμμένο κάτι που δεν αποθηκεύτηκε).
+  const quickPriceSet = async (p, field, el) => {
+    const raw = el.value;
+    const isRetail = field === "retailPrice";
+    const current = p[field] ?? (isRetail ? null : p.price ?? 0);
+    const revert = () => { el.value = current ?? ""; };
+    if (raw === "") {
+      if (!isRetail) { revert(); return; }
+      if (current == null) return;
+    } else if (Number(raw) === Number(current)) return;
+    const value = raw === "" ? "" : Number(raw);
+    if (value !== "" && (!Number.isFinite(value) || value < 0)) { revert(); return; }
+    const res = await fetch(`/api/products/${p.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
     });
-    if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); return; }
-    load();
+    if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); revert(); return; }
+    const updated = await res.json();
+    setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...updated } : x)));
   };
   const quickStockSet = async (p, value) => {
     if (!Number.isFinite(value) || value < 0) { load(); return; }
@@ -264,7 +281,8 @@ export default function StockPage() {
                     <th className="table-th">{t("stock.fieldSku")}</th>
                     <th className="table-th">{t("stock.colName")}</th>
                     <th className="table-th">{t("stock.colBrand")}</th>
-                    <th className="table-th text-right">{t("stock.colPrice")}</th>
+                    <th className="table-th text-right">{t("stock.colWholesale")}</th>
+                    <th className="table-th text-right">{t("stock.colRetail")}</th>
                     <th className="table-th text-right">{t("stock.colVat")}</th>
                     <th className="table-th text-right">{t("stock.colStock")}</th>
                     <th className="table-th text-center">{t("stock.colExpiry")}</th>
@@ -274,7 +292,7 @@ export default function StockPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filtered.length === 0 ? (
-                    <tr><td className="table-td text-slate-400" colSpan={11}>{t("stock.noItems")}</td></tr>
+                    <tr><td className="table-td text-slate-400" colSpan={12}>{t("stock.noItems")}</td></tr>
                   ) : pageItems.map((p) => {
                     const low = p.trackStock !== false && Number(p.stock) <= Number(p.lowStock || 0);
                     return (
@@ -286,21 +304,38 @@ export default function StockPage() {
                         <td className="table-td text-slate-500 text-sm">{p.sku || "—"}</td>
                         <td className="table-td font-medium">{p.name}{p.category && <div className="text-xs text-slate-400">{p.category}</div>}</td>
                         <td className="table-td text-slate-500">{p.brand || "—"}</td>
-                        <td className="table-td text-right">{money(p.retailPrice || p.price, cur)}</td>
+                        <td className="table-td text-right">
+                          <input
+                            type="number" step="any" min="0"
+                            key={`${p.id}-w-${p.wholesalePrice ?? p.price}`}
+                            defaultValue={p.wholesalePrice ?? p.price ?? 0}
+                            onBlur={(e) => quickPriceSet(p, "wholesalePrice", e.target)}
+                            onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                            className="input !w-20 !py-1 text-right text-sm"
+                          />
+                        </td>
+                        <td className="table-td text-right">
+                          <input
+                            type="number" step="any" min="0" placeholder="—"
+                            key={`${p.id}-r-${p.retailPrice ?? ""}`}
+                            defaultValue={p.retailPrice ?? ""}
+                            onBlur={(e) => quickPriceSet(p, "retailPrice", e.target)}
+                            onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                            className="input !w-20 !py-1 text-right text-sm"
+                          />
+                        </td>
                         <td className="table-td text-right">{p.saleVatRate ?? p.vatRate ?? 19}%</td>
                         <td className="table-td text-right">
                           {p.trackStock === false ? <span className="text-slate-400 text-xs">{t("stock.serviceLabel")}</span> : (
                             <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => quickStockMove(p, "out", 1)} className="btn-ghost !px-1.5 !py-0.5 text-sm" title={t("stock.reasonQuickRemove")}>−</button>
                               <input
                                 type="number" step="any"
                                 key={`${p.id}-${p.stock}`}
                                 defaultValue={p.stock}
                                 onBlur={(e) => { const v = Number(e.target.value); if (v !== Number(p.stock)) quickStockSet(p, v); }}
                                 onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
-                                className={`input !w-16 !py-1 text-right text-sm ${low ? "!border-red-300 !text-red-700 !bg-red-50" : ""}`}
+                                className={`input !w-20 !py-1 text-right text-sm ${low ? "!border-red-300 !text-red-700 !bg-red-50" : ""}`}
                               />
-                              <button onClick={() => quickStockMove(p, "in", 1)} className="btn-ghost !px-1.5 !py-0.5 text-sm" title={t("stock.reasonQuickAdd")}>+</button>
                               <span className="text-xs text-slate-400">{p.unit}</span>
                             </div>
                           )}
