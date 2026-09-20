@@ -563,6 +563,11 @@ export default function StockPage() {
                       <option value="barber">{t("stock.deptBarber")}</option>
                       <option value="perfumes">{t("stock.deptPerfumes")}</option>
                     </select>
+                  ) : bulkForm.field === "category" ? (
+                    <select className="input" value={bulkForm.value} onChange={(e) => setBulkForm({ ...bulkForm, value: e.target.value })}>
+                      <option value="">—</option>
+                      {catNames.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
                   ) : ["saleVatRate", "vatRate"].includes(bulkForm.field) ? (
                     <select className="input" value={bulkForm.value} onChange={(e) => setBulkForm({ ...bulkForm, value: e.target.value })}>
                       <option value="">—</option>

@@ -142,8 +142,13 @@ export default function ProductForm({ form, setForm, categories = [], subcategor
           </div>
           <div>
             <label className="label">{t("stock.fieldCategory")}</label>
-            <input className="input" list={catListId} value={form.category} onChange={(e) => upd({ category: e.target.value })} placeholder={t("stock.categoryPlaceholder")} />
-            <datalist id={catListId}>{categories.map((c) => <option key={c} value={c} />)}</datalist>
+            {/* Κατηγορία = ΜΟΝΟ από τη λίστα (Cosmetics / Tools / Accessories / Consumables) — δεν πληκτρολογείται
+                ελεύθερα, αλλιώς οι παλιοί "τύποι" (pomade, wax …) θα ξαναμπαίνουν ως κατηγορίες. Η αποθηκευμένη
+                τιμή του προϊόντος φαίνεται πάντα, ακόμα κι αν δεν είναι στη λίστα. */}
+            <select className="input" value={form.category || ""} onChange={(e) => upd({ category: e.target.value })}>
+              <option value="">—</option>
+              {[...new Set([...categories, ...(form.category ? [form.category] : [])])].map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
           <div>
             <label className="label">{t("stock.fieldSubcategory")}</label>

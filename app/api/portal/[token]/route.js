@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readDB } from "@/lib/db";
 import { originFrom, portalLinkFor, resolveText } from "@/lib/announce";
+import { bestRuleDiscount } from "@/lib/discountRules";
 
 // Δημόσια δεδομένα portal για συγκεκριμένο πελάτη (μέσω token).
 export async function GET(_req, { params }) {
@@ -19,17 +20,8 @@ export async function GET(_req, { params }) {
   //   2. κανόνας μάρκας/κατηγορίας που ταιριάζει → αυτό το ποσοστό (αν ταιριάζουν και οι δύο,
   //      κερδίζει το μεγαλύτερο — δεν προστίθενται) — ΑΝΤΙ για τη γενική έκπτωση
   //   3. αλλιώς → η γενική έκπτωση του πελάτη
-  const norm = (s) => String(s ?? "").trim().toLowerCase();
   const discountRules = Array.isArray(c.discountRules) ? c.discountRules : [];
-  const ruleDiscountFor = (p) => {
-    let best = null;
-    for (const r of discountRules) {
-      const field = r.type === "brand" ? p.brand : r.type === "subcategory" ? p.subcategory : p.category;
-      const matches = norm(field) === norm(r.value);
-      if (matches && (best === null || Number(r.percent) > best)) best = Number(r.percent);
-    }
-    return best;
-  };
+  const ruleDiscountFor = (p) => bestRuleDiscount(discountRules, p);
 
   let products = (db.products || []).map((p) => {
     const hasCustomPrice = customPriceMap.has(p.id);

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { money, formatDate } from "@/lib/format";
 import { DOMAINS, domainSelectOptions } from "@/lib/domains";
+import { ruleParts, ruleKey, selectionMatches, norm as ruleNorm } from "@/lib/discountRules";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
@@ -27,7 +28,7 @@ export default function CustomerProfile() {
   const [tab, setTab] = useState("activities");
   const [actType, setActType] = useState("note");
   const [newCP, setNewCP] = useState({ productId: "", price: "" });
-  const [newDR, setNewDR] = useState({ type: "brand", value: "", percent: "" });
+  const [newDR, setNewDR] = useState({ brand: "", category: "", subcategory: "", percent: "" });
   const [notifyHint, setNotifyHint] = useState(false);
 
   const [payOpen, setPayOpen] = useState(false);
@@ -108,23 +109,43 @@ export default function CustomerProfile() {
   };
   const addDiscountRule = () => {
     const percent = Number(newDR.percent);
-    if (!newDR.value || !Number.isFinite(percent) || percent <= 0 || percent > 100) { alert(t("customers.drErrInvalid")); return; }
-    const next = [...(c.discountRules || []).filter((r) => !(r.type === newDR.type && r.value.toLowerCase() === newDR.value.toLowerCase())), { type: newDR.type, value: newDR.value, percent }];
-    setNewDR({ ...newDR, value: "", percent: "" });
+    if ((!newDR.brand && !newDR.category && !newDR.subcategory) || !Number.isFinite(percent) || percent <= 0 || percent > 100) { alert(t("customers.drErrInvalid")); return; }
+    const fresh = { brand: newDR.brand, category: newDR.category, subcategory: newDR.subcategory, percent };
+    // Ίδιος συνδυασμός = αντικαθιστά τον παλιό κανόνα (δεν γίνονται δύο).
+    const next = [...(c.discountRules || []).map(ruleParts).filter((r) => ruleKey(r) !== ruleKey(fresh)), fresh];
+    setNewDR({ brand: "", category: "", subcategory: "", percent: "" });
     setNotifyHint(true);
     saveDiscountRules(next);
   };
   const removeDiscountRule = (idx) => saveDiscountRules((c.discountRules || []).filter((_, i) => i !== idx));
   const updateRulePercent = (idx, percent) => {
-    setData((prev) => ({ ...prev, customer: { ...prev.customer, discountRules: (prev.customer.discountRules || []).map((r, i) => (i === idx ? { ...r, percent } : r)) } }));
+    setData((prev) => ({ ...prev, customer: { ...prev.customer, discountRules: (prev.customer.discountRules || []).map((r, i) => (i === idx ? { ...ruleParts(r), percent } : r)) } }));
   };
-  const ruleTypeLabel = (type) => t(type === "brand" ? "customers.drBrand" : type === "subcategory" ? "customers.drSubcategory" : "customers.drCategory");
-  // Μάρκες / κατηγορίες / υποκατηγορίες που υπάρχουν στα προϊόντα, με πόσα προϊόντα έχει η καθεμιά.
-  const ruleChoices = (type) => {
+  // Οι τρεις λίστες φιλτράρουν η μία την άλλη: μια μάρκα δείχνει μόνο τις κατηγορίες που έχει, μια κατηγορία
+  // μόνο τις υποκατηγορίες της, κ.ο.κ. — δεν φτιάχνεται συνδυασμός χωρίς προϊόντα.
+  const ruleOptions = (field) => {
+    const others = { ...newDR, [field]: "" };
     const counts = {};
-    for (const p of products) { const v = (type === "brand" ? p.brand : type === "subcategory" ? p.subcategory : p.category) || ""; if (v) counts[v] = (counts[v] || 0) + 1; }
-    return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
+    for (const p of products) {
+      if (!selectionMatches(others, p)) continue;
+      const v = p[field] || "";
+      if (v) counts[v] = (counts[v] || 0) + 1;
+    }
+    // Πρώτα όσα έχουν τα περισσότερα προϊόντα: οι μάρκες που πουλάς (ROVRA, BARBERTIME …) έρχονται πάνω και τα
+    // "σκουπίδια" των παλιών εισαγωγών (κωδικοί, περιγραφές που μπήκαν ως μάρκα) πάνε κάτω.
+    return Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   };
+  const changeRuleField = (field, value) => setNewDR((prev) => {
+    const next = { ...prev, [field]: value };
+    // Ό,τι άλλο είχε επιλεγεί και δεν υπάρχει πια σε αυτόν τον συνδυασμό, καθαρίζεται.
+    for (const other of ["brand", "category", "subcategory"]) {
+      if (other === field || !next[other]) continue;
+      const rest = { ...next, [other]: "" };
+      if (!products.some((p) => selectionMatches(rest, p) && ruleNorm(p[other]) === ruleNorm(next[other]))) next[other] = "";
+    }
+    return next;
+  });
+  const ruleMatchCount = (r) => products.filter((p) => selectionMatches(ruleParts(r), p)).length;
 
   const acts = activities.filter((a) => a.type === actType);
 
@@ -385,47 +406,53 @@ export default function CustomerProfile() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 items-end">
-                  <div className="w-36">
-                    <label className="label">{t("customers.drType")}</label>
-                    <select className="input" value={newDR.type} onChange={(e) => setNewDR({ type: e.target.value, value: "", percent: newDR.percent })}>
-                      <option value="brand">{t("customers.drBrand")}</option>
-                      <option value="category">{t("customers.drCategory")}</option>
-                      <option value="subcategory">{t("customers.drSubcategory")}</option>
-                    </select>
-                  </div>
-                  <div className="flex-1 min-w-[200px]">
-                    <label className="label">{ruleTypeLabel(newDR.type)}</label>
-                    <select className="input" value={newDR.value} onChange={(e) => setNewDR({ ...newDR, value: e.target.value })}>
-                      <option value="">{t("customers.drPick")}</option>
-                      {ruleChoices(newDR.type).map(([v, n]) => <option key={v} value={v}>{v} ({n})</option>)}
-                    </select>
-                  </div>
-                  <div className="w-28">
+                  {[["brand", "customers.drBrand"], ["category", "customers.drCategory"], ["subcategory", "customers.drSubcategory"]].map(([field, label]) => (
+                    <div key={field} className="flex-1 min-w-[150px]">
+                      <label className="label">{t(label)}</label>
+                      <select className="input" value={newDR[field]} onChange={(e) => changeRuleField(field, e.target.value)}>
+                        <option value="">{t("customers.drAny")}</option>
+                        {ruleOptions(field).map(([v, n]) => <option key={v} value={v}>{v} ({n})</option>)}
+                      </select>
+                    </div>
+                  ))}
+                  <div className="w-24">
                     <label className="label">{t("customers.drPercent")}</label>
                     <input type="number" step="any" min="0" max="100" className="input" value={newDR.percent} onChange={(e) => setNewDR({ ...newDR, percent: e.target.value })} />
                   </div>
                   <button onClick={addDiscountRule} className="btn-secondary"><Icon name="plus" size={15} /> {t("customers.cpAdd")}</button>
                 </div>
+                {(newDR.brand || newDR.category || newDR.subcategory) && (
+                  <p className="text-xs text-slate-500">{t("customers.drMatches", { count: products.filter((p) => selectionMatches(newDR, p)).length })}</p>
+                )}
 
                 {(c.discountRules || []).length === 0 ? (
                   <p className="text-sm text-slate-400">{t("customers.drEmpty")}</p>
                 ) : (
-                  <div className="card overflow-hidden">
+                  <div className="card overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr><th className="table-th">{t("customers.drType")}</th><th className="table-th">{t("customers.drName")}</th><th className="table-th text-right">{t("customers.drPercent")}</th><th className="table-th"></th></tr>
+                        <tr>
+                          <th className="table-th">{t("customers.drBrand")}</th><th className="table-th">{t("customers.drCategory")}</th><th className="table-th">{t("customers.drSubcategory")}</th>
+                          <th className="table-th text-right">{t("customers.drProducts")}</th><th className="table-th text-right">{t("customers.drPercent")}</th><th className="table-th"></th>
+                        </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {(c.discountRules || []).map((r, i) => (
-                          <tr key={`${r.type}-${r.value}`}>
-                            <td className="table-td"><span className="badge bg-slate-100 text-slate-600">{ruleTypeLabel(r.type)}</span></td>
-                            <td className="table-td font-medium">{r.value}</td>
-                            <td className="table-td text-right">
-                              <input type="number" step="any" min="0" max="100" className="input !w-24 !py-1 ml-auto" value={r.percent} onChange={(e) => updateRulePercent(i, e.target.value)} onBlur={() => saveDiscountRules(c.discountRules)} />
-                            </td>
-                            <td className="table-td text-right"><button onClick={() => removeDiscountRule(i)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button></td>
-                          </tr>
-                        ))}
+                        {(c.discountRules || []).map((raw, i) => {
+                          const r = ruleParts(raw);
+                          const cell = (v) => (v ? <span className="font-medium">{v}</span> : <span className="text-slate-300">{t("customers.drAny")}</span>);
+                          return (
+                            <tr key={ruleKey(raw)}>
+                              <td className="table-td">{cell(r.brand)}</td>
+                              <td className="table-td">{cell(r.category)}</td>
+                              <td className="table-td">{cell(r.subcategory)}</td>
+                              <td className="table-td text-right text-slate-500">{ruleMatchCount(r)}</td>
+                              <td className="table-td text-right">
+                                <input type="number" step="any" min="0" max="100" className="input !w-24 !py-1 ml-auto" value={r.percent} onChange={(e) => updateRulePercent(i, e.target.value)} onBlur={() => saveDiscountRules(c.discountRules)} />
+                              </td>
+                              <td className="table-td text-right"><button onClick={() => removeDiscountRule(i)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button></td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
