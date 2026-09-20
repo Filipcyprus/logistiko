@@ -87,7 +87,8 @@ export default function PortalPage() {
   const setQty = (id, v) => setCart((c) => {
     const n = { ...c };
     const p = data?.products.find((x) => x.id === id);
-    const maxQty = p?.trackStock !== false ? Number(p?.stock) || 0 : Number.MAX_SAFE_INTEGER;
+    // Zero stock = "available by order" (ordered from the supplier), so only items that ARE in stock are capped.
+    const maxQty = p?.trackStock !== false && Number(p?.stock) > 0 ? Number(p.stock) : Number.MAX_SAFE_INTEGER;
     const qty = Math.max(0, Math.min(maxQty, Number(v) || 0));
     if (qty === 0) delete n[id];
     else n[id] = qty;
@@ -268,7 +269,7 @@ export default function PortalPage() {
                       </div>
                       {p.retailPrice && <div className="text-xs text-slate-500">{t("portal.suggestedPrice")}: <span className="font-semibold text-slate-700">{money(p.retailPrice, cur)}</span></div>}
                       {!p.hasCustomPrice && (p.discountPercent || 0) > 0 && <div className="text-xs text-slate-400 line-through">{money(p.price, cur)}</div>}
-                      {p.trackStock !== false && <div className={`text-xs mt-0.5 ${out ? "text-red-500" : "text-emerald-600"}`}>{out ? t("portal.outOfStock") : t("portal.available", { stock: p.stock, unit: p.unit })}</div>}
+                      {p.trackStock !== false && <div className={`text-xs mt-0.5 ${out ? "text-amber-600" : "text-emerald-600"}`}>{out ? t("portal.availableByOrder") :t("portal.available", { stock: p.stock, unit: p.unit })}</div>}
                       {hasQtyDiscount && tiers.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
                           <div className="font-semibold text-slate-700 mb-2">{t("stock.qtyDiscountTitle")}</div>
@@ -290,7 +291,7 @@ export default function PortalPage() {
                     </div>
                     <div className="flex flex-col gap-2 mt-2">
                       <div className="flex items-center gap-2">
-                        <input type="number" min="0" max={p.trackStock !== false ? p.stock : undefined} step="1" className="input !py-1 w-full" value={inCart} onChange={(e) => setQty(p.id, e.target.value)} placeholder="Qty" title={p.trackStock !== false ? `Max: ${p.stock}` : ""} />
+                        <input type="number" min="0" max={p.trackStock !== false && !out ? p.stock : undefined} step="1" className="input !py-1 w-full" value={inCart} onChange={(e) => setQty(p.id, e.target.value)} placeholder="Qty" title={p.trackStock !== false && !out ? `Max: ${p.stock}` : ""} />
                       </div>
                       {inCart > 0 && (
                         <div className="text-xs bg-slate-50 rounded p-2 border border-slate-100">
