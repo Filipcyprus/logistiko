@@ -213,6 +213,15 @@ export default function SettingsPage() {
         <h2 className="font-semibold text-slate-700">{t("settings.invoiceSection")}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div><label className="label">{t("settings.fieldDefaultVat")}</label><input type="number" step="any" className="input" value={s.vatRate} onChange={(e) => upd({ vatRate: Number(e.target.value) })} /></div>
+          <div className="sm:col-span-2">
+            <label className="flex items-start gap-2.5 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+              <input type="checkbox" className="mt-0.5" checked={!!s.notVatRegistered} onChange={(e) => upd({ notVatRegistered: e.target.checked })} />
+              <span>
+                <span className="text-sm font-medium text-slate-700">{t("settings.fieldNotVatRegistered")}</span>
+                <span className="block text-xs text-slate-400 mt-0.5">{t("settings.fieldNotVatRegisteredHint")}</span>
+              </span>
+            </label>
+          </div>
           <div><label className="label">{t("settings.fieldCurrency")}</label><input className="input" value={s.currency} onChange={(e) => upd({ currency: e.target.value })} /></div>
           <div><label className="label">{t("settings.fieldReceiptPrefix")}</label><input className="input" value={s.receiptPrefix} onChange={(e) => upd({ receiptPrefix: e.target.value })} /></div>
           <div><label className="label">{t("settings.fieldInvoicePrefix")}</label><input className="input" value={s.invoicePrefix} onChange={(e) => upd({ invoicePrefix: e.target.value })} /></div>

@@ -32,7 +32,9 @@ export async function GET(_req, { params }) {
       id: p.id, code: p.code, name: p.name, category: p.category, subcategory: p.subcategory || "", brand: p.brand || "",
       // Ο συντελεστής ΦΠΑ πρέπει να είναι αυτός της ΠΩΛΗΣΗΣ (saleVatRate), όχι της αγοράς
       // (vatRate) — αλλιώς ο πελάτης B2B χρεώνεται με λάθος ΦΠΑ σε αυτή την παραγγελία.
-      unit: p.unit, price: p.price, retailPrice: p.retailPrice, vatRate: p.saleVatRate ?? p.vatRate ?? 19,
+      // Όσο η επιχείρηση δεν είναι εγγεγραμμένη στο ΦΠΑ, ΚΑΝΕΝΑ προϊόν δεν χρεώνει ΦΠΑ στο B2B — ακόμα κι αν
+      // κάποιο έχει ξεχασμένο 19% στην καρτέλα του.
+      unit: p.unit, price: p.price, retailPrice: p.retailPrice, vatRate: s.notVatRegistered ? 0 : (p.saleVatRate ?? p.vatRate ?? 19),
       stock: p.stock, trackStock: p.trackStock, image: p.image || "",
       targetProfessions: p.targetProfessions || [],
       productType: p.productType || "",
@@ -68,7 +70,7 @@ export async function GET(_req, { params }) {
   return NextResponse.json({
     company: {
       name: s.companyName, logo: s.logo, phone: s.phone, email: s.email,
-      address: s.address, city: s.city, currency: s.currency, vatRate: s.vatRate ?? 19,
+      address: s.address, city: s.city, currency: s.currency, vatRate: s.notVatRegistered ? 0 : (s.vatRate ?? 19), notVatRegistered: !!s.notVatRegistered,
     },
     customer: {
       id: c.id, name: c.name, priceListName: c.priceListName || "",

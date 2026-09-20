@@ -113,7 +113,8 @@ export default function PortalPage() {
     }, 0);
   }, [cart, data]);
   const cartWeightKg = cartWeightG / 1000;
-  const vatRate = data?.company?.vatRate || 19;
+  const notVatRegistered = !!data?.company?.notVatRegistered;
+  const vatRate = notVatRegistered ? 0 : (data?.company?.vatRate ?? 19);
   const shippingCostWithVat = cartLines.length === 0 ? 0
     : shippingMethod === "boxnow" ? boxNowCostWithVat()
     : shippingCostForWeightKg(cartWeightKg, shippingMethod);
@@ -253,8 +254,17 @@ export default function PortalPage() {
                       <div className="font-semibold text-slate-800 truncate">{p.name}</div>
                       {p.brand && <div className="text-xs text-slate-400">{p.brand}</div>}
                       <div className="mt-1">
-                        <div className="text-base font-bold text-brand-700">{money(net, cur)} <span className="text-xs font-normal text-slate-400">{t("portal.perUnitExclVat", { unit: p.unit })}</span></div>
-                        <div className="text-xs text-slate-400">{money(Math.round(net * (1 + vatRate / 100) * 100) / 100, cur)} (incl. VAT)</div>
+                        {notVatRegistered ? (
+                          <>
+                            <div className="text-base font-bold text-brand-700">{money(net, cur)} <span className="text-xs font-normal text-slate-400">{t("portal.perUnit", { unit: p.unit })}</span></div>
+                            <div className="text-[11px] text-slate-400">{t("portal.noVatShort")}</div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-base font-bold text-brand-700">{money(net, cur)} <span className="text-xs font-normal text-slate-400">{t("portal.perUnitExclVat", { unit: p.unit })}</span></div>
+                            <div className="text-xs text-slate-400">{money(Math.round(net * (1 + (p.vatRate ?? 19) / 100) * 100) / 100, cur)} (incl. VAT)</div>
+                          </>
+                        )}
                       </div>
                       {p.retailPrice && <div className="text-xs text-slate-500">{t("portal.suggestedPrice")}: <span className="font-semibold text-slate-700">{money(p.retailPrice, cur)}</span></div>}
                       {!p.hasCustomPrice && (p.discountPercent || 0) > 0 && <div className="text-xs text-slate-400 line-through">{money(p.price, cur)}</div>}
@@ -384,6 +394,7 @@ export default function PortalPage() {
             <div className="space-y-1 text-sm border-t border-slate-100 pt-3">
               <div className="flex justify-between text-slate-500"><span>{t("portal.net")}</span><span>{money(totals.net, cur)}</span></div>
               <div className="flex justify-between text-slate-500"><span>{t("portal.vat")}</span><span>{money(totals.vat, cur)}</span></div>
+              {notVatRegistered && <div className="text-[11px] text-slate-400 -mt-0.5">{t("portal.noVatShort")}</div>}
               {shippingCostWithVat > 0 && (
                 <div className="flex justify-between text-slate-500"><span>{t("portal.shippingLineLabel")} ({shippingMethod === "p2p" ? t("portal.shippingP2P") : shippingMethod === "p2d" ? t("portal.shippingP2D") : t("portal.shippingBoxNow")})</span><span>{money(shippingCostWithVat, cur)}</span></div>
               )}

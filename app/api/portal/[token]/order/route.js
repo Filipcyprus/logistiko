@@ -32,7 +32,7 @@ export async function POST(request, { params }) {
       quantity: Number(it.quantity),
       unit: it.unit || serverT(db.settings.language, "common.unit"),
       unitPrice: Number(it.unitPrice || 0),
-      vatRate: Number(it.vatRate || 0),
+      vatRate: db.settings.notVatRegistered ? 0 : Number(it.vatRate || 0),
       discount: Number(it.discount != null ? it.discount : discount),
     })),
   });
