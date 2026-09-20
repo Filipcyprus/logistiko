@@ -112,7 +112,7 @@ export default function Sidebar({ role }) {
         } md:block w-full md:w-60 shrink-0 bg-slate-900 text-slate-300 md:min-h-screen no-print`}
       >
         <div className="sticky top-0 p-4 flex flex-col md:h-screen">
-          <div className="flex items-center gap-2.5 mb-6 px-2 pt-1">
+          <div className="flex items-center gap-2.5 mb-4 px-2 pt-1 shrink-0">
             <div className="w-7 h-7 rounded bg-brand-500 flex items-center justify-center text-white">
               <Icon name="invoice" size={15} strokeWidth={2} />
             </div>
@@ -121,7 +121,8 @@ export default function Sidebar({ role }) {
               <div className="text-[11px] text-slate-500">{t("common.appSubtitle")}</div>
             </div>
           </div>
-          <nav className="space-y-0.5 flex-1">
+          {/* The menu scrolls on its own when it is taller than the screen, so Sign out and Language never fall off the bottom. */}
+          <nav className="space-y-0.5 flex-1 md:min-h-0 md:overflow-y-auto sidebar-scroll">
             {items.map((item) => (
               <Link
                 key={item.href}
@@ -141,11 +142,11 @@ export default function Sidebar({ role }) {
               </Link>
             ))}
           </nav>
-          <button onClick={logout} className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 mb-1">
+          <button onClick={logout} className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 mb-1 mt-2 shrink-0">
             <Icon name="x" size={16} />
             {t("nav.logout")}
           </button>
-          <div className="hidden md:flex px-2 pt-3 mt-3 border-t border-slate-800">
+          <div className="hidden md:flex px-2 pt-3 mt-2 border-t border-slate-800 shrink-0">
             <LanguageSwitcher />
           </div>
         </div>

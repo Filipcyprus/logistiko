@@ -92,3 +92,12 @@ body {
 @page {
   margin: 0;
 }
+
+/* Sidebar menu: slim dark scrollbar (only visible when the menu is taller than the screen). */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+.sidebar-scroll::-webkit-scrollbar { width: 6px; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+.sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
