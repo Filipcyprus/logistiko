@@ -15,11 +15,19 @@ const emptyP = {
   notes: "",
 };
 
+const subPairs = (list) => {
+  const seen = new Set();
+  const out = [];
+  for (const p of list) { if (!p.subcategory) continue; const k = (p.category || "") + "|" + p.subcategory; if (!seen.has(k)) { seen.add(k); out.push({ category: p.category || "", name: p.subcategory }); } }
+  return out;
+};
+
 export default function NewProductPage() {
   const router = useRouter();
   const { t } = useLanguage();
   const [settings, setSettings] = useState(null);
   const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -33,6 +41,7 @@ export default function NewProductPage() {
     ]).then(([s, cats, sup, prods]) => {
       setSettings(s); setSuppliers(sup);
       setCategories(Array.from(new Set([...cats.map((c) => c.name), ...prods.map((p) => p.category).filter(Boolean)])).sort());
+      setSubcategories(subPairs(prods));
       setForm({ ...emptyP, unit: t("common.unit"), vatRate: s.vatRate ?? 19 });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -64,7 +73,7 @@ export default function NewProductPage() {
         <button onClick={() => router.push("/apothiki")} className="btn-secondary"><Icon name="arrowLeft" size={15} /> {t("stock.backToList")}</button>
       </div>
 
-      <ProductForm form={form} setForm={setForm} categories={categories} suppliers={suppliers} settings={settings} />
+      <ProductForm form={form} setForm={setForm} categories={categories} subcategories={subcategories} suppliers={suppliers} settings={settings} />
 
       <div className="flex justify-end gap-2">
         <button onClick={() => router.push("/apothiki")} className="btn-secondary">{t("common.cancel")}</button>

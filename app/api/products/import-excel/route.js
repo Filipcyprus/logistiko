@@ -25,6 +25,7 @@ const FIELD_ALIASES = {
   unit: ["unit", "uom"],
   vatRate: ["vat", "vatrate", "tax", "taxrate"],
   category: ["category"],
+  subcategory: ["subcategory", "subcat"],
   brand: ["brand", "description2"],
 };
 
@@ -139,6 +140,10 @@ export async function POST(request) {
         const v = String(row[fieldMap.category] || "").trim();
         if (v !== (existingById.category || "")) fields.category = v;
       }
+      if (fieldMap.subcategory) {
+        const v = String(row[fieldMap.subcategory] || "").trim();
+        if (v !== (existingById.subcategory || "")) fields.subcategory = v;
+      }
       if (fieldMap.brand) {
         const v = String(row[fieldMap.brand] || "").trim();
         if (v !== (existingById.brand || "")) fields.brand = v;
@@ -164,6 +169,7 @@ export async function POST(request) {
     const unit = fieldMap.unit ? String(row[fieldMap.unit] || "").trim() : "";
     const vatRate = fieldMap.vatRate && row[fieldMap.vatRate] !== "" ? Number(row[fieldMap.vatRate]) : defVat;
     const category = fieldMap.category ? String(row[fieldMap.category] || "").trim() : "";
+    const subcategory = fieldMap.subcategory ? String(row[fieldMap.subcategory] || "").trim() : "";
     const brand = fieldMap.brand ? String(row[fieldMap.brand] || "").trim() : "";
 
     const found = findMatch(db, barcode, sku, name);
@@ -180,7 +186,7 @@ export async function POST(request) {
       changes.push({
         action: "create",
         name,
-        barcode, sku, unit, category, brand,
+        barcode, sku, unit, category, subcategory, brand,
         cost, wholesalePrice, retailPrice,
         vatRate,
         newStock: stock != null ? stock : 0,
@@ -229,7 +235,7 @@ export async function POST(request) {
         id: uid(),
         createdAt: new Date().toISOString(),
         code: "", barcode: c.barcode || generateBarcode(), sku: c.sku || "", hsCode: "",
-        name: c.name, brand: c.brand || "", category: c.category || "",
+        name: c.name, brand: c.brand || "", category: c.category || "", subcategory: c.subcategory || "",
         supplierId: "", department: "", productType: "product", targetProfessions: [],
         image: "", unit: c.unit || serverT(db.settings.language, "common.unit"),
         price: c.wholesalePrice, wholesalePrice: c.wholesalePrice,

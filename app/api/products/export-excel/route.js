@@ -21,6 +21,7 @@ export async function GET() {
     Cost: p.cost ?? "",
     VAT: p.saleVatRate ?? p.vatRate ?? "",
     Category: p.category || "",
+    Subcategory: p.subcategory || "",
     Brand: p.brand || "",
     Unit: p.unit || "",
   }));

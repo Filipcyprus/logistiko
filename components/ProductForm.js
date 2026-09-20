@@ -45,7 +45,7 @@ function SectionHeader({ icon, title }) {
   );
 }
 
-export default function ProductForm({ form, setForm, categories = [], suppliers = [], settings, catListId = "cat-list-form" }) {
+export default function ProductForm({ form, setForm, categories = [], subcategories = [], suppliers = [], settings, catListId = "cat-list-form" }) {
   const { t } = useLanguage();
   const imgRef = useRef();
   const cur = settings?.currency || "€";
@@ -147,7 +147,11 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
           </div>
           <div>
             <label className="label">{t("stock.fieldSubcategory")}</label>
-            <input className="input" value={form.subcategory || ""} onChange={(e) => upd({ subcategory: e.target.value })} />
+            <input className="input" list={`${catListId}-sub`} value={form.subcategory || ""} onChange={(e) => upd({ subcategory: e.target.value })} />
+            {/* Προτάσεις: οι υποκατηγορίες που υπάρχουν ήδη στην επιλεγμένη κατηγορία (ή όλες, αν δεν έχει επιλεγεί). */}
+            <datalist id={`${catListId}-sub`}>
+              {[...new Set(subcategories.filter((s) => !form.category || s.category === form.category).map((s) => s.name))].sort().map((n) => <option key={n} value={n} />)}
+            </datalist>
           </div>
           <div>
             <label className="label">{t("stock.fieldSupplier")}</label>

@@ -20,6 +20,7 @@ export default function StockPage() {
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState([]);
   const [catFilter, setCatFilter] = useState("");
+  const [subFilter, setSubFilter] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 50;
@@ -98,9 +99,12 @@ export default function StockPage() {
   const cur = settings?.currency || "€";
   // Ενοποίηση κατηγοριών: από τη λίστα κατηγοριών + όσες υπάρχουν ήδη στα προϊόντα.
   const catNames = Array.from(new Set([...categories.map((c) => c.name), ...products.map((p) => p.category).filter(Boolean)])).sort();
+  // Υποκατηγορίες: μόνο όσες υπάρχουν στην επιλεγμένη κατηγορία (ή όλες, αν δεν έχει επιλεγεί).
+  const subNames = Array.from(new Set(products.filter((p) => !catFilter || (p.category || "") === catFilter).map((p) => p.subcategory).filter(Boolean))).sort((a, b) => a.localeCompare(b));
   const filtered = products.filter((p) => {
     if (deptFilter && (p.department || "") !== deptFilter) return false;
     if (catFilter && (p.category || "") !== catFilter) return false;
+    if (subFilter && (p.subcategory || "") !== subFilter) return false;
     return productMatchesQuery(p, q);
   });
   // Ο κατάλογος έχει χιλιάδες είδη — να αποδίδουμε (render) ολόκληρη τη φιλτραρισμένη λίστα
@@ -271,10 +275,16 @@ export default function StockPage() {
               <Icon name="search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input className="input pl-9" placeholder={t("stock.searchPlaceholder")} value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
             </div>
-            <select className="input max-w-[220px]" value={catFilter} onChange={(e) => { setCatFilter(e.target.value); setPage(1); }}>
+            <select className="input max-w-[220px]" value={catFilter} onChange={(e) => { setCatFilter(e.target.value); setSubFilter(""); setPage(1); }}>
               <option value="">{t("stock.allCategories")}</option>
               {catNames.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
+            {subNames.length > 0 && (
+              <select className="input max-w-[220px]" value={subFilter} onChange={(e) => { setSubFilter(e.target.value); setPage(1); }}>
+                <option value="">{t("stock.allSubcategories")}</option>
+                {subNames.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
           </div>
 
           {selected.size > 0 && (
@@ -515,6 +525,7 @@ export default function StockPage() {
                     <option value="stock">{t("stock.colStock")}</option>
                     <option value="department">{t("stock.fieldDepartment")}</option>
                     <option value="category">{t("stock.fieldCategory")}</option>
+                    <option value="subcategory">{t("stock.fieldSubcategory")}</option>
                     <option value="brand">{t("stock.colBrand")}</option>
                   </select>
                 </div>

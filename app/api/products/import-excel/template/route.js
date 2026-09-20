@@ -4,8 +4,8 @@ import * as XLSX from "xlsx";
 // Δείγμα αρχείου με τις αναμενόμενες στήλες, ώστε ο χρήστης να ξέρει ακριβώς τι να συμπληρώσει.
 export async function GET() {
   const sample = [
-    { Name: "A4 Paper 80gsm", Barcode: "", SKU: "", Stock: 100, Price: 4.5, Unit: "reams", VAT: 19, Category: "Paper", Brand: "" },
-    { Name: "Existing Product Example", Barcode: "1234567890123", SKU: "", Stock: 25, Price: "", Unit: "", VAT: "", Category: "", Brand: "" },
+    { Name: "A4 Paper 80gsm", Barcode: "", SKU: "", Stock: 100, Price: 4.5, Unit: "reams", VAT: 19, Category: "Paper", Subcategory: "A4", Brand: "" },
+    { Name: "Existing Product Example", Barcode: "1234567890123", SKU: "", Stock: 25, Price: "", Unit: "", VAT: "", Category: "", Subcategory: "", Brand: "" },
   ];
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(sample);

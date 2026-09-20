@@ -12,12 +12,12 @@ export async function PUT(request, { params }) {
   for (const k of ["defaultDiscount", "creditDays"]) {
     if (patch[k] != null) patch[k] = Number(patch[k]);
   }
-  // Εκπτώσεις ανά μάρκα/κατηγορία: { type: "brand"|"category", value, percent }. Καθαρίζονται εδώ,
+  // Εκπτώσεις ανά μάρκα/κατηγορία: { type: "brand"|"category"|"subcategory", value, percent }. Καθαρίζονται εδώ,
   // όχι μόνο στη φόρμα — μια έκπτωση 150% ή χωρίς όνομα θα χάλαγε τις τιμές του B2B link.
   if (patch.discountRules != null) {
     const seen = new Set();
     patch.discountRules = (Array.isArray(patch.discountRules) ? patch.discountRules : [])
-      .map((r) => ({ type: r?.type === "category" ? "category" : r?.type === "brand" ? "brand" : "", value: String(r?.value ?? "").trim(), percent: Number(r?.percent) }))
+      .map((r) => ({ type: ["brand", "category", "subcategory"].includes(r?.type) ? r.type : "", value: String(r?.value ?? "").trim(), percent: Number(r?.percent) }))
       .filter((r) => r.type && r.value && Number.isFinite(r.percent) && r.percent > 0 && r.percent <= 100)
       .filter((r) => { const k = r.type + "|" + r.value.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
   }

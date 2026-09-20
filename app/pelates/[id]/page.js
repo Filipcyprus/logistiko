@@ -118,10 +118,11 @@ export default function CustomerProfile() {
   const updateRulePercent = (idx, percent) => {
     setData((prev) => ({ ...prev, customer: { ...prev.customer, discountRules: (prev.customer.discountRules || []).map((r, i) => (i === idx ? { ...r, percent } : r)) } }));
   };
-  // Μάρκες / κατηγορίες που υπάρχουν στα προϊόντα, με πόσα προϊόντα έχει η καθεμιά.
+  const ruleTypeLabel = (type) => t(type === "brand" ? "customers.drBrand" : type === "subcategory" ? "customers.drSubcategory" : "customers.drCategory");
+  // Μάρκες / κατηγορίες / υποκατηγορίες που υπάρχουν στα προϊόντα, με πόσα προϊόντα έχει η καθεμιά.
   const ruleChoices = (type) => {
     const counts = {};
-    for (const p of products) { const v = (type === "brand" ? p.brand : p.category) || ""; if (v) counts[v] = (counts[v] || 0) + 1; }
+    for (const p of products) { const v = (type === "brand" ? p.brand : type === "subcategory" ? p.subcategory : p.category) || ""; if (v) counts[v] = (counts[v] || 0) + 1; }
     return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
   };
 
@@ -389,10 +390,11 @@ export default function CustomerProfile() {
                     <select className="input" value={newDR.type} onChange={(e) => setNewDR({ type: e.target.value, value: "", percent: newDR.percent })}>
                       <option value="brand">{t("customers.drBrand")}</option>
                       <option value="category">{t("customers.drCategory")}</option>
+                      <option value="subcategory">{t("customers.drSubcategory")}</option>
                     </select>
                   </div>
                   <div className="flex-1 min-w-[200px]">
-                    <label className="label">{newDR.type === "brand" ? t("customers.drBrand") : t("customers.drCategory")}</label>
+                    <label className="label">{ruleTypeLabel(newDR.type)}</label>
                     <select className="input" value={newDR.value} onChange={(e) => setNewDR({ ...newDR, value: e.target.value })}>
                       <option value="">{t("customers.drPick")}</option>
                       {ruleChoices(newDR.type).map(([v, n]) => <option key={v} value={v}>{v} ({n})</option>)}
@@ -416,7 +418,7 @@ export default function CustomerProfile() {
                       <tbody className="divide-y divide-slate-100">
                         {(c.discountRules || []).map((r, i) => (
                           <tr key={`${r.type}-${r.value}`}>
-                            <td className="table-td"><span className="badge bg-slate-100 text-slate-600">{r.type === "brand" ? t("customers.drBrand") : t("customers.drCategory")}</span></td>
+                            <td className="table-td"><span className="badge bg-slate-100 text-slate-600">{ruleTypeLabel(r.type)}</span></td>
                             <td className="table-td font-medium">{r.value}</td>
                             <td className="table-td text-right">
                               <input type="number" step="any" min="0" max="100" className="input !w-24 !py-1 ml-auto" value={r.percent} onChange={(e) => updateRulePercent(i, e.target.value)} onBlur={() => saveDiscountRules(c.discountRules)} />

@@ -7,12 +7,20 @@ import Icon from "@/components/Icon";
 import ProductForm from "@/components/ProductForm";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
+const subPairs = (list) => {
+  const seen = new Set();
+  const out = [];
+  for (const p of list) { if (!p.subcategory) continue; const k = (p.category || "") + "|" + p.subcategory; if (!seen.has(k)) { seen.add(k); out.push({ category: p.category || "", name: p.subcategory }); } }
+  return out;
+};
+
 export default function EditProductPage() {
   const { id } = useParams();
   const router = useRouter();
   const { t } = useLanguage();
   const [settings, setSettings] = useState(null);
   const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [form, setForm] = useState(null);
   const [notFound, setNotFound] = useState(false);
@@ -30,6 +38,7 @@ export default function EditProductPage() {
       if (!p) { setNotFound(true); return; }
       setSettings(s); setSuppliers(sup);
       setCategories(Array.from(new Set([...cats.map((c) => c.name), ...prods.map((x) => x.category).filter(Boolean)])).sort());
+      setSubcategories(subPairs(prods));
       setForm({ ...p, retailPrice: p.retailPrice ?? "" });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -72,7 +81,7 @@ export default function EditProductPage() {
         </div>
       </div>
 
-      <ProductForm form={form} setForm={setForm} categories={categories} suppliers={suppliers} settings={settings} catListId="cat-list-edit" />
+      <ProductForm form={form} setForm={setForm} categories={categories} subcategories={subcategories} suppliers={suppliers} settings={settings} catListId="cat-list-edit" />
 
       <div className="flex justify-end gap-2">
         <button onClick={() => router.push("/apothiki")} className="btn-secondary">{t("common.cancel")}</button>

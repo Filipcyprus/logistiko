@@ -24,7 +24,8 @@ export async function GET(_req, { params }) {
   const ruleDiscountFor = (p) => {
     let best = null;
     for (const r of discountRules) {
-      const matches = r.type === "brand" ? norm(p.brand) === norm(r.value) : norm(p.category) === norm(r.value);
+      const field = r.type === "brand" ? p.brand : r.type === "subcategory" ? p.subcategory : p.category;
+      const matches = norm(field) === norm(r.value);
       if (matches && (best === null || Number(r.percent) > best)) best = Number(r.percent);
     }
     return best;

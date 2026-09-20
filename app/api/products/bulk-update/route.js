@@ -4,7 +4,7 @@ import { serverT } from "@/lib/i18n/server";
 
 // Πεδία που επιτρέπεται να αλλάξουν μαζικά, και τι είδους τιμή δέχονται.
 const NUMERIC_FIELDS = ["retailPrice", "wholesalePrice", "cost", "saleVatRate", "vatRate", "lowStock", "stock"];
-const TEXT_FIELDS = ["department", "category", "brand"];
+const TEXT_FIELDS = ["department", "category", "subcategory", "brand"];
 
 // Μαζική επεξεργασία επιλεγμένων προϊόντων — ΕΝΑ πεδίο τη φορά (π.χ. "βάλε λιανική τιμή 2.50
 // σε όλα αυτά", "αύξησε την τιμή 10% σε όλα αυτά", "βάλε κατηγορία X σε όλα αυτά").
