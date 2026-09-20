@@ -223,7 +223,7 @@ export default function PortalPage() {
                         <div className="text-xs text-slate-400">{money(Math.round(net * (1 + vatRate / 100) * 100) / 100, cur)} (incl. VAT)</div>
                       </div>
                       {p.retailPrice && <div className="text-xs text-slate-500">{t("portal.suggestedPrice")}: <span className="font-semibold text-slate-700">{money(p.retailPrice, cur)}</span></div>}
-                      {!p.hasCustomPrice && disc > 0 && <div className="text-xs text-slate-400 line-through">{money(p.price, cur)}</div>}
+                      {!p.hasCustomPrice && (p.discountPercent || 0) > 0 && <div className="text-xs text-slate-400 line-through">{money(p.price, cur)}</div>}
                       {p.trackStock !== false && <div className={`text-xs mt-0.5 ${out ? "text-red-500" : "text-emerald-600"}`}>{out ? t("portal.outOfStock") : t("portal.available", { stock: p.stock, unit: p.unit })}</div>}
                       {hasQtyDiscount && tiers.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">

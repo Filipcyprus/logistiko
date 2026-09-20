@@ -13,9 +13,27 @@ export async function GET(_req, { params }) {
   const customPriceMap = new Map(customPrices.map((cp) => [cp.productId, Number(cp.price)]));
   const disc = Number(c.defaultDiscount || 0);
 
+  // Εκπτώσεις ανά μάρκα/κατηγορία για ΑΥΤΟΝ τον πελάτη. Για κάθε προϊόν:
+  //   1. ειδική τιμή  → η τιμή που ορίστηκε, χωρίς καμία έκπτωση
+  //   2. κανόνας μάρκας/κατηγορίας που ταιριάζει → αυτό το ποσοστό (αν ταιριάζουν και οι δύο,
+  //      κερδίζει το μεγαλύτερο — δεν προστίθενται) — ΑΝΤΙ για τη γενική έκπτωση
+  //   3. αλλιώς → η γενική έκπτωση του πελάτη
+  const norm = (s) => String(s ?? "").trim().toLowerCase();
+  const discountRules = Array.isArray(c.discountRules) ? c.discountRules : [];
+  const ruleDiscountFor = (p) => {
+    let best = null;
+    for (const r of discountRules) {
+      const matches = r.type === "brand" ? norm(p.brand) === norm(r.value) : norm(p.category) === norm(r.value);
+      if (matches && (best === null || Number(r.percent) > best)) best = Number(r.percent);
+    }
+    return best;
+  };
+
   let products = (db.products || []).map((p) => {
     const hasCustomPrice = customPriceMap.has(p.id);
-    const finalPrice = hasCustomPrice ? customPriceMap.get(p.id) : Math.round(p.price * (1 - disc / 100) * 100) / 100;
+    const ruleDisc = hasCustomPrice ? null : ruleDiscountFor(p);
+    const discountPercent = hasCustomPrice ? 0 : (ruleDisc !== null ? ruleDisc : disc);
+    const finalPrice = hasCustomPrice ? customPriceMap.get(p.id) : Math.round(p.price * (1 - discountPercent / 100) * 100) / 100;
     return {
       id: p.id, code: p.code, name: p.name, category: p.category, brand: p.brand || "",
       // Ο συντελεστής ΦΠΑ πρέπει να είναι αυτός της ΠΩΛΗΣΗΣ (saleVatRate), όχι της αγοράς
@@ -26,7 +44,7 @@ export async function GET(_req, { params }) {
       productType: p.productType || "",
       customDiscountTiers: p.customDiscountTiers || [],
       weightG: p.weightG || 0,
-      finalPrice, hasCustomPrice,
+      finalPrice, hasCustomPrice, discountPercent,
     };
   });
   // Οι ειδικές τιμές ΔΕΝ κρύβουν πια τον υπόλοιπο κατάλογο: τα προϊόντα με ειδική τιμή εμφανίζονται

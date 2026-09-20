@@ -26,6 +26,7 @@ export default function CustomerProfile() {
   const [tab, setTab] = useState("activities");
   const [actType, setActType] = useState("note");
   const [newCP, setNewCP] = useState({ productId: "", price: "" });
+  const [newDR, setNewDR] = useState({ type: "brand", value: "", percent: "" });
 
   const [payOpen, setPayOpen] = useState(false);
   const [pay, setPay] = useState({ amount: 0, method: "cash", date: new Date().toISOString().slice(0, 10), notes: "" });
@@ -95,6 +96,29 @@ export default function CustomerProfile() {
   const removeCustomPrice = (productId) => saveCustomPrices((c.customPrices || []).filter((x) => x.productId !== productId));
   const updateCustomPrice = (productId, price) => {
     setData((prev) => ({ ...prev, customer: { ...prev.customer, customPrices: (prev.customer.customPrices || []).map((x) => (x.productId === productId ? { ...x, price } : x)) } }));
+  };
+
+  // Εκπτώσεις ανά μάρκα / κατηγορία προϊόντος (ποσοστό, σταθερό για αυτόν τον πελάτη).
+  const saveDiscountRules = async (next) => {
+    await fetch(`/api/customers/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ discountRules: next }) });
+    loadLedger();
+  };
+  const addDiscountRule = () => {
+    const percent = Number(newDR.percent);
+    if (!newDR.value || !Number.isFinite(percent) || percent <= 0 || percent > 100) { alert(t("customers.drErrInvalid")); return; }
+    const next = [...(c.discountRules || []).filter((r) => !(r.type === newDR.type && r.value.toLowerCase() === newDR.value.toLowerCase())), { type: newDR.type, value: newDR.value, percent }];
+    setNewDR({ ...newDR, value: "", percent: "" });
+    saveDiscountRules(next);
+  };
+  const removeDiscountRule = (idx) => saveDiscountRules((c.discountRules || []).filter((_, i) => i !== idx));
+  const updateRulePercent = (idx, percent) => {
+    setData((prev) => ({ ...prev, customer: { ...prev.customer, discountRules: (prev.customer.discountRules || []).map((r, i) => (i === idx ? { ...r, percent } : r)) } }));
+  };
+  // Μάρκες / κατηγορίες που υπάρχουν στα προϊόντα, με πόσα προϊόντα έχει η καθεμιά.
+  const ruleChoices = (type) => {
+    const counts = {};
+    for (const p of products) { const v = (type === "brand" ? p.brand : p.category) || ""; if (v) counts[v] = (counts[v] || 0) + 1; }
+    return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
   };
 
   const acts = activities.filter((a) => a.type === actType);
@@ -334,6 +358,59 @@ export default function CustomerProfile() {
                         <div className={`font-semibold ${h.amount > 0 ? "text-emerald-600" : "text-red-500"}`}>{h.amount > 0 ? "+" : ""}{money(h.amount)}</div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-slate-100 pt-4 space-y-3">
+                <div>
+                  <h3 className="font-semibold text-slate-700">{t("customers.drTitle")}</h3>
+                  <p className="text-sm text-slate-500 mt-1 max-w-xl">{t("customers.drDescription")}</p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div className="w-36">
+                    <label className="label">{t("customers.drType")}</label>
+                    <select className="input" value={newDR.type} onChange={(e) => setNewDR({ type: e.target.value, value: "", percent: newDR.percent })}>
+                      <option value="brand">{t("customers.drBrand")}</option>
+                      <option value="category">{t("customers.drCategory")}</option>
+                    </select>
+                  </div>
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="label">{newDR.type === "brand" ? t("customers.drBrand") : t("customers.drCategory")}</label>
+                    <select className="input" value={newDR.value} onChange={(e) => setNewDR({ ...newDR, value: e.target.value })}>
+                      <option value="">{t("customers.drPick")}</option>
+                      {ruleChoices(newDR.type).map(([v, n]) => <option key={v} value={v}>{v} ({n})</option>)}
+                    </select>
+                  </div>
+                  <div className="w-28">
+                    <label className="label">{t("customers.drPercent")}</label>
+                    <input type="number" step="any" min="0" max="100" className="input" value={newDR.percent} onChange={(e) => setNewDR({ ...newDR, percent: e.target.value })} />
+                  </div>
+                  <button onClick={addDiscountRule} className="btn-secondary"><Icon name="plus" size={15} /> {t("customers.cpAdd")}</button>
+                </div>
+
+                {(c.discountRules || []).length === 0 ? (
+                  <p className="text-sm text-slate-400">{t("customers.drEmpty")}</p>
+                ) : (
+                  <div className="card overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr><th className="table-th">{t("customers.drType")}</th><th className="table-th">{t("customers.drName")}</th><th className="table-th text-right">{t("customers.drPercent")}</th><th className="table-th"></th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {(c.discountRules || []).map((r, i) => (
+                          <tr key={`${r.type}-${r.value}`}>
+                            <td className="table-td"><span className="badge bg-slate-100 text-slate-600">{r.type === "brand" ? t("customers.drBrand") : t("customers.drCategory")}</span></td>
+                            <td className="table-td font-medium">{r.value}</td>
+                            <td className="table-td text-right">
+                              <input type="number" step="any" min="0" max="100" className="input !w-24 !py-1 ml-auto" value={r.percent} onChange={(e) => updateRulePercent(i, e.target.value)} onBlur={() => saveDiscountRules(c.discountRules)} />
+                            </td>
+                            <td className="table-td text-right"><button onClick={() => removeDiscountRule(i)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
