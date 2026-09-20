@@ -481,6 +481,7 @@ export default function StockPage() {
                       <option value={5}>5%</option>
                       <option value={9}>9%</option>
                       <option value={19}>19%</option>
+                      <option value={21}>21%</option>
                     </select>
                   ) : BULK_NUMERIC_FIELDS.includes(bulkForm.field) ? (
                     <input type="number" step="any" className="input" value={bulkForm.value} onChange={(e) => setBulkForm({ ...bulkForm, value: e.target.value })} />
