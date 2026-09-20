@@ -7,7 +7,7 @@ import { money, formatDate } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-const emptyCust = { name: "", afm: "", profession: "", address: "", city: "", phone: "", email: "", priceListName: "", defaultDiscount: 0, creditDays: 0, notes: "" };
+const emptyCust = { name: "", afm: "", profession: "", address: "", city: "", phone: "", email: "", priceListName: "", defaultDiscount: 0, creditDays: 0, notes: "", emailOptOut: false };
 
 // Χρωματισμός ετικέτας βάσει ονόματος
 function tagColor(tag) {
@@ -27,6 +27,7 @@ export default function CustomerProfile() {
   const [actType, setActType] = useState("note");
   const [newCP, setNewCP] = useState({ productId: "", price: "" });
   const [newDR, setNewDR] = useState({ type: "brand", value: "", percent: "" });
+  const [notifyHint, setNotifyHint] = useState(false);
 
   const [payOpen, setPayOpen] = useState(false);
   const [pay, setPay] = useState({ amount: 0, method: "cash", date: new Date().toISOString().slice(0, 10), notes: "" });
@@ -91,6 +92,7 @@ export default function CustomerProfile() {
     if (!newCP.productId || newCP.price === "") return;
     const next = [...(c.customPrices || []).filter((x) => x.productId !== newCP.productId), { productId: newCP.productId, price: Number(newCP.price) }];
     setNewCP({ productId: "", price: "" });
+    setNotifyHint(true);
     saveCustomPrices(next);
   };
   const removeCustomPrice = (productId) => saveCustomPrices((c.customPrices || []).filter((x) => x.productId !== productId));
@@ -108,6 +110,7 @@ export default function CustomerProfile() {
     if (!newDR.value || !Number.isFinite(percent) || percent <= 0 || percent > 100) { alert(t("customers.drErrInvalid")); return; }
     const next = [...(c.discountRules || []).filter((r) => !(r.type === newDR.type && r.value.toLowerCase() === newDR.value.toLowerCase())), { type: newDR.type, value: newDR.value, percent }];
     setNewDR({ ...newDR, value: "", percent: "" });
+    setNotifyHint(true);
     saveDiscountRules(next);
   };
   const removeDiscountRule = (idx) => saveDiscountRules((c.discountRules || []).filter((_, i) => i !== idx));
@@ -181,6 +184,7 @@ export default function CustomerProfile() {
         <div className="card p-6">
           <div className="flex justify-between items-start mb-4">
             <h2 className="font-semibold text-slate-700">{t("customers.detailsTitle")}</h2>
+            <Link href={`/anakoinoseis?customer=${id}`} className="btn-secondary"><Icon name="bell" size={15} /> {t("customers.messageButton")}</Link>
             <button onClick={openEdit} className="btn-secondary"><Icon name="edit" size={15} /> {t("customers.editButton")}</button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
@@ -362,6 +366,16 @@ export default function CustomerProfile() {
                 )}
               </div>
 
+              {notifyHint && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 flex items-center justify-between gap-3 flex-wrap">
+                  <span>{t("customers.notifyHint", { name: c.name })}</span>
+                  <span className="flex gap-2">
+                    <Link href={`/anakoinoseis?customer=${id}&template=discount`} className="btn-primary !py-1.5"><Icon name="bell" size={14} /> {t("customers.notifyYes")}</Link>
+                    <button onClick={() => setNotifyHint(false)} className="btn-secondary !py-1.5">{t("customers.notifyNo")}</button>
+                  </span>
+                </div>
+              )}
+
               <div className="border-t border-slate-100 pt-4 space-y-3">
                 <div>
                   <h3 className="font-semibold text-slate-700">{t("customers.drTitle")}</h3>
@@ -507,6 +521,15 @@ export default function CustomerProfile() {
             <Field label={t("customers.fieldDiscount")}><input type="number" step="any" className="input" value={cust.defaultDiscount} onChange={(e) => setCust({ ...cust, defaultDiscount: e.target.value })} /></Field>
             <Field label={t("customers.fieldCreditDays")}><input type="number" className="input" value={cust.creditDays} onChange={(e) => setCust({ ...cust, creditDays: e.target.value })} /></Field>
             <div className="sm:col-span-2"><Field label={t("customers.fieldNotes")}><textarea className="input" rows={2} value={cust.notes} onChange={(e) => setCust({ ...cust, notes: e.target.value })} /></Field></div>
+            <div className="sm:col-span-2">
+              <label className="flex items-start gap-2.5 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+                <input type="checkbox" className="mt-0.5" checked={!!cust.emailOptOut} onChange={(e) => setCust({ ...cust, emailOptOut: e.target.checked })} />
+                <span>
+                  <span className="text-sm font-medium text-slate-700">{t("customers.fieldEmailOptOut")}</span>
+                  <span className="block text-xs text-slate-400 mt-0.5">{t("customers.fieldEmailOptOutHint")}</span>
+                </span>
+              </label>
+            </div>
           </div>
           <ModalActions onCancel={() => setEditOpen(false)} onSave={saveCust} cancelLabel={t("common.cancel")} saveLabel={t("common.save")} />
         </Modal>

@@ -28,6 +28,7 @@ const nav = [
   { href: "/logistiko-sxedio", key: "nav.chartOfAccounts", icon: "layers" },
   { href: "/z-report", key: "nav.zReport", icon: "report" },
   { href: "/istoriko", key: "nav.activityLog", icon: "clock" },
+  { href: "/anakoinoseis", key: "nav.announcements", icon: "bell" },
   { href: "/rythmiseis", key: "nav.settings", icon: "settings" },
 ];
 

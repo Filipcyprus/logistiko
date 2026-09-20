@@ -30,7 +30,7 @@ const STYLE = {
   info: { box: "bg-sky-50 border-sky-200 text-sky-800", icon: "note", iconColor: "text-sky-500" },
 };
 
-export default function ReviewDialog({ open, title, checks = [], busy, confirmLabel, onCancel, onConfirm }) {
+export default function ReviewDialog({ open, title, subtitle, checks = [], busy, confirmLabel, onCancel, onConfirm }) {
   const { t } = useLanguage();
   if (!open) return null;
 
@@ -42,7 +42,7 @@ export default function ReviewDialog({ open, title, checks = [], busy, confirmLa
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-[60]" onClick={() => !busy && onCancel()}>
       <div className="card p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-bold mb-1">{title || t("review.title")}</h2>
-        <p className="text-sm text-slate-500 mb-4">{blocked ? t("review.blockedSub") : t("review.sub")}</p>
+        <p className="text-sm text-slate-500 mb-4">{blocked ? t("review.blockedSub") : (subtitle || t("review.sub"))}</p>
 
         <div className="space-y-2">
           {sorted.map((c, i) => {

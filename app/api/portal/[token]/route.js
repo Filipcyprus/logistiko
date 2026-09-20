@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readDB } from "@/lib/db";
+import { originFrom, portalLinkFor, resolveText } from "@/lib/announce";
 
 // Δημόσια δεδομένα portal για συγκεκριμένο πελάτη (μέσω token).
 export async function GET(_req, { params }) {
@@ -55,6 +56,17 @@ export async function GET(_req, { params }) {
     products = products.filter((p) => p.hasCustomPrice || p.targetProfessions.length === 0 || p.targetProfessions.includes(c.profession));
   }
 
+  // Ειδοποιήσεις (ανακοινώσεις που στάλθηκαν με "εμφάνιση στη σελίδα παραγγελιών"): μόνο όσες αφορούν
+  // ΑΥΤΟΝ τον πελάτη και είναι των τελευταίων 45 ημερών, το πολύ 3. Το κείμενο συμπληρώνεται για αυτόν
+  // (όνομα, εκπτώσεις) και εμφανίζεται ως απλό κείμενο — ποτέ ως HTML.
+  const noticeCutoff = Date.now() - 45 * 86400000;
+  const noticeOrigin = originFrom(_req, s);
+  const noticeCtx = { customer: c, company: s.companyName, link: portalLinkFor(c, noticeOrigin), lang: s.language };
+  const notices = (db.announcements || [])
+    .filter((a) => a.channels?.portal && (a.audience || []).includes(c.id) && new Date(a.createdAt).getTime() >= noticeCutoff)
+    .slice(0, 3)
+    .map((a) => ({ id: a.id, date: String(a.createdAt).slice(0, 10), title: resolveText(a.subject, noticeCtx), body: resolveText(a.body, noticeCtx) }));
+
   const orders = (db.orders || [])
     .filter((o) => o.customerId === c.id)
     .slice(0, 20)
@@ -73,6 +85,7 @@ export async function GET(_req, { params }) {
       address: c.address || "", city: c.city || "",
       creditBalance: Math.round((Number(c.creditBalance) || 0) * 100) / 100,
     },
+    notices,
     categories: Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort(),
     // Μάρκες από τα προϊόντα που βλέπει ΑΥΤΟΣ ο πελάτης (μετά το φίλτρο επαγγέλματος) — όχι από
     // ολόκληρο τον κατάλογο, αλλιώς θα έβλεπε μάρκες που δεν του πουλάμε.

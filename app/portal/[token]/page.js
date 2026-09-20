@@ -18,6 +18,7 @@ export default function PortalPage() {
   const [cat, setCat] = useState("");
   const [brand, setBrand] = useState("");
   const [sub, setSub] = useState("");
+  const [dismissed, setDismissed] = useState([]);
   const [cart, setCart] = useState({}); // productId -> qty
   const [notes, setNotes] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
@@ -26,6 +27,14 @@ export default function PortalPage() {
   const [done, setDone] = useState(null); // {number}
   const [shippingMethod, setShippingMethod] = useState("p2d");
   const [deliveryLocation, setDeliveryLocation] = useState("");
+
+  // Ποιες ειδοποιήσεις έκλεισε ήδη ο πελάτης (μόνο σε αυτή τη συσκευή· αν το localStorage δεν δουλεύει, απλώς ξαναφαίνονται).
+  useEffect(() => { try { setDismissed(JSON.parse(localStorage.getItem(`dismissedNotices:${token}`) || "[]")); } catch { /* ignore */ } }, [token]);
+  const dismissNotice = (nid) => {
+    const next = [...dismissed, nid];
+    setDismissed(next);
+    try { localStorage.setItem(`dismissedNotices:${token}`, JSON.stringify(next)); } catch { /* ignore */ }
+  };
 
   const load = () => fetch(`/api/portal/${token}`).then((r) => (r.ok ? r.json() : r.json().then((e) => Promise.reject(e)))).then(setData).catch((e) => setError(e.error ? t(e.error) : t("common.error")));
   useEffect(() => { load(); }, [token]);
@@ -185,6 +194,17 @@ export default function PortalPage() {
               <button onClick={() => setDone(null)} className="btn-secondary mt-3">{t("portal.newOrder")}</button>
             </div>
           )}
+
+          {(data.notices || []).filter((n) => !dismissed.includes(n.id)).map((n) => (
+            <div key={n.id} className="card p-4 border-l-4 border-l-brand-600 bg-brand-50/40 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2"><Icon name="bell" size={15} className="text-brand-600 shrink-0" /><span className="font-semibold text-slate-800">{n.title}</span></div>
+                <div className="text-sm text-slate-600 mt-1 whitespace-pre-line break-words">{n.body}</div>
+                <div className="text-xs text-slate-400 mt-1.5">{formatDate(n.date)}</div>
+              </div>
+              <button onClick={() => dismissNotice(n.id)} className="btn-ghost !px-2 !py-1 text-slate-400 shrink-0" aria-label="Dismiss"><Icon name="x" size={14} /></button>
+            </div>
+          ))}
 
           <div className="card p-4 flex flex-wrap gap-3">
             <div className="relative max-w-xs w-full">
