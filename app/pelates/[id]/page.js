@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { money, formatDate } from "@/lib/format";
+import { DOMAINS, domainSelectOptions } from "@/lib/domains";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
@@ -189,7 +190,7 @@ export default function CustomerProfile() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
             {[
-              [t("customers.detailName"), c.name], [t("customers.detailProfession"), c.profession], [t("customers.detailTaxId"), c.afm],
+              [t("customers.detailName"), c.name], [t("domains.label"), (DOMAINS.find((d) => d.value === c.profession) ? t(DOMAINS.find((d) => d.value === c.profession).key) : c.profession)], [t("customers.detailTaxId"), c.afm],
               [t("customers.detailPhone"), c.phone], [t("customers.detailEmail"), c.email], [t("customers.detailAddress"), [c.address, c.city].filter(Boolean).join(", ")],
               [t("customers.detailPriceList"), c.priceListName], [t("customers.detailDiscount"), c.defaultDiscount ? `${c.defaultDiscount}%` : "—"], [t("customers.detailCreditDays"), c.creditDays || "—"],
             ].map(([k, v]) => (
@@ -507,11 +508,9 @@ export default function CustomerProfile() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2"><Field label={t("customers.fieldName")}><input className="input" value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} /></Field></div>
             <Field label={t("customers.fieldTaxId")}><input className="input" value={cust.afm} onChange={(e) => setCust({ ...cust, afm: e.target.value })} /></Field>
-            <Field label={t("customers.fieldProfession")}><select className="input" value={cust.profession} onChange={(e) => setCust({ ...cust, profession: e.target.value })}>
-              <option value="">Select profession</option>
-              <option value="Barber">Barber</option>
-              <option value="Print">Print</option>
-              <option value="Perfumes">Perfumes</option>
+            <Field label={t("domains.label")}><select className="input" value={cust.profession || ""} onChange={(e) => setCust({ ...cust, profession: e.target.value })}>
+              <option value="">{t("domains.select")}</option>
+              {domainSelectOptions(cust.profession).map((d) => <option key={d.value} value={d.value}>{d.key ? t(d.key) : d.label}</option>)}
             </select></Field>
             <Field label={t("customers.fieldPhone")}><input className="input" value={cust.phone} onChange={(e) => setCust({ ...cust, phone: e.target.value })} /></Field>
             <Field label={t("customers.fieldAddress")}><input className="input" value={cust.address} onChange={(e) => setCust({ ...cust, address: e.target.value })} /></Field>

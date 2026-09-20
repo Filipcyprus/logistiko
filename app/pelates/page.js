@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DOMAINS, domainGroup, domainSelectOptions } from "@/lib/domains";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -11,13 +12,16 @@ export default function CustomersPage() {
   const { t } = useLanguage();
   const [customers, setCustomers] = useState([]);
   const [q, setQ] = useState("");
+  const [domain, setDomain] = useState(""); // "" = όλοι, αλλιώς Barber | Print | Perfumes | other
   const [form, setForm] = useState(null); // null = κλειστό, αλλιώς αντικείμενο
   const [saving, setSaving] = useState(false);
 
   const load = () => fetch("/api/customers").then((r) => r.json()).then(setCustomers);
   useEffect(() => { load(); }, []);
 
+  const countIn = (g) => customers.filter((c) => domainGroup(c) === g).length;
   const filtered = customers.filter((c) => {
+    if (domain && domainGroup(c) !== domain) return false;
     if (!q) return true;
     const query = q.toLowerCase();
     return c.name.toLowerCase().includes(query) || (c.afm || "").includes(query) || (c.phone || "").includes(query);
@@ -55,6 +59,19 @@ export default function CustomersPage() {
           <Icon name="search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input className="input pl-9" placeholder={t("customers.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          {[{ value: "", label: t("domains.all"), n: customers.length },
+            ...DOMAINS.map((d) => ({ value: d.value, label: t(d.key), n: countIn(d.value) })),
+            ...(countIn("other") > 0 ? [{ value: "other", label: t("domains.other"), n: countIn("other") }] : [])].map((chip) => (
+            <button key={chip.value || "all"} onClick={() => setDomain(chip.value)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium border ${domain === chip.value ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+              {chip.label} <span className="text-slate-400 font-normal">({chip.n})</span>
+            </button>
+          ))}
+          {domain && domain !== "other" && filtered.length > 0 && (
+            <Link href={`/anakoinoseis?domain=${domain}`} className="btn-secondary !py-1.5 ml-auto"><Icon name="bell" size={14} /> {t("domains.emailGroup", { name: t(DOMAINS.find((d) => d.value === domain).key) })}</Link>
+          )}
+        </div>
       </div>
 
       <div className="card overflow-hidden">
@@ -74,7 +91,7 @@ export default function CustomersPage() {
                 <tr><td className="table-td text-slate-400" colSpan={5}>{t("customers.noCustomers")}</td></tr>
               ) : filtered.map((c) => (
                 <tr key={c.id} className="hover:bg-slate-50">
-                  <td className="table-td font-medium"><Link href={`/pelates/${c.id}`} className="text-brand-700 hover:underline">{c.name}</Link>{c.profession && <div className="text-xs text-slate-400">{c.profession}</div>}</td>
+                  <td className="table-td font-medium"><Link href={`/pelates/${c.id}`} className="text-brand-700 hover:underline">{c.name}</Link>{c.profession && <div className="text-xs text-slate-400">{DOMAINS.find((d) => d.value === c.profession) ? t(DOMAINS.find((d) => d.value === c.profession).key) : c.profession}</div>}</td>
                   <td className="table-td">{c.afm || "—"}</td>
                   <td className="table-td">{c.phone || "—"}</td>
                   <td className="table-td">{c.city || "—"}</td>
@@ -98,7 +115,13 @@ export default function CustomersPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2"><label className="label">{t("customers.fieldName")}</label><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
               <div><label className="label">{t("customers.fieldTaxId")}</label><input className="input" value={form.afm} onChange={(e) => setForm({ ...form, afm: e.target.value })} /></div>
-              <div><label className="label">{t("customers.fieldProfession")}</label><input className="input" value={form.profession} onChange={(e) => setForm({ ...form, profession: e.target.value })} /></div>
+              <div>
+                <label className="label">{t("domains.label")}</label>
+                <select className="input" value={form.profession || ""} onChange={(e) => setForm({ ...form, profession: e.target.value })}>
+                  <option value="">{t("domains.select")}</option>
+                  {domainSelectOptions(form.profession).map((d) => <option key={d.value} value={d.value}>{d.key ? t(d.key) : d.label}</option>)}
+                </select>
+              </div>
               <div><label className="label">{t("customers.fieldPhone")}</label><input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
               <div><label className="label">{t("customers.fieldAddress")}</label><input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
               <div><label className="label">{t("customers.fieldCity")}</label><input className="input" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>

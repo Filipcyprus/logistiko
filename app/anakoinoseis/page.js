@@ -8,6 +8,7 @@ import ReviewDialog from "@/components/ReviewDialog";
 import { formatDate } from "@/lib/format";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { findUnknownPlaceholders, hasAnyDiscount } from "@/lib/announce";
+import { DOMAINS, domainGroup } from "@/lib/domains";
 
 const MAX_RECIPIENTS = 40;
 
@@ -26,7 +27,6 @@ function AnnouncementsInner() {
   const [showInPortal, setShowInPortal] = useState(true);
   const [includeLink, setIncludeLink] = useState(true);
   const [selected, setSelected] = useState(() => new Set());
-  const [profession, setProfession] = useState("");
 
   const [preview, setPreview] = useState(null);
   const [testTo, setTestTo] = useState("");
@@ -52,6 +52,9 @@ function AnnouncementsInner() {
       setTestTo(s.mail?.fromEmail || s.email || "");
       const only = params.get("customer");
       if (only && c.some((x) => x.id === only)) setSelected(new Set([only]));
+      // ?domain=Barber → όλοι οι πελάτες αυτού του τομέα προεπιλεγμένοι (από το "Email all Barber customers")
+      const dom = params.get("domain");
+      if (dom && DOMAINS.some((d) => d.value === dom)) setSelected(new Set(c.filter((x) => domainGroup(x) === dom).map((x) => x.id)));
     });
     loadHistory();
     const tplParam = params.get("template");
@@ -59,8 +62,22 @@ function AnnouncementsInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const professions = useMemo(() => [...new Set(customers.map((c) => c.profession).filter(Boolean))].sort(), [customers]);
-  const visible = customers.filter((c) => !profession || c.profession === profession);
+  const visible = customers;
+  const groups = useMemo(() => {
+    const list = DOMAINS.map((d) => ({ value: d.value, label: t(d.key), members: customers.filter((c) => domainGroup(c) === d.value) }));
+    const other = customers.filter((c) => domainGroup(c) === "other");
+    if (other.length) list.push({ value: "other", label: t("domains.other"), members: other });
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customers, t]);
+  const groupFullySelected = (g) => g.members.length > 0 && g.members.every((c) => selected.has(c.id));
+  // Κλικ σε τομέα: επιλέγει όλους τους πελάτες του (ή τους ξε-επιλέγει αν ήταν ήδη όλοι επιλεγμένοι).
+  const toggleGroup = (g) => setSelected((prev) => {
+    const n = new Set(prev);
+    if (groupFullySelected(g)) g.members.forEach((c) => n.delete(c.id)); else g.members.forEach((c) => n.add(c.id));
+    return n;
+  });
+  const domainLabel = (c) => { const d = DOMAINS.find((x) => x.value === c.profession); return d ? t(d.key) : (c.profession || ""); };
   const chosen = customers.filter((c) => selected.has(c.id));
   const hasLink = (c) => !!(c.b2bEnabled && c.b2bToken);
 
@@ -125,6 +142,9 @@ function AnnouncementsInner() {
       const none = chosen.filter((c) => !hasAnyDiscount(c));
       if (none.length) out.push({ level: "warn", text: t("announce.warnNoDiscounts", { count: none.length, names: names(none) }) });
     }
+
+    const perDomain = groups.map((g) => [g.label, chosen.filter((c) => g.members.some((m) => m.id === c.id)).length]).filter(([, n]) => n > 0);
+    if (perDomain.length) out.push({ level: "info", text: t("domains.infoRecipients", { list: perDomain.map(([l, n]) => `${l} ${n}`).join(", ") }) });
 
     const emailCount = sendEmail ? chosen.filter((c) => !c.emailOptOut && String(c.email || "").trim()).length : 0;
     if (sendEmail) out.push({ level: "info", text: t("announce.infoEmails", { count: emailCount, from: settings?.mail?.fromEmail || settings?.mail?.user || "" }) });
@@ -250,14 +270,19 @@ function AnnouncementsInner() {
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-2 flex-wrap">
               <div className="font-semibold text-slate-700">{t("announce.recipients")} <span className="text-slate-400 font-normal">({chosen.length})</span></div>
               <div className="flex items-center gap-2">
-                {professions.length > 0 && (
-                  <select className="input !py-1 !w-auto text-sm" value={profession} onChange={(e) => setProfession(e.target.value)}>
-                    <option value="">{t("announce.allProfessions")}</option>
-                    {professions.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                )}
                 <button onClick={selectVisible} className="btn-ghost text-sm">{t("announce.selectAll")}</button>
                 <button onClick={clearAll} className="btn-ghost text-sm">{t("announce.clear")}</button>
+              </div>
+            </div>
+            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60">
+              <div className="text-xs font-medium text-slate-500 mb-2">{t("domains.pickGroup")}</div>
+              <div className="flex flex-wrap gap-2">
+                {groups.map((g) => (
+                  <button key={g.value} onClick={() => toggleGroup(g)} disabled={g.members.length === 0}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium border disabled:opacity-40 disabled:cursor-not-allowed ${groupFullySelected(g) ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+                    {groupFullySelected(g) && <Icon name="check" size={12} className="inline mr-1 -mt-0.5" />}{g.label} <span className="font-normal text-slate-400">({g.members.length})</span>
+                  </button>
+                ))}
               </div>
             </div>
             <div className="divide-y divide-slate-100 max-h-[560px] overflow-y-auto">
@@ -265,7 +290,7 @@ function AnnouncementsInner() {
                 <label key={c.id} className={`flex items-start gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 ${c.emailOptOut ? "opacity-60" : ""}`}>
                   <input type="checkbox" className="mt-1" checked={selected.has(c.id)} onChange={() => toggle(c.id)} />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium text-slate-800 truncate">{c.name}{c.profession && <span className="text-xs text-slate-400 font-normal"> · {c.profession}</span>}</span>
+                    <span className="block text-sm font-medium text-slate-800 truncate">{c.name}{c.profession && <span className="text-xs text-slate-400 font-normal"> · {domainLabel(c)}</span>}</span>
                     <span className="block text-xs text-slate-500 truncate">{c.email || <span className="text-amber-600">{t("announce.stNoEmail")}</span>}</span>
                     <span className="flex flex-wrap gap-1 mt-1">
                       {hasLink(c) ? <span className="badge bg-sky-100 text-sky-700 text-[11px]">{t("announce.badgeLink")}</span> : <span className="badge bg-slate-100 text-slate-500 text-[11px]">{t("announce.badgeNoLink")}</span>}
