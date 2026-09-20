@@ -58,6 +58,12 @@ export default function JobsPage() {
     await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     setJobForm(null); loadJobs();
   };
+  // Opens the job window — used by the pencil on the board and by clicking a completed job in the history.
+  const openJob = (job) => {
+    setJobForm({ ...emptyJob, ...job, customerId: job.customerId || "", items: job.items || [], designs: job.designs || [], commissionPercent: job.commissionPercent ?? job.markupPercent ?? MIN_COMMISSION_PERCENT });
+    setMsgDraft("");
+    setSeenCount(job.id, partnerMsgCount(job));
+  };
   const delJob = async (id) => { if (!confirm(t("jobs.confirmDelete"))) return; await fetch(`/api/jobs/${id}`, { method: "DELETE" }); loadJobs(); };
   const [uploadingDesigns, setUploadingDesigns] = useState(false);
   const onDesignFiles = async (e) => {
@@ -190,7 +196,7 @@ export default function JobsPage() {
                             <button onClick={() => moveByArrow(job, 1)} disabled={i === stages.length - 1} className="btn-ghost !px-1.5 !py-0.5 text-xs disabled:opacity-30" title={t("jobs.nextStage")}><Icon name="arrowRight" size={13} /></button>
                           </div>
                           <div className="flex gap-1">
-                            <button onClick={() => { setJobForm({ ...emptyJob, ...job, customerId: job.customerId || "", items: job.items || [], designs: job.designs || [], commissionPercent: job.commissionPercent ?? job.markupPercent ?? MIN_COMMISSION_PERCENT }); setMsgDraft(""); setSeenCount(job.id, partnerMsgCount(job)); }} className="btn-ghost !px-1.5 !py-0.5 text-xs"><Icon name="edit" size={13} /></button>
+                            <button onClick={() => openJob(job)} className="btn-ghost !px-1.5 !py-0.5 text-xs"><Icon name="edit" size={13} /></button>
                             <button onClick={() => completeJob(job.id)} className="btn-ghost !px-1.5 !py-0.5 text-xs text-emerald-600" title={t("jobs.complete")}><Icon name="check" size={13} /></button>
                             <button onClick={() => delJob(job.id)} className="btn-ghost !px-1.5 !py-0.5 text-xs text-red-500"><Icon name="trash" size={13} /></button>
                           </div>
@@ -211,14 +217,14 @@ export default function JobsPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {doneJobs.length === 0 ? <tr><td className="table-td text-slate-400" colSpan={5}>{t("jobs.noHistory")}</td></tr> : doneJobs.map((j) => (
-                <tr key={j.id} className="hover:bg-slate-50">
+                <tr key={j.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => openJob(j)}>
                   <td className="table-td font-mono text-xs">{j.number}</td>
                   <td className="table-td font-medium">{j.title}</td>
                   <td className="table-td">{j.customerName || "—"}</td>
                   <td className="table-td">{formatDate(j.completedAt)}</td>
                   <td className="table-td text-right whitespace-nowrap">
-                    <button onClick={() => reopenJob(j.id)} className="btn-ghost !px-2 !py-1 text-xs"><Icon name="refresh" size={13} /> {t("jobs.restore")}</button>
-                    <button onClick={() => delJob(j.id)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={15} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); reopenJob(j.id); }} className="btn-ghost !px-2 !py-1 text-xs"><Icon name="refresh" size={13} /> {t("jobs.restore")}</button>
+                    <button onClick={(e) => { e.stopPropagation(); delJob(j.id); }} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={15} /></button>
                   </td>
                 </tr>
               ))}
@@ -232,6 +238,11 @@ export default function JobsPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="card p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-4">{jobForm.id ? t("jobs.modalTitle", { number: jobForm.number || "" }) : t("jobs.modalNewTitle")}</h2>
+            {jobForm.status === "done" && (
+              <div className="mb-4 flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-100 px-3 py-2 text-sm text-emerald-700">
+                <Icon name="check" size={14} /> {t("jobs.completedOn", { date: formatDate(jobForm.completedAt) })}
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2"><label className="label">{t("jobs.fieldTitle")}</label><input className="input" value={jobForm.title} onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })} placeholder={t("jobs.titlePlaceholder")} /></div>
               <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-md bg-slate-50 border border-slate-100">
