@@ -156,7 +156,7 @@ export default function PortalPage() {
           <div className="flex items-center gap-4">
             <div className="text-right text-sm">
               <div className="font-semibold">{data.customer.name}</div>
-              {data.customer.priceListName && <div className="text-brand-100 text-xs">{t("customers.fieldPriceList")}: {data.customer.priceListName}{disc && !data.customer.hasCustomPrices ? ` (−${disc}%)` : ""}</div>}
+              {data.customer.priceListName && <div className="text-brand-100 text-xs">{t("customers.fieldPriceList")}: {data.customer.priceListName}{disc ? ` (−${disc}%)` : ""}</div>}
               {data.customer.creditBalance > 0 && <div className="text-emerald-200 text-xs font-medium mt-0.5">{t("portal.creditBalance")}: {money(data.customer.creditBalance, cur)}</div>}
             </div>
             <LanguageSwitcher />
@@ -199,8 +199,11 @@ export default function PortalPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {filtered.length === 0 ? <p className="text-slate-400 text-sm">{t("portal.noProducts")}</p> : filtered.map((p) => {
-              const vatRate = p.vatRate || 19;
-              const net = Math.round((p.finalPrice / (1 + vatRate / 100)) * 100) / 100;
+              // Η τιμή του προϊόντος (και η ειδική τιμή) είναι ΚΑΘΑΡΗ — το ΦΠΑ προστίθεται από πάνω,
+              // ακριβώς όπως χρεώνεται στην παραγγελία. Πριν, η κάρτα την διαιρούσε με 1+ΦΠΑ και
+              // έδειχνε μικρότερη τιμή από αυτή που ο ιδιοκτήτης έβαλε (και 0% ΦΠΑ διαβαζόταν ως 19%).
+              const vatRate = p.vatRate ?? 19;
+              const net = Math.round(p.finalPrice * 100) / 100;
               const inCart = cart[p.id] || 0;
               const out = p.trackStock !== false && Number(p.stock) <= 0;
               const hasQtyDiscount = ["cosmetic", "consumable"].includes(p.productType) || (p.customDiscountTiers || []).length > 0;

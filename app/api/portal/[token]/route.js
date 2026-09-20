@@ -29,13 +29,12 @@ export async function GET(_req, { params }) {
       finalPrice, hasCustomPrice,
     };
   });
-  // Αν έχουν οριστεί ειδικές τιμές, ο κατάλογος του πελάτη περιορίζεται ΜΟΝΟ σε αυτά τα προϊόντα
-  // (οι ειδικές τιμές υπερισχύουν του φίλτρου επαγγέλματος).
-  if (hasCustomPrices) {
-    products = products.filter((p) => p.hasCustomPrice);
-  } else if (c.profession) {
-    // Φιλτράρισμα προϊόντων βάσει επαγγέλματος πελάτη
-    products = products.filter((p) => p.targetProfessions.length === 0 || p.targetProfessions.includes(c.profession));
+  // Οι ειδικές τιμές ΔΕΝ κρύβουν πια τον υπόλοιπο κατάλογο: τα προϊόντα με ειδική τιμή εμφανίζονται
+  // πάντα, με την τιμή που όρισε ο ιδιοκτήτης, και όλα τα υπόλοιπα όπως ήταν (γενική τιμή/έκπτωση).
+  // Το φίλτρο επαγγέλματος ισχύει για τα υπόλοιπα — ένα προϊόν με ειδική τιμή δεν κρύβεται ποτέ,
+  // γιατί την τιμή την έβαλε συνειδητά ο ιδιοκτήτης για αυτόν τον πελάτη.
+  if (c.profession) {
+    products = products.filter((p) => p.hasCustomPrice || p.targetProfessions.length === 0 || p.targetProfessions.includes(c.profession));
   }
 
   const orders = (db.orders || [])
