@@ -6,6 +6,7 @@ import { money } from "@/lib/format";
 import { generateBarcode } from "@/lib/barcode";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { effectiveDiscountTiers } from "@/lib/pricing";
+import { vatOptions, COST_VAT_RATES, SALES_VAT_RATES } from "@/lib/vatOptions";
 
 const PRODUCT_TYPES = [
   ["product", "typeProduct"],
@@ -42,14 +43,6 @@ function SectionHeader({ icon, title }) {
       <h2 className="font-semibold text-slate-700">{title}</h2>
     </div>
   );
-}
-
-// Μια <select> που δεν έχει την αποθηκευμένη τιμή ανάμεσα στις επιλογές της δείχνει άλλη (συνήθως
-// την πρώτη) — και ο χρήστης νομίζει ότι το προϊόν έχει άλλο ΦΠΑ από αυτό που έχει. Γι' αυτό η
-// τρέχουσα τιμή μπαίνει πάντα στη λίστα, ακόμα κι αν δεν είναι από τις "συνηθισμένες".
-function vatOptions(current, base) {
-  const cur = Number(current);
-  return Number.isFinite(cur) && !base.includes(cur) ? [...base, cur].sort((a, b) => a - b) : base;
 }
 
 export default function ProductForm({ form, setForm, categories = [], suppliers = [], settings, catListId = "cat-list-form" }) {
@@ -222,7 +215,7 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
             <div>
               <label className="label">{t("stock.fieldSalesVat")}</label>
               <select className="input" value={form.saleVatRate ?? 19} onChange={(e) => upd({ saleVatRate: Number(e.target.value) })}>
-                {vatOptions(form.saleVatRate ?? 19, [0, 3, 5, 9, 19]).map((r) => <option key={r} value={r}>{r}%</option>)}
+                {vatOptions(form.saleVatRate ?? 19, SALES_VAT_RATES).map((r) => <option key={r} value={r}>{r}%</option>)}
               </select>
             </div>
           </div>
@@ -255,7 +248,7 @@ export default function ProductForm({ form, setForm, categories = [], suppliers 
             <div>
               <label className="label">{t("stock.fieldCostVat")}</label>
               <select className="input" value={form.vatRate ?? 0} onChange={(e) => upd({ vatRate: Number(e.target.value), costWithVat: undefined })}>
-                {vatOptions(form.vatRate ?? 0, [0, 3, 5, 9, 19, 21]).map((r) => <option key={r} value={r}>{r}%</option>)}
+                {vatOptions(form.vatRate ?? 0, COST_VAT_RATES).map((r) => <option key={r} value={r}>{r}%</option>)}
               </select>
             </div>
           </div>

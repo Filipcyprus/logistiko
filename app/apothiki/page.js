@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { money, formatDate } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { productMatchesQuery } from "@/lib/productSearch";
+import { vatOptions, COST_VAT_RATES, SALES_VAT_RATES } from "@/lib/vatOptions";
 
 export default function StockPage() {
   const { t } = useLanguage();
@@ -180,6 +181,17 @@ export default function StockPage() {
   // γραμμή που άλλαξε, όχι ολόκληρη η λίστα (3.500 προϊόντα ξαναφορτώνονταν σε κάθε αλλαγή).
   // `el` = το ίδιο το πλαίσιο: αν η τιμή δεν γίνεται δεκτή, το πλαίσιο γυρνά σε αυτό που ισχύει
   // (αλλιώς θα έμενε γραμμένο κάτι που δεν αποθηκεύτηκε).
+  // Ένα πεδίο (μάρκα, ΦΠΑ) απευθείας από τη λίστα. Ενημερώνεται μόνο η γραμμή που άλλαξε.
+  const quickFieldSet = async (p, field, value, revert) => {
+    const res = await fetch(`/api/products/${p.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); revert(); return; }
+    const updated = await res.json();
+    setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...updated } : x)));
+  };
+
   const quickPriceSet = async (p, field, el) => {
     const raw = el.value;
     const isRetail = field === "retailPrice";
@@ -208,6 +220,8 @@ export default function StockPage() {
     if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); }
     load();
   };
+
+  const brandList = useMemo(() => [...new Set(products.map((p) => p.brand).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [products]);
 
   const stockValue = products.reduce((a, p) => a + Number(p.stock || 0) * Number(p.cost || 0), 0);
 
@@ -283,7 +297,8 @@ export default function StockPage() {
                     <th className="table-th">{t("stock.colBrand")}</th>
                     <th className="table-th text-right">{t("stock.colWholesale")}</th>
                     <th className="table-th text-right">{t("stock.colRetail")}</th>
-                    <th className="table-th text-right">{t("stock.colVat")}</th>
+                    <th className="table-th text-right">{t("stock.colCostVat")}</th>
+                    <th className="table-th text-right">{t("stock.colSalesVat")}</th>
                     <th className="table-th text-right">{t("stock.colStock")}</th>
                     <th className="table-th text-center">{t("stock.colExpiry")}</th>
                     <th className="table-th text-center">{t("stock.colSerial")}</th>
@@ -292,7 +307,7 @@ export default function StockPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filtered.length === 0 ? (
-                    <tr><td className="table-td text-slate-400" colSpan={12}>{t("stock.noItems")}</td></tr>
+                    <tr><td className="table-td text-slate-400" colSpan={13}>{t("stock.noItems")}</td></tr>
                   ) : pageItems.map((p) => {
                     const low = p.trackStock !== false && Number(p.stock) <= Number(p.lowStock || 0);
                     return (
@@ -303,7 +318,16 @@ export default function StockPage() {
                         </td>
                         <td className="table-td text-slate-500 text-sm">{p.sku || "—"}</td>
                         <td className="table-td font-medium">{p.name}{p.category && <div className="text-xs text-slate-400">{p.category}</div>}</td>
-                        <td className="table-td text-slate-500">{p.brand || "—"}</td>
+                        <td className="table-td">
+                          <input
+                            list="brand-list" placeholder="—"
+                            key={`${p.id}-b-${p.brand ?? ""}`}
+                            defaultValue={p.brand ?? ""}
+                            onBlur={(e) => { const el = e.target; const v = el.value.trim(); if (v !== (p.brand ?? "")) quickFieldSet(p, "brand", v, () => { el.value = p.brand ?? ""; }); }}
+                            onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                            className="input !w-32 !py-1 text-sm"
+                          />
+                        </td>
                         <td className="table-td text-right">
                           <input
                             type="number" step="any" min="0"
@@ -324,7 +348,26 @@ export default function StockPage() {
                             className="input !w-20 !py-1 text-right text-sm"
                           />
                         </td>
-                        <td className="table-td text-right">{p.saleVatRate ?? p.vatRate ?? 19}%</td>
+                        <td className="table-td text-right">
+                          <select
+                            key={`${p.id}-cv-${p.vatRate ?? 0}`}
+                            defaultValue={p.vatRate ?? 0}
+                            onChange={(e) => { const el = e.target; quickFieldSet(p, "vatRate", Number(el.value), () => { el.value = p.vatRate ?? 0; }); }}
+                            className="input !w-[4.5rem] !py-1 !px-2 text-sm"
+                          >
+                            {vatOptions(p.vatRate ?? 0, COST_VAT_RATES).map((r) => <option key={r} value={r}>{r}%</option>)}
+                          </select>
+                        </td>
+                        <td className="table-td text-right">
+                          <select
+                            key={`${p.id}-sv-${p.saleVatRate ?? p.vatRate ?? 19}`}
+                            defaultValue={p.saleVatRate ?? p.vatRate ?? 19}
+                            onChange={(e) => { const el = e.target; quickFieldSet(p, "saleVatRate", Number(el.value), () => { el.value = p.saleVatRate ?? p.vatRate ?? 19; }); }}
+                            className="input !w-[4.5rem] !py-1 !px-2 text-sm"
+                          >
+                            {vatOptions(p.saleVatRate ?? p.vatRate ?? 19, SALES_VAT_RATES).map((r) => <option key={r} value={r}>{r}%</option>)}
+                          </select>
+                        </td>
                         <td className="table-td text-right">
                           {p.trackStock === false ? <span className="text-slate-400 text-xs">{t("stock.serviceLabel")}</span> : (
                             <div className="flex items-center justify-end gap-1">
@@ -373,6 +416,7 @@ export default function StockPage() {
                   })}
                 </tbody>
               </table>
+              <datalist id="brand-list">{brandList.map((b) => <option key={b} value={b} />)}</datalist>
             </div>
             {filtered.length > 0 && (
               <div className="flex items-center justify-between gap-3 p-3 border-t border-slate-200 text-sm">
