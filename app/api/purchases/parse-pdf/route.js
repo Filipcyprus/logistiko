@@ -14,8 +14,8 @@ export async function POST(request) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
   try {
-    const { items, source } = await extractInvoiceItems(buffer);
-    return NextResponse.json({ items, source });
+    const { items, source, check } = await extractInvoiceItems(buffer);
+    return NextResponse.json({ items, source, check: check || null });
   } catch (e) {
     console.error("Σφάλμα ανάλυσης PDF:", e);
     return NextResponse.json({ error: "errors.pdfParseFailed" }, { status: 400 });

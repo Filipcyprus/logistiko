@@ -49,7 +49,7 @@ export default function NewPurchasePage() {
     const res = await fetch("/api/purchases/parse-pdf", { method: "POST", body: formData });
     setPdfParsing(false);
     if (!res.ok) { setPdfNote(t("purchases.pdfParseError")); return; }
-    const { items: extracted, source } = await res.json();
+    const { items: extracted, source, check } = await res.json();
     if (!extracted || extracted.length === 0) { setPdfNote(t("purchases.pdfParseEmpty")); return; }
 
     const normalizeName = (s) => (s || "")
@@ -93,7 +93,8 @@ export default function NewPurchasePage() {
         unit: matched ? matched.unit : t("common.unit"),
         code: it.code || it.barcode || "",
         unitPrice: it.unitPrice != null ? it.unitPrice : 0,
-        vatRate: Number(matched?.vatRate) > 0 ? Number(matched.vatRate) : (settings?.vatRate ?? 19),
+        // Ο ΦΠΑ που γράφει το ίδιο το τιμολόγιο (όταν διαβάστηκε) υπερισχύει — αλλιώς του προϊόντος / της εταιρείας.
+        vatRate: it.vatRate != null ? Number(it.vatRate) : (Number(matched?.vatRate) > 0 ? Number(matched.vatRate) : (settings?.vatRate ?? 19)),
       };
     });
     setItems((prev) => {
@@ -101,8 +102,18 @@ export default function NewPurchasePage() {
       return [...nonEmpty, ...newLines];
     });
     const baseKey = source === "table" ? "purchases.pdfParseSuccessTable" : "purchases.pdfParseSuccessText";
-    const note = t(baseKey, { count: extracted.length });
-    setPdfNote(matchedCount > 0 ? `${note} ${t("purchases.pdfParseMatched", { count: matchedCount })}` : note);
+    let note = t(baseKey, { count: extracted.length });
+    if (matchedCount > 0) note = `${note} ${t("purchases.pdfParseMatched", { count: matchedCount })}`;
+    // Έλεγχος με τα σύνολα του ίδιου του τιμολογίου: τα ποσά που διαβάστηκαν πρέπει να βγάζουν το Net Value του.
+    if (check && check.invoiceNet != null) {
+      const fmt = (n) => Number(n).toFixed(2);
+      const linesNet = Math.round(newLines.reduce((a, l) => a + Math.round(Number(l.quantity) * Number(l.unitPrice) * 100) / 100, 0) * 100) / 100;
+      note = Math.abs(linesNet - check.invoiceNet) <= 0.05
+        ? `${note} ${t("purchases.pdfCheckOk", { net: fmt(check.invoiceNet) })}`
+        : `${note} ${t("purchases.pdfCheckMismatch", { invoice: fmt(check.invoiceNet), lines: fmt(linesNet) })}`;
+      if (check.uncertain > 0) note = `${note} ${t("purchases.pdfCheckUncertain", { count: check.uncertain })}`;
+    }
+    setPdfNote(note);
   };
 
   const save = async () => {
