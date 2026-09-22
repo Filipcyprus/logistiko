@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { money, computeTotals, todayISO } from "@/lib/format";
 import LineItems, { emptyLine } from "@/components/LineItems";
@@ -23,6 +23,14 @@ function NewInvoiceInner() {
   const [settings, setSettings] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [allInvoices, setAllInvoices] = useState([]);
+  // Απόδειξη πληρωμής (χωρίς προέλευση): πρέπει να συνδέεται με ΣΥΓΚΕΚΡΙΜΕΝΟ ανεξόφλητο παραστατικό,
+  // αλλιώς θα μετριόταν σαν καινούρια πώληση (βλ. lib/postingRules.js) — ό,τι ακριβώς μπερδεύει
+  // μια "απόδειξη πληρωμής" με μια απλή απόδειξη λιανικής. Χρησιμοποιεί το ήδη σωστό /api/payments
+  // (το ίδιο endpoint με το κουμπί "Καταχώρηση είσπραξης" στη σελίδα ενός παραστατικού) αντί να
+  // ξαναφτιάχνει τη λογική εξαίρεσης από έσοδα/υπόλοιπα.
+  const [payInvoiceId, setPayInvoiceId] = useState("");
+  const [payAmount, setPayAmount] = useState("");
 
   const [kind, setKind] = useState("apodeixi");
   const [series, setSeries] = useState("A");
@@ -45,8 +53,9 @@ function NewInvoiceInner() {
       fetch("/api/settings").then((r) => r.json()),
       fetch("/api/customers").then((r) => r.json()),
       fetch("/api/products").then((r) => r.json()),
-    ]).then(([s, c, p]) => {
-      setSettings(s); setCustomers(c); setProducts(p);
+      fetch("/api/invoices").then((r) => r.json()),
+    ]).then(([s, c, p, inv]) => {
+      setSettings(s); setCustomers(c); setProducts(p); setAllInvoices(inv);
       setSeries(s.series || "A");
       // Μην αρχικοποιείς κενή γραμμή όταν το παραστατικό προσυμπληρώνεται από άλλο έγγραφο:
       // τα δύο effects τρέχουν παράλληλα και η κενή γραμμή έσβηνε τις γραμμές που ήρθαν.
@@ -91,6 +100,17 @@ function NewInvoiceInner() {
   const totals = computeTotals(items, invoiceDiscount);
   const cur = settings?.currency || "€";
 
+  // Ανεξόφλητα παραστατικά με πελάτη — μόνο σε αυτά βγάζει νόημα μια απόδειξη πληρωμής
+  // (χωρίς πελάτη το /api/payments δεν δέχεται καταχώρηση είσπραξης).
+  const payableInvoices = useMemo(() => {
+    return allInvoices
+      .filter((x) => x.type !== "credit" && !x.isPaymentReceipt && x.status === "unpaid" && x.customerId)
+      .map((x) => ({ ...x, balance: Math.round((Number(x.total || 0) - Number(x.paidAmount || 0)) * 100) / 100 }))
+      .filter((x) => x.balance > 0.004)
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+  }, [allInvoices]);
+  const selectedPayInvoice = payableInvoices.find((x) => x.id === payInvoiceId) || null;
+
   // Κατά προσέγγιση βάρος από τα προϊόντα της γραμμής (μόνο για είδη συνδεδεμένα με προϊόν αποθήκης).
   const itemsWeightG = items.reduce((sum, it) => {
     if (!it.productId) return sum;
@@ -120,7 +140,30 @@ function NewInvoiceInner() {
     setCustomShippingAmount("");
   };
 
+  // Απόδειξη πληρωμής: ίδιο endpoint με το κουμπί "Καταχώρηση είσπραξης" ενός παραστατικού — ενημερώνει
+  // το υπόλοιπο/κατάσταση εξόφλησης ΤΟΥ ΕΠΙΛΕΓΜΕΝΟΥ παραστατικού και εκδίδει τη σωστά συνδεδεμένη απόδειξη
+  // (εξαιρείται από έσοδα/υπόλοιπα πελάτη — βλ. σχόλιο πιο πάνω).
+  const savePaymentReceipt = async () => {
+    if (!payInvoiceId || !selectedPayInvoice) { alert(t("invoices.errNeedInvoiceForReceipt")); return; }
+    const amt = Number(payAmount);
+    if (!amt || amt <= 0) { alert(t("invoices.errNeedAmount")); return; }
+    setSaving(true);
+    const res = await fetch("/api/payments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customerId: selectedPayInvoice.customerId, invoiceId: selectedPayInvoice.id, amount: amt, method: paymentMethod, date, notes }),
+    });
+    if (res.ok) {
+      const result = await res.json();
+      router.push(result.receipt ? `/parastatika/${result.receipt.id}` : "/parastatika");
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error ? t(err.error) : t("common.error"));
+      setSaving(false);
+    }
+  };
+
   const save = async () => {
+    if (kind === "payment_receipt") return savePaymentReceipt();
     const valid = items.filter((it) => it.description && Number(it.quantity) > 0);
     if (valid.length === 0) { alert(t("invoices.errNeedLine")); return; }
     if (kind === "timologio" && !customerId && !customerName.trim()) { alert(t("invoices.errNeedCustomer")); return; }
@@ -128,8 +171,7 @@ function NewInvoiceInner() {
     const res = await fetch("/api/invoices", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        type: kind === "payment_receipt" ? "apodeixi" : kind,
-        isPaymentReceipt: kind === "payment_receipt",
+        type: kind,
         series, shopName, date, customerId: customerId || null,
         customerName: customerId ? "" : customerName,
         paymentMethod, status, notes, items: valid,
@@ -177,11 +219,8 @@ function NewInvoiceInner() {
             className="input"
             value={kind}
             onChange={(e) => {
-              const v = e.target.value;
-              setKind(v);
-              if (v === "payment_receipt" && items.length === 1 && !items[0].description) {
-                setItems([{ productId: null, description: t("invoices.paymentReceiptDefaultDesc"), quantity: 1, unit: t("common.unit"), unitPrice: 0, vatRate: 0, discount: 0 }]);
-              }
+              setKind(e.target.value);
+              setPayInvoiceId(""); setPayAmount("");
             }}
           >
             <option value="apodeixi">{t("invoices.kindReceipt")}</option>
@@ -189,33 +228,65 @@ function NewInvoiceInner() {
             <option value="payment_receipt">{t("invoices.kindPaymentReceipt")}</option>
           </select>
         </div>
-        <div>
-          <label className="label">{t("invoices.series")}</label>
-          <input className="input" value={series} onChange={(e) => setSeries(e.target.value)} />
-        </div>
-        <div>
-          <label className="label">{t("invoices.shopName")}</label>
-          <input className="input" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder={t("invoices.shopNamePlaceholder")} />
-        </div>
+        {kind !== "payment_receipt" && (
+          <div>
+            <label className="label">{t("invoices.series")}</label>
+            <input className="input" value={series} onChange={(e) => setSeries(e.target.value)} />
+          </div>
+        )}
+        {kind !== "payment_receipt" && (
+          <div>
+            <label className="label">{t("invoices.shopName")}</label>
+            <input className="input" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder={t("invoices.shopNamePlaceholder")} />
+          </div>
+        )}
         <div>
           <label className="label">{t("invoices.date")}</label>
           <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
-        <div>
-          <label className="label">{t("invoices.customer")} {kind === "timologio" && <span className="text-red-500">*</span>}</label>
-          <select className="input" value={customerId} onChange={(e) => { setCustomerId(e.target.value); if (e.target.value) setCustomerName(""); }}>
-            <option value="">{t("invoices.customerRetailOption")}</option>
-            {customers.map((c) => <option key={c.id} value={c.id}>{c.name}{c.afm ? ` (${t("customers.fieldTaxId")} ${c.afm})` : ""}</option>)}
-          </select>
-          {!customerId && (
-            <input
-              className="input mt-2"
-              placeholder={t("invoices.customerNamePlaceholder")}
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-            />
-          )}
-        </div>
+        {kind === "payment_receipt" ? (
+          <>
+            <div className="sm:col-span-2">
+              <label className="label">{t("invoices.paymentReceiptPickInvoice")}</label>
+              <select
+                className="input"
+                value={payInvoiceId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setPayInvoiceId(id);
+                  const inv = payableInvoices.find((x) => x.id === id);
+                  setPayAmount(inv ? String(inv.balance) : "");
+                }}
+              >
+                <option value="">{t("invoices.paymentReceiptPickPlaceholder")}</option>
+                {payableInvoices.map((x) => (
+                  <option key={x.id} value={x.id}>{x.number} — {x.customer?.name || "—"} — {t("invoices.balance")}: {money(x.balance, cur)}</option>
+                ))}
+              </select>
+              {payableInvoices.length === 0 && <p className="text-xs text-slate-400 mt-1">{t("invoices.paymentReceiptNoInvoices")}</p>}
+            </div>
+            <div>
+              <label className="label">{t("invoices.amount")}</label>
+              <input type="number" step="any" min="0" className="input text-right" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+            </div>
+          </>
+        ) : (
+          <div>
+            <label className="label">{t("invoices.customer")} {kind === "timologio" && <span className="text-red-500">*</span>}</label>
+            <select className="input" value={customerId} onChange={(e) => { setCustomerId(e.target.value); if (e.target.value) setCustomerName(""); }}>
+              <option value="">{t("invoices.customerRetailOption")}</option>
+              {customers.map((c) => <option key={c.id} value={c.id}>{c.name}{c.afm ? ` (${t("customers.fieldTaxId")} ${c.afm})` : ""}</option>)}
+            </select>
+            {!customerId && (
+              <input
+                className="input mt-2"
+                placeholder={t("invoices.customerNamePlaceholder")}
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+              />
+            )}
+          </div>
+        )}
         <div>
           <label className="label">{t("invoices.paymentMethod")}</label>
           <select className="input" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
@@ -227,74 +298,78 @@ function NewInvoiceInner() {
         </div>
       </div>
 
-      <LineItems items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.vatRate ?? 19} />
+      {kind !== "payment_receipt" && (
+        <>
+          <LineItems items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.vatRate ?? 19} />
 
-      <div className="card p-5 space-y-3">
-        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
-          <input type="checkbox" checked={shippingEnabled} onChange={(e) => setShippingEnabled(e.target.checked)} />
-          {t("invoices.needsShippingToggle")}
-        </label>
-        {shippingEnabled && (
-          <>
-            {itemsWeightG > 0 && (
+          <div className="card p-5 space-y-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+              <input type="checkbox" checked={shippingEnabled} onChange={(e) => setShippingEnabled(e.target.checked)} />
+              {t("invoices.needsShippingToggle")}
+            </label>
+            {shippingEnabled && (
               <>
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="text-sm text-slate-600">
-                    {t("portal.totalWeight")} (≈): <span className="font-semibold text-slate-800">{itemsWeightG >= 1000 ? `${itemsWeightKg.toFixed(2)} kg` : `${itemsWeightG} g/ml`}</span>
+                {itemsWeightG > 0 && (
+                  <>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="text-sm text-slate-600">
+                        {t("portal.totalWeight")} (≈): <span className="font-semibold text-slate-800">{itemsWeightG >= 1000 ? `${itemsWeightKg.toFixed(2)} kg` : `${itemsWeightG} g/ml`}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label">{t("portal.shippingMethod")}</label>
+                      <div className="grid grid-cols-3 gap-2 max-w-md">
+                        <button
+                          type="button"
+                          onClick={() => setShippingMethod("p2p")}
+                          className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "p2p" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+                        >
+                          {t("portal.shippingP2P")}
+                          <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingP2PDesc")}</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShippingMethod("p2d")}
+                          className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "p2d" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+                        >
+                          {t("portal.shippingP2D")}
+                          <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingP2DDesc")}</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShippingMethod("boxnow")}
+                          className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "boxnow" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+                        >
+                          {t("portal.shippingBoxNow")}
+                          <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingBoxNowDesc")}</div>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+                      <div className="text-sm text-slate-600">{t("portal.shippingLineLabel")}: <span className="font-bold text-slate-800">{money(shippingCostWithVat, cur)}</span></div>
+                      <button onClick={addShippingLine} className="btn-secondary text-sm"><Icon name="plus" size={14} /> {t("invoices.addShippingLine")}</button>
+                    </div>
+                  </>
+                )}
+                <div className={itemsWeightG > 0 ? "border-t border-slate-100 pt-3" : ""}>
+                  <label className="label">{t("invoices.customShippingLabel", { currency: cur })}</label>
+                  <div className="flex items-center gap-2 max-w-sm">
+                    <input
+                      type="number" step="any" min="0"
+                      className="input text-right"
+                      value={customShippingAmount}
+                      onChange={(e) => setCustomShippingAmount(e.target.value)}
+                      placeholder="0.00"
+                    />
+                    <button onClick={addCustomShippingLine} className="btn-secondary text-sm shrink-0"><Icon name="plus" size={14} /> {t("invoices.addCustomShippingLine")}</button>
                   </div>
-                </div>
-                <div>
-                  <label className="label">{t("portal.shippingMethod")}</label>
-                  <div className="grid grid-cols-3 gap-2 max-w-md">
-                    <button
-                      type="button"
-                      onClick={() => setShippingMethod("p2p")}
-                      className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "p2p" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
-                    >
-                      {t("portal.shippingP2P")}
-                      <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingP2PDesc")}</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShippingMethod("p2d")}
-                      className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "p2d" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
-                    >
-                      {t("portal.shippingP2D")}
-                      <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingP2DDesc")}</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShippingMethod("boxnow")}
-                      className={`px-2 py-2 rounded-lg text-xs font-medium border ${shippingMethod === "boxnow" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
-                    >
-                      {t("portal.shippingBoxNow")}
-                      <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t("portal.shippingBoxNowDesc")}</div>
-                    </button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between bg-slate-50 rounded-lg p-3">
-                  <div className="text-sm text-slate-600">{t("portal.shippingLineLabel")}: <span className="font-bold text-slate-800">{money(shippingCostWithVat, cur)}</span></div>
-                  <button onClick={addShippingLine} className="btn-secondary text-sm"><Icon name="plus" size={14} /> {t("invoices.addShippingLine")}</button>
+                  <p className="text-xs text-slate-400 mt-1">{t("invoices.customShippingHint")}</p>
                 </div>
               </>
             )}
-            <div className={itemsWeightG > 0 ? "border-t border-slate-100 pt-3" : ""}>
-              <label className="label">{t("invoices.customShippingLabel", { currency: cur })}</label>
-              <div className="flex items-center gap-2 max-w-sm">
-                <input
-                  type="number" step="any" min="0"
-                  className="input text-right"
-                  value={customShippingAmount}
-                  onChange={(e) => setCustomShippingAmount(e.target.value)}
-                  placeholder="0.00"
-                />
-                <button onClick={addCustomShippingLine} className="btn-secondary text-sm shrink-0"><Icon name="plus" size={14} /> {t("invoices.addCustomShippingLine")}</button>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">{t("invoices.customShippingHint")}</p>
-            </div>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
@@ -302,15 +377,29 @@ function NewInvoiceInner() {
             <label className="label">{t("invoices.notes")}</label>
             <textarea className="input" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
-          <div className="card p-5">
-            <label className="label">{t("invoices.paymentStatus")}</label>
-            <div className="flex gap-3">
-              <label className="flex items-center gap-2 text-sm"><input type="radio" checked={status === "paid"} onChange={() => setStatus("paid")} /> {t("invoices.paid")}</label>
-              <label className="flex items-center gap-2 text-sm"><input type="radio" checked={status === "unpaid"} onChange={() => setStatus("unpaid")} /> {t("invoices.unpaidCredit")}</label>
+          {kind !== "payment_receipt" && (
+            <div className="card p-5">
+              <label className="label">{t("invoices.paymentStatus")}</label>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-2 text-sm"><input type="radio" checked={status === "paid"} onChange={() => setStatus("paid")} /> {t("invoices.paid")}</label>
+                <label className="flex items-center gap-2 text-sm"><input type="radio" checked={status === "unpaid"} onChange={() => setStatus("unpaid")} /> {t("invoices.unpaidCredit")}</label>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
+        {kind === "payment_receipt" ? (
+          <div className="card p-5 h-fit space-y-3">
+            {selectedPayInvoice && (
+              <div className="text-sm space-y-1 border-b border-slate-200 pb-3">
+                <div className="flex justify-between"><span className="text-slate-500">{t("documents.colNumber")}</span><span className="font-medium">{selectedPayInvoice.number}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t("invoices.balance")}</span><span className="font-medium">{money(selectedPayInvoice.balance, cur)}</span></div>
+              </div>
+            )}
+            <div className="flex justify-between text-lg font-bold text-slate-800"><span>{t("invoices.amount")}</span><span>{money(Number(payAmount) || 0, cur)}</span></div>
+            <button onClick={save} disabled={saving} className="btn-primary w-full mt-2">{saving ? t("common.saving") : t("invoices.issue")}</button>
+          </div>
+        ) : (
         <div className="card p-5 h-fit">
           <div className="mb-3">
             <label className="label">{t("invoices.fieldInvoiceDiscount", { currency: cur })}</label>
@@ -336,6 +425,7 @@ function NewInvoiceInner() {
           </div>
           <button onClick={save} disabled={saving} className="btn-primary w-full mt-4">{saving ? t("common.saving") : t("invoices.issue")}</button>
         </div>
+        )}
       </div>
     </div>
   );
