@@ -9,7 +9,7 @@ import ReviewDialog from "@/components/ReviewDialog";
 import { purchaseTotal } from "@/lib/purchaseMath";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-const CATEGORY_KEYS = ["rawMaterials", "ink", "rent", "utilities", "payroll", "equipment", "shipping", "marketing", "general", "purchaseOrder"];
+const CATEGORY_KEYS = ["rawMaterials", "ink", "rent", "utilities", "payroll", "equipment", "vehicle", "shipping", "marketing", "general", "purchaseOrder"];
 const empty = { date: todayISO(), category: "general", description: "", supplier: "", net: 0, vat: 0, vatRate: 19, amount: 0, paymentMethod: "cash", accountId: "" };
 
 // Οι συνηθισμένοι συντελεστές ΦΠΑ — 21% (Ρουμανία, για αγορές από εκεί), 19% κανονικός Κύπρου,
@@ -73,7 +73,7 @@ function ExpensesInner() {
   const CATEGORY_ACCOUNT = {
     rawMaterials: "expMaterials", ink: "expMaterials", rent: "expRent",
     utilities: "expUtilities", payroll: "expPayroll", equipment: "expEquipment",
-    shipping: "expShipping", marketing: "expMarketing",
+    shipping: "expShipping", marketing: "expMarketing", vehicle: "expVehicle",
   };
   const autoAccountFor = (category) => {
     const key = CATEGORY_ACCOUNT[category];
