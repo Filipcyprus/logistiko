@@ -106,7 +106,11 @@ function ExpensesInner() {
     );
   };
 
-  const filtered = expenses.filter((e) => !month || (e.date || "").startsWith(month));
+  // Ταξινόμηση κατά ημερομηνία παραστατικού (πιο πρόσφατα πρώτα), όχι με σειρά καταχώρισης —
+  // αλλιώς παραστατικά που καταχωρούνται μαζί αργότερα εμφανίζονται ανακατεμένα.
+  const filtered = expenses
+    .filter((e) => !month || (e.date || "").startsWith(month))
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.number || "").localeCompare(String(a.number || "")));
   const total = filtered.reduce((a, x) => a + Number(x.amount || 0), 0);
   const categoryLabel = (key) => t(`expenses.categories.${key}`) || key;
   // Χρεώνει το ΦΠΑ με βάση τον επιλεγμένο συντελεστή — εκτός αν είναι "custom", οπότε ο χρήστης
