@@ -46,7 +46,9 @@ function ExpensesInner() {
   const [purchases, setPurchases] = useState([]);
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [month, setMonth] = useState(todayISO().slice(0, 7));
+  // Προεπιλογή: όλα τα έξοδα — με φίλτρο τρέχοντος μήνα, παραστατικά προηγούμενων μηνών που
+  // καταχωρούνται τώρα φαίνονταν "χαμένα". Το φίλτρο μήνα παραμένει διαθέσιμο.
+  const [month, setMonth] = useState("");
   const [suppliers, setSuppliers] = useState([]);
   const [settings, setSettings] = useState(null);
   const [accounts, setAccounts] = useState([]);
