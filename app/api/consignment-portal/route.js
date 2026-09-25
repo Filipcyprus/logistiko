@@ -12,7 +12,7 @@ export async function GET(request) {
   const store = (db.consignmentStores || []).find((s) => s.id === session.linkedId);
   if (!store) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
 
-  const products = (db.products || []).filter((p) => p.department === "perfumes").map((p) => {
+  const products = (db.products || []).filter((p) => p.department === "perfumes" && !p.hideFromCatalogue).map((p) => {
     const entry = (p.consignmentStock || []).find((c) => c.storeId === store.id);
     return {
       id: p.id, code: p.code, name: p.name, category: p.category, unit: p.unit,

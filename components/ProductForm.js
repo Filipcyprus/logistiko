@@ -545,6 +545,7 @@ export default function ProductForm({ form, setForm, categories = [], subcategor
           <SectionHeader icon="layers" title={t("stock.sectionTracking")} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.trackStock !== false} onChange={(e) => upd({ trackStock: e.target.checked })} /> {t("stock.trackStockLabel")}</label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!form.hideFromCatalogue} onChange={(e) => upd({ hideFromCatalogue: e.target.checked })} /> {t("stock.hideFromCatalogueLabel")}</label>
             {showSerial && (
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!form.trackSerial} onChange={(e) => upd({ trackSerial: e.target.checked })} /> {t("stock.trackSerialLabel")}</label>
             )}
