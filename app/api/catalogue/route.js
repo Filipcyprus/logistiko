@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { readDB } from "@/lib/db";
 import { isCatalogueProduct } from "@/lib/catalogue";
 
+// Πάντα φρέσκα δεδομένα: χωρίς αυτό το Next.js "παγώνει" τη λίστα τη στιγμή του build.
+export const dynamic = "force-dynamic";
+
 // Δημόσιος κατάλογος αρωμάτων (χωρίς σύνδεση): μόνο όσα έχουν προτεινόμενη τιμή πώλησης.
 // Δεν επιστρέφονται κόστος, τιμή χονδρικής, ακριβές απόθεμα ή οτιδήποτε εσωτερικό.
 export async function GET() {
