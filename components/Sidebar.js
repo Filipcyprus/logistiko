@@ -52,6 +52,7 @@ export default function Sidebar({ role }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [unreadJobs, setUnreadJobs] = useState(0);
+  const [linkCopied, setLinkCopied] = useState(false);
   const { t } = useLanguage();
   const items = role === "cashier" ? cashierNav : role === "manager" ? managerNav : role === "accountant" ? accountantNav : nav;
   const hasJobsNav = items.some((item) => item.href === "/ergasies");
@@ -85,6 +86,18 @@ export default function Sidebar({ role }) {
   const isActive = (href) => {
     const base = href.split("?")[0];
     return base === "/" ? pathname === "/" : pathname.startsWith(base);
+  };
+
+  // Ο δημόσιος κατάλογος αρωμάτων (/catalogue) — ανοίγει σε νέα καρτέλα και ο σύνδεσμος αντιγράφεται με ένα κλικ.
+  const copyCatalogueLink = async () => {
+    const url = `${window.location.origin}/catalogue`;
+    try { await navigator.clipboard.writeText(url); } catch {
+      const el = document.createElement("textarea"); el.value = url; document.body.appendChild(el); el.select();
+      try { document.execCommand("copy"); } catch { /* ignore */ }
+      document.body.removeChild(el);
+    }
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
   };
 
   const logout = async () => {
@@ -141,6 +154,17 @@ export default function Sidebar({ role }) {
                 )}
               </Link>
             ))}
+            {items === nav && (
+              <div className="flex items-center gap-1 rounded-md pr-1 text-slate-400 hover:bg-slate-800/60">
+                <a href="/catalogue" target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center gap-2.5 px-2.5 py-2 text-[13px] font-medium hover:text-slate-100">
+                  <Icon name="external" size={16} />
+                  {t("nav.catalogue")}
+                </a>
+                <button type="button" onClick={copyCatalogueLink} title={t("nav.catalogueCopy")} className="text-[11px] font-semibold px-2 py-1 rounded border border-slate-700 hover:text-white hover:border-slate-500">
+                  {linkCopied ? t("nav.catalogueCopied") : t("nav.catalogueCopy")}
+                </button>
+              </div>
+            )}
           </nav>
           <button onClick={logout} className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 mb-1 mt-2 shrink-0">
             <Icon name="x" size={16} />
