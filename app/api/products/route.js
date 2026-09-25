@@ -65,6 +65,9 @@ export async function POST(request) {
       ? body.customDiscountTiers.map((t) => ({ min: Number(t.min || 0), percent: Number(t.percent || 0) }))
       : [],
     notes: body.notes || "",
+    description: body.description || "",
+    descriptionEl: body.descriptionEl || "",
+    hideFromCatalogue: !!body.hideFromCatalogue,
   });
 
   if (trackStock && initialStock > 0) {

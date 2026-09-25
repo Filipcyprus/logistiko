@@ -9,11 +9,12 @@ import { perfumeDisplay } from "@/lib/catalogue";
 //   cart: { [productId]: quantity }      setQty(productId, quantity)
 //   testers / setTester: μόνο για το portal καταστημάτων (αίτημα δείγματος)
 //   variant: "lux" = μαύρο & χρυσό (δημόσιος κατάλογος DUBAI AROMAS CYPRUS) · "default" = το στυλ της εφαρμογής (portal)
-export default function CatalogueGrid({ products, cart, setQty, cur = "€", t, testers, setTester, variant = "default" }) {
+export default function CatalogueGrid({ products, cart, setQty, cur = "€", t, testers, setTester, variant = "default", lang = "en" }) {
   const lux = variant === "lux";
   const [q, setQ] = useState("");
   const [brand, setBrand] = useState("");
   const [gender, setGender] = useState("");
+  const [openDesc, setOpenDesc] = useState({}); // productId -> true όταν η περιγραφή είναι ανοιχτή
 
   // Η μάρκα κανονικοποιείται σε κεφαλαία ("Fariis" και "FARIIS" είναι η ίδια μάρκα).
   const items = useMemo(() => products.map((p) => ({ ...p, brand: String(p.brand || "").toUpperCase(), info: perfumeDisplay(p) })), [products]);
@@ -101,6 +102,18 @@ export default function CatalogueGrid({ products, cart, setQty, cur = "€", t, 
                     <div className="lux-brand">{p.brand}</div>
                     <div className="lux-name">{p.info.title}</div>
                     <div className="lux-meta">{details}</div>
+                    {(() => {
+                      const text = lang === "el" ? (p.descriptionEl || p.description) : (p.description || p.descriptionEl);
+                      if (!text) return null;
+                      const long = text.length > 120;
+                      const open = !!openDesc[p.id];
+                      return (
+                        <div>
+                          <p className={`lux-desc ${open ? "open" : ""}`}>{text}</p>
+                          {long && <button type="button" className="lux-more no-print" onClick={() => setOpenDesc((o) => ({ ...o, [p.id]: !o[p.id] }))}>{open ? t("catalogue.less") : t("catalogue.more")}</button>}
+                        </div>
+                      );
+                    })()}
                     <div className="lux-foot">
                     {hasPrice ? (
                       <>

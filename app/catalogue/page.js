@@ -86,7 +86,7 @@ export default function CataloguePage() {
           </div>
         )}
 
-        <CatalogueGrid variant="lux" products={data.products} cart={cart} setQty={setQty} cur={cur} t={t} />
+        <CatalogueGrid variant="lux" lang={lang} products={data.products} cart={cart} setQty={setQty} cur={cur} t={t} />
 
         <div className="lux-rule" />
         <footer className="text-center pb-6 space-y-2">

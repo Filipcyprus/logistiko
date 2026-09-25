@@ -212,3 +212,10 @@ body {
 
 /* Το φόντο της σελίδας ακολουθεί το μαύρο του καταλόγου (π.χ. στο overscroll σε κινητό). */
 body:has(.lux) { background: #0a0a0a; }
+
+/* Περιγραφή προϊόντος στον κατάλογο: 3 γραμμές, με "Περισσότερα" για ολόκληρο το κείμενο. */
+.lux-desc { font-size: 0.74rem; line-height: 1.6; color: #b4ad9d; margin-top: 0.15rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.lux-desc.open { display: block; -webkit-line-clamp: unset; overflow: visible; }
+.lux-more { background: none; border: 0; padding: 0.15rem 0 0; cursor: pointer; font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); font-family: inherit; }
+.lux-more:hover { color: var(--gold-light); }
+@media print { .lux-desc { display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important; color: #444444 !important; } }

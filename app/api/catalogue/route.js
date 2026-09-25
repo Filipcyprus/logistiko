@@ -19,6 +19,8 @@ export async function GET() {
       image: p.image || "",
       retailPrice: Number(p.retailPrice),
       volumeMl: p.volumeMl || null,
+      description: p.description || "",
+      descriptionEl: p.descriptionEl || "",
       inStock: p.trackStock === false ? true : Number(p.stock) > 0,
     }))
     .sort((a, b) => a.brand.localeCompare(b.brand) || a.name.localeCompare(b.name));

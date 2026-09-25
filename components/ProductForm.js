@@ -608,6 +608,20 @@ export default function ProductForm({ form, setForm, categories = [], subcategor
         </div>
       )}
 
+      {/* PUBLIC DESCRIPTION (catalogue) */}
+      <div className="card p-6 space-y-3">
+        <SectionHeader icon="note" title={t("stock.sectionPublicDescription")} />
+        <p className="text-xs text-slate-500">{t("stock.publicDescriptionHint")}</p>
+        <div>
+          <label className="label">{t("stock.publicDescriptionEn")}</label>
+          <textarea className="input min-h-[80px]" value={form.description || ""} onChange={(e) => upd({ description: e.target.value })} />
+        </div>
+        <div>
+          <label className="label">{t("stock.publicDescriptionEl")}</label>
+          <textarea className="input min-h-[80px]" value={form.descriptionEl || ""} onChange={(e) => upd({ descriptionEl: e.target.value })} />
+        </div>
+      </div>
+
       {/* NOTES */}
       <div className="card p-6 space-y-3">
         <SectionHeader icon="note" title={t("stock.sectionNotes")} />
