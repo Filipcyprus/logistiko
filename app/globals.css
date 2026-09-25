@@ -87,6 +87,23 @@ body {
   }
 }
 
+/* Κατάλογος αρωμάτων: εκτύπωση / αποθήκευση ως PDF — 3 στήλες, καμία κάρτα δεν κόβεται στη μέση. */
+@media print {
+  .catalogue-page {
+    padding: 10mm !important;
+  }
+  .catalogue-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .catalogue-card {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+  }
+}
+
 /* Μηδενικό περιθώριο σελίδας ώστε το πρόγραμμα περιήγησης να μην έχει χώρο
    να τυπώσει δικό του header/footer (URL, ημερομηνία, τίτλος) πάνω στο παραστατικό. */
 @page {

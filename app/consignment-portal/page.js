@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { money, formatDate } from "@/lib/format";
 import Icon from "@/components/Icon";
 import PortalLogin from "@/components/PortalLogin";
+import CatalogueGrid from "@/components/CatalogueGrid";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
@@ -196,31 +197,15 @@ export default function ConsignmentPortalPage() {
           <form onSubmit={submitOrder} className="card p-4 space-y-3">
             <h2 className="font-semibold text-slate-800">{t("consignmentPortal.orderTitle")}</h2>
             {orderMsg && <div className="text-sm rounded-lg px-3 py-2 bg-brand-50 text-brand-700">{orderMsg}</div>}
-            <div className="divide-y divide-slate-100">
-              {orderableProducts.map((p) => (
-                <div key={p.id} className="flex items-center justify-between py-2 gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {p.image ? <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden shrink-0"><img src={p.image} alt="" className="w-full h-full object-contain" /></div> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0"><Icon name="image" size={16} /></div>}
-                    <div className="text-sm font-medium text-slate-700 truncate">{p.name}</div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {orderLines[p.id]?.quantity > 0 && (
-                      <label className="flex items-center gap-1 text-xs text-slate-500 whitespace-nowrap">
-                        <input type="checkbox" checked={!!orderLines[p.id]?.isTester} onChange={(e) => setOrderTester(p.id, e.target.checked)} />
-                        {t("consignmentPortal.requestTester")}
-                      </label>
-                    )}
-                    <input
-                      type="number" min="0" step="any"
-                      className="input w-20 text-right"
-                      value={orderLines[p.id]?.quantity || ""}
-                      onChange={(e) => setOrderQty(p.id, e.target.value)}
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <CatalogueGrid
+              products={orderableProducts}
+              cart={Object.fromEntries(Object.entries(orderLines).map(([id, l]) => [id, l.quantity]))}
+              setQty={setOrderQty}
+              testers={Object.fromEntries(Object.entries(orderLines).map(([id, l]) => [id, !!l.isTester]))}
+              setTester={setOrderTester}
+              cur={cur}
+              t={t}
+            />
             <div>
               <label className="label">{t("consignmentPortal.orderNotes")}</label>
               <textarea className="input" rows={2} value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} />

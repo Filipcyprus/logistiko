@@ -17,6 +17,7 @@ export async function GET(request) {
     return {
       id: p.id, code: p.code, name: p.name, category: p.category, unit: p.unit,
       price: p.price, retailPrice: p.retailPrice, vatRate: p.saleVatRate ?? p.vatRate ?? 19, image: p.image || "",
+      brand: p.brand || "", volumeMl: p.volumeMl || null, inStock: p.trackStock === false ? true : Number(p.stock) > 0,
       myStock: entry ? Number(entry.quantity || 0) : 0,
     };
   });

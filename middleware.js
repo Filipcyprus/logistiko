@@ -69,6 +69,8 @@ export async function middleware(request) {
     pathname.startsWith("/api/partner-portal") ||
     pathname.startsWith("/consignment-portal") ||
     pathname.startsWith("/api/consignment-portal") ||
+    pathname === "/catalogue" ||
+    pathname.startsWith("/api/catalogue") ||
     pathname.startsWith("/api/users") ||
     pathname.startsWith("/uploads") ||
     (pathname.startsWith("/api/uploads/") && (request.method === "GET" || request.method === "HEAD")) ||

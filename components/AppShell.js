@@ -6,7 +6,7 @@ import Sidebar from "@/components/Sidebar";
 // Το portal (B2B, πελάτες, συνεργάτες) και η σελίδα σύνδεσης δεν εμφανίζουν το μενού διαχείρισης.
 export default function AppShell({ children, role }) {
   const pathname = usePathname();
-  const isPortal = pathname?.startsWith("/portal") || pathname?.startsWith("/partner-portal") || pathname?.startsWith("/consignment-portal");
+  const isPortal = pathname?.startsWith("/portal") || pathname?.startsWith("/partner-portal") || pathname?.startsWith("/consignment-portal") || pathname === "/catalogue";
   const isLogin = pathname === "/login";
 
   if (isPortal || isLogin) {
