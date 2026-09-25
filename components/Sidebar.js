@@ -134,6 +134,17 @@ export default function Sidebar({ role }) {
               <div className="text-[11px] text-slate-500">{t("common.appSubtitle")}</div>
             </div>
           </div>
+          {items === nav && (
+            <div className="mb-3 shrink-0 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5">
+              <a href="/catalogue" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-[13px] font-semibold text-amber-200 hover:text-white">
+                <Icon name="external" size={16} />
+                {t("nav.catalogue")}
+              </a>
+              <button type="button" onClick={copyCatalogueLink} className="mt-2 w-full text-[11px] font-semibold px-2 py-1.5 rounded border border-amber-500/50 text-amber-100 hover:bg-amber-500/20">
+                {linkCopied ? t("nav.catalogueCopied") : t("nav.catalogueCopy")}
+              </button>
+            </div>
+          )}
           {/* The menu scrolls on its own when it is taller than the screen, so Sign out and Language never fall off the bottom. */}
           <nav className="space-y-0.5 flex-1 md:min-h-0 md:overflow-y-auto sidebar-scroll">
             {items.map((item) => (
@@ -154,17 +165,6 @@ export default function Sidebar({ role }) {
                 )}
               </Link>
             ))}
-            {items === nav && (
-              <div className="flex items-center gap-1 rounded-md pr-1 text-slate-400 hover:bg-slate-800/60">
-                <a href="/catalogue" target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center gap-2.5 px-2.5 py-2 text-[13px] font-medium hover:text-slate-100">
-                  <Icon name="external" size={16} />
-                  {t("nav.catalogue")}
-                </a>
-                <button type="button" onClick={copyCatalogueLink} title={t("nav.catalogueCopy")} className="text-[11px] font-semibold px-2 py-1 rounded border border-slate-700 hover:text-white hover:border-slate-500">
-                  {linkCopied ? t("nav.catalogueCopied") : t("nav.catalogueCopy")}
-                </button>
-              </div>
-            )}
           </nav>
           <button onClick={logout} className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 mb-1 mt-2 shrink-0">
             <Icon name="x" size={16} />
