@@ -118,3 +118,97 @@ body {
 .sidebar-scroll::-webkit-scrollbar { width: 6px; }
 .sidebar-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
 .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* ───────────── Δημόσιος κατάλογος "DUBAI AROMAS CYPRUS": μαύρο & χρυσό, μινιμαλιστικό ───────────── */
+.lux {
+  background: #0a0a0a;
+  color: #f2ece0;
+  font-family: Jost, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-weight: 300;
+  min-height: 100vh;
+  --gold: #c8a55a;
+  --gold-light: #e2c887;
+  --muted: #8f8878;
+  --hair: rgba(200, 165, 90, 0.22);
+}
+.lux ::selection { background: rgba(200, 165, 90, 0.35); }
+.lux-serif { font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif; font-variant-numeric: lining-nums; font-feature-settings: "lnum" 1; }
+.lux-gold-text {
+  background-image: linear-gradient(135deg, #f3e2ae 0%, #c8a55a 45%, #9d7b34 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--gold);
+}
+.lux-rule { height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); opacity: 0.7; }
+.lux-eyebrow { font-size: 0.66rem; letter-spacing: 0.34em; text-transform: uppercase; color: var(--muted); }
+.lux-search, .lux-input {
+  width: 100%; background: transparent; border: 0; border-bottom: 1px solid rgba(200, 165, 90, 0.4);
+  color: #f2ece0; padding: 0.7rem 0; font-size: 0.95rem; letter-spacing: 0.04em; outline: none; font-family: inherit; font-weight: 300;
+  border-radius: 0; transition: border-color 0.25s;
+}
+.lux-search::placeholder, .lux-input::placeholder { color: #7d776a; }
+.lux-search:focus, .lux-input:focus { border-bottom-color: var(--gold-light); }
+.lux-label { display: block; font-size: 0.62rem; letter-spacing: 0.26em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.15rem; }
+.lux-tabs { display: flex; gap: 1.6rem; overflow-x: auto; scrollbar-width: none; padding: 0.15rem 0; }
+.lux-tabs::-webkit-scrollbar { display: none; }
+.lux-tab {
+  background: none; border: 0; border-bottom: 1px solid transparent; padding: 0.55rem 0; cursor: pointer; white-space: nowrap;
+  font-size: 0.7rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); font-family: inherit; transition: color 0.2s, border-color 0.2s;
+}
+.lux-tab:hover { color: var(--gold-light); }
+.lux-tab.active { color: var(--gold-light); border-bottom-color: var(--gold); }
+.lux-card { background: #101010; border: 1px solid var(--hair); display: flex; flex-direction: column; transition: border-color 0.3s, box-shadow 0.3s; }
+.lux-card:hover { border-color: rgba(200, 165, 90, 0.55); }
+.lux-card.selected { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.lux-img { flex: none; position: relative; overflow: hidden; aspect-ratio: 4 / 5; width: 100%; background: radial-gradient(circle at 50% 38%, #fbf8f0 0%, #efe7d3 100%); display: flex; align-items: center; justify-content: center; }
+.lux-img img { position: absolute; inset: 0.85rem; width: calc(100% - 1.7rem); height: calc(100% - 1.7rem); object-fit: contain; mix-blend-mode: multiply; }
+.lux-body { padding: 1rem 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.35rem; flex: 1; }
+.lux-foot { margin-top: auto; display: flex; flex-direction: column; gap: 0.2rem; padding-top: 0.4rem; }
+.lux-brand { font-size: 0.6rem; letter-spacing: 0.32em; text-transform: uppercase; color: var(--gold); }
+.lux-name { font-family: "Cormorant Garamond", Georgia, serif; font-variant-numeric: lining-nums; font-size: 1.35rem; line-height: 1.12; color: #f7f1e3; font-weight: 500; }
+.lux-meta { font-size: 0.7rem; letter-spacing: 0.09em; color: var(--muted); }
+.lux-price-label { font-size: 0.58rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); margin-top: 0.5rem; }
+.lux-price { font-family: "Cormorant Garamond", Georgia, serif; font-variant-numeric: lining-nums; font-size: 1.7rem; line-height: 1; color: var(--gold-light); font-weight: 500; }
+.lux-avail { font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 0.15rem; }
+.lux-avail.in { color: var(--gold); }
+.lux-avail.by { color: var(--muted); }
+.lux-qty { display: inline-flex; border: 1px solid rgba(200, 165, 90, 0.5); margin-top: 0.7rem; align-self: flex-start; }
+.lux-qty button { width: 2.2rem; height: 2.2rem; background: transparent; color: var(--gold-light); border: 0; font-size: 1.1rem; cursor: pointer; font-family: inherit; }
+.lux-qty button:hover:not(:disabled) { background: rgba(200, 165, 90, 0.14); }
+.lux-qty button:disabled { opacity: 0.3; cursor: default; }
+.lux-qty input { width: 2.4rem; text-align: center; background: transparent; border: 0; color: #f2ece0; outline: none; font-size: 0.9rem; -moz-appearance: textfield; font-family: inherit; }
+.lux-qty input::-webkit-outer-spin-button, .lux-qty input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.lux-btn {
+  background: linear-gradient(135deg, #ecd79b 0%, #c8a55a 55%, #a98436 100%); color: #0a0a0a; border: 0; padding: 0.85rem 1.7rem; cursor: pointer;
+  font-size: 0.7rem; letter-spacing: 0.24em; text-transform: uppercase; font-weight: 500; font-family: inherit; transition: filter 0.2s;
+}
+.lux-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.lux-btn:disabled { opacity: 0.55; cursor: default; }
+.lux-btn-ghost { background: transparent; color: var(--gold); border: 1px solid rgba(200, 165, 90, 0.5); padding: 0.45rem 0.9rem; cursor: pointer; font-size: 0.6rem; letter-spacing: 0.22em; text-transform: uppercase; font-family: inherit; }
+.lux-btn-ghost:hover { background: rgba(200, 165, 90, 0.12); }
+.lux-link { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase; font-family: inherit; }
+.lux-link:hover { color: var(--gold-light); }
+.lux-lang { display: inline-flex; gap: 0.15rem; }
+.lux-lang button { background: none; border: 0; cursor: pointer; padding: 0.3rem 0.5rem; font-size: 0.66rem; letter-spacing: 0.18em; color: var(--muted); font-family: inherit; }
+.lux-lang button.active { color: var(--gold-light); }
+.lux-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40; background: rgba(10, 10, 10, 0.96); border-top: 1px solid rgba(200, 165, 90, 0.55); backdrop-filter: blur(10px); }
+.lux-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.75); display: flex; align-items: flex-end; justify-content: center; }
+@media (min-width: 640px) { .lux-overlay { align-items: center; } }
+.lux-modal { background: #0e0e0e; border: 1px solid rgba(200, 165, 90, 0.45); color: #f2ece0; width: 100%; max-width: 32rem; max-height: 92vh; overflow-y: auto; padding: 1.6rem 1.4rem; }
+.lux-notice { border: 1px solid rgba(200, 165, 90, 0.5); background: rgba(200, 165, 90, 0.08); color: var(--gold-light); padding: 0.9rem 1.1rem; font-size: 0.85rem; letter-spacing: 0.03em; }
+.lux-error { border: 1px solid rgba(220, 120, 110, 0.5); color: #ecaba3; padding: 0.6rem 0.9rem; font-size: 0.8rem; }
+
+@media print {
+  .lux { background: #ffffff !important; color: #111111 !important; }
+  .lux-gold-text { -webkit-text-fill-color: #8a6a22; color: #8a6a22; background: none !important; }
+  .lux-eyebrow, .lux-meta, .lux-price-label, .lux-avail.by { color: #6b665b !important; }
+  .lux-brand, .lux-avail.in { color: #8a6a22 !important; }
+  .lux-name { color: #111111 !important; }
+  .lux-price { color: #8a6a22 !important; }
+  .lux-card { background: #ffffff !important; border: 1px solid #d9c99e !important; box-shadow: none !important; }
+  .lux-img { background: #ffffff !important; }
+}
+
+/* Το φόντο της σελίδας ακολουθεί το μαύρο του καταλόγου (π.χ. στο overscroll σε κινητό). */
+body:has(.lux) { background: #0a0a0a; }
