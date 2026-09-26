@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { createDoc, updateDoc } from "@/lib/docs";
 import { serverT } from "@/lib/i18n/server";
+import { portalOpeningState } from "@/lib/portalOpening";
 
 // Υποβολή παραγγελίας από τον B2B πελάτη.
 export async function POST(request, { params }) {
@@ -9,6 +10,9 @@ export async function POST(request, { params }) {
   const db = readDB();
   const c = db.customers.find((x) => x.b2bEnabled && x.b2bToken === params.token);
   if (!c) return NextResponse.json({ error: "errors.invalidLink" }, { status: 404 });
+
+  // Δεν δέχεται παραγγελίες πριν την επίσημη έναρξη του καταστήματος.
+  if (portalOpeningState(db.settings).closed) return NextResponse.json({ error: "errors.portalNotOpen" }, { status: 403 });
 
   // Έλεγχος PIN (μόνο αν απαιτείται για αυτόν τον πελάτη)
   if (c.requirePin !== false && c.b2bPin && String(body.pin || "") !== String(c.b2bPin)) {

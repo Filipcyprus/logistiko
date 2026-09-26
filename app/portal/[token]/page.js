@@ -5,14 +5,16 @@ import { useParams } from "next/navigation";
 import { money, computeTotals, formatDate } from "@/lib/format";
 import Icon from "@/components/Icon";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import PortalOpeningNotice from "@/components/PortalOpeningNotice";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { effectiveDiscountTiers, quantityDiscountPercentForProduct } from "@/lib/pricing";
 import { shippingCostForWeightKg, boxNowCostWithVat } from "@/lib/shipping";
 
 export default function PortalPage() {
   const { token } = useParams();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [data, setData] = useState(null);
+  const [opening, setOpening] = useState(null); // {opening, company} όσο το κατάστημα δεν έχει ανοίξει επίσημα
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("");
@@ -36,7 +38,7 @@ export default function PortalPage() {
     try { localStorage.setItem(`dismissedNotices:${token}`, JSON.stringify(next)); } catch { /* ignore */ }
   };
 
-  const load = () => fetch(`/api/portal/${token}`).then((r) => (r.ok ? r.json() : r.json().then((e) => Promise.reject(e)))).then(setData).catch((e) => setError(e.error ? t(e.error) : t("common.error")));
+  const load = () => fetch(`/api/portal/${token}`).then((r) => (r.ok ? r.json() : r.json().then((e) => Promise.reject(e)))).then((d) => { if (d.opening) { setOpening(d); setData(null); } else { setOpening(null); setData(d); } }).catch((e) => setError(e.error ? t(e.error) : t("common.error")));
   useEffect(() => { load(); }, [token]);
 
   // P2D: γέμισε αυτόματα με τη διεύθυνση του πελάτη (επεξεργάσιμη). P2P/BoxNow: ο πελάτης πληκτρολογεί το σημείο παραλαβής.
@@ -158,6 +160,7 @@ export default function PortalPage() {
       </div>
     </div>
   );
+  if (opening) return <PortalOpeningNotice opening={opening.opening} company={opening.company} t={t} lang={lang} onOpen={load} />;
   if (!data) return <div className="min-h-screen flex items-center justify-center text-slate-400">{t("common.loading")}</div>;
 
   return (

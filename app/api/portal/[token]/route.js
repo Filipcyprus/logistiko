@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readDB } from "@/lib/db";
 import { originFrom, portalLinkFor, resolveText } from "@/lib/announce";
 import { bestRuleDiscount } from "@/lib/discountRules";
+import { portalOpeningState } from "@/lib/portalOpening";
 
 // Δημόσια δεδομένα portal για συγκεκριμένο πελάτη (μέσω token).
 export async function GET(_req, { params }) {
@@ -10,6 +11,15 @@ export async function GET(_req, { params }) {
   if (!c) return NextResponse.json({ error: "errors.invalidLink" }, { status: 404 });
 
   const s = db.settings;
+
+  // Πριν την επίσημη έναρξη: μόνο η ενημερωτική σελίδα (χωρίς προϊόντα, τιμές ή παραγγελίες).
+  const opening = portalOpeningState(s);
+  if (opening.closed) {
+    return NextResponse.json({
+      opening: { opensAtMs: opening.opensAtMs, messageEn: opening.messageEn, messageEl: opening.messageEl },
+      company: { name: s.companyName, logo: s.logo, phone: s.phone, email: s.email },
+    });
+  }
   const customPrices = c.customPrices || [];
   const hasCustomPrices = customPrices.length > 0;
   const customPriceMap = new Map(customPrices.map((cp) => [cp.productId, Number(cp.price)]));

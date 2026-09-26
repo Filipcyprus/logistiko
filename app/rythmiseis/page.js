@@ -214,6 +214,30 @@ export default function SettingsPage() {
       </div>
 
       <div className="card p-6 space-y-4">
+        <h2 className="font-semibold text-slate-700">{t("settings.b2bOpeningSection")}</h2>
+        <p className="text-sm text-slate-500">{t("settings.b2bOpeningHint")}</p>
+        <label className="flex items-start gap-2.5 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" className="mt-0.5" checked={!!s.b2bOpeningEnabled} onChange={(e) => upd({ b2bOpeningEnabled: e.target.checked })} />
+          <span className="text-sm font-medium text-slate-700">{t("settings.b2bOpeningEnabled")}</span>
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="label">{t("settings.b2bOpensAt")}</label>
+            <input type="datetime-local" className="input" value={s.b2bOpensAt || ""} onChange={(e) => upd({ b2bOpensAt: e.target.value })} />
+          </div>
+          <div className="hidden sm:block" />
+          <div>
+            <label className="label">{t("settings.b2bOpeningMessageEn")}</label>
+            <textarea className="input min-h-[80px]" value={s.b2bOpeningMessageEn || ""} onChange={(e) => upd({ b2bOpeningMessageEn: e.target.value })} placeholder={t("settings.b2bOpeningMessagePlaceholder")} />
+          </div>
+          <div>
+            <label className="label">{t("settings.b2bOpeningMessageEl")}</label>
+            <textarea className="input min-h-[80px]" value={s.b2bOpeningMessageEl || ""} onChange={(e) => upd({ b2bOpeningMessageEl: e.target.value })} placeholder={t("settings.b2bOpeningMessagePlaceholder")} />
+          </div>
+        </div>
+      </div>
+
+      <div className="card p-6 space-y-4">
         <h2 className="font-semibold text-slate-700">{t("settings.invoiceSection")}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div><label className="label">{t("settings.fieldDefaultVat")}</label><input type="number" step="any" className="input" value={s.vatRate} onChange={(e) => upd({ vatRate: Number(e.target.value) })} /></div>
