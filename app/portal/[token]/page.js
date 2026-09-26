@@ -9,6 +9,7 @@ import PortalOpeningNotice from "@/components/PortalOpeningNotice";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { effectiveDiscountTiers, quantityDiscountPercentForProduct } from "@/lib/pricing";
 import { shippingCostForWeightKg, boxNowCostWithVat } from "@/lib/shipping";
+import { upcomingDeliverySlots, looksLikeNicosia, slotsSummary } from "@/lib/delivery";
 
 export default function PortalPage() {
   const { token } = useParams();
@@ -29,6 +30,7 @@ export default function PortalPage() {
   const [done, setDone] = useState(null); // {number}
   const [shippingMethod, setShippingMethod] = useState("p2d");
   const [deliveryLocation, setDeliveryLocation] = useState("");
+  const [slotKey, setSlotKey] = useState(""); // επιλεγμένη ώρα δωρεάν παράδοσης Λευκωσίας ("YYYY-MM-DD|HH:mm")
 
   // Ποιες ειδοποιήσεις έκλεισε ήδη ο πελάτης (μόνο σε αυτή τη συσκευή· αν το localStorage δεν δουλεύει, απλώς ξαναφαίνονται).
   useEffect(() => { try { setDismissed(JSON.parse(localStorage.getItem(`dismissedNotices:${token}`) || "[]")); } catch { /* ignore */ } }, [token]);
@@ -44,7 +46,7 @@ export default function PortalPage() {
   // P2D: γέμισε αυτόματα με τη διεύθυνση του πελάτη (επεξεργάσιμη). P2P/BoxNow: ο πελάτης πληκτρολογεί το σημείο παραλαβής.
   useEffect(() => {
     if (!data) return;
-    if (shippingMethod === "p2d") {
+    if (shippingMethod === "p2d" || shippingMethod === "nicosia") {
       setDeliveryLocation([data.customer.address, data.customer.city].filter(Boolean).join(", "));
     } else {
       setDeliveryLocation("");
@@ -118,7 +120,13 @@ export default function PortalPage() {
   const cartWeightKg = cartWeightG / 1000;
   const notVatRegistered = !!data?.company?.notVatRegistered;
   const vatRate = notVatRegistered ? 0 : (data?.company?.vatRate ?? 19);
+  // Δωρεάν παράδοση Λευκωσίας: διαθέσιμη αν είναι ενεργή και ο πελάτης δεν είναι σε άλλη πόλη.
+  const nicosiaOffer = !!(data && data.delivery && data.delivery.enabled !== false && (data.delivery.slots || []).length && looksLikeNicosia(data.customer && data.customer.city));
+  const freeSlots = useMemo(() => (nicosiaOffer ? upcomingDeliverySlots(data.delivery) : []), [nicosiaOffer, data]);
+  const chosenSlot = freeSlots.find((x) => x.key === slotKey) || null;
+  const slotLabel = (s) => `${new Intl.DateTimeFormat(lang === "el" ? "el-GR" : "en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Nicosia" }).format(new Date(s.startMs))}, ${s.from}–${s.to}`;
   const shippingCostWithVat = cartLines.length === 0 ? 0
+    : shippingMethod === "nicosia" ? 0
     : shippingMethod === "boxnow" ? boxNowCostWithVat()
     : shippingCostForWeightKg(cartWeightKg, shippingMethod);
   const grandTotal = Math.round((totals.total + shippingCostWithVat) * 100) / 100;
@@ -136,16 +144,18 @@ export default function PortalPage() {
     if (data.customer.requirePin && !pin) { alert(t("portal.errNeedPin")); return; }
     setSubmitting(true);
     const orderItems = [...cartLines];
-    const methodLabel = shippingMethod === "p2p" ? t("portal.shippingP2P") : shippingMethod === "p2d" ? t("portal.shippingP2D") : t("portal.shippingBoxNow");
+    if (shippingMethod === "nicosia" && !chosenSlot) { alert(t("portal.errChooseSlot")); setSubmitting(false); return; }
+    const methodLabel = shippingMethod === "nicosia" ? t("portal.shippingNicosia") : shippingMethod === "p2p" ? t("portal.shippingP2P") : shippingMethod === "p2d" ? t("portal.shippingP2D") : t("portal.shippingBoxNow");
     if (shippingCostWithVat > 0) {
       const shippingNet = Math.round((shippingCostWithVat / (1 + vatRate / 100)) * 100) / 100;
       orderItems.push({ productId: null, description: `${t("portal.shippingLineLabel")} (${methodLabel})`, quantity: 1, unit: t("common.unit"), unitPrice: shippingNet, vatRate, discount: 0 });
     }
-    const locationLabel = shippingMethod === "p2d" ? t("portal.deliveryAddressLabel") : t("portal.pickupPointLabel");
+    const locationLabel = (shippingMethod === "p2d" || shippingMethod === "nicosia") ? t("portal.deliveryAddressLabel") : t("portal.pickupPointLabel");
     const locationNote = deliveryLocation ? `${locationLabel}: ${deliveryLocation}` : "";
-    const combinedNotes = [`${t("portal.shippingMethod")}: ${methodLabel}`, locationNote, notes].filter(Boolean).join(" | ");
-    const res = await fetch(`/api/portal/${token}/order`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin, items: orderItems, notes: combinedNotes, deliveryDate }) });
-    if (res.ok) { const r = await res.json(); setDone(r); setCart({}); setNotes(""); setDeliveryDate(""); setPin(""); load(); }
+    const slotNote = shippingMethod === "nicosia" && chosenSlot ? `${t("portal.deliverySlot")}: ${slotLabel(chosenSlot)}` : "";
+    const combinedNotes = [`${t("portal.shippingMethod")}: ${methodLabel}`, slotNote, locationNote, notes].filter(Boolean).join(" | ");
+    const res = await fetch(`/api/portal/${token}/order`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin, items: orderItems, notes: combinedNotes, deliveryDate: shippingMethod === "nicosia" && chosenSlot ? chosenSlot.date : deliveryDate }) });
+    if (res.ok) { const r = await res.json(); setDone(r); setCart({}); setNotes(""); setDeliveryDate(""); setSlotKey(""); setPin(""); load(); }
     else { const e = await res.json(); alert(e.error ? t(e.error) : t("portal.errSubmit")); }
     setSubmitting(false);
   };
@@ -160,7 +170,7 @@ export default function PortalPage() {
       </div>
     </div>
   );
-  if (opening) return <PortalOpeningNotice opening={opening.opening} company={opening.company} t={t} lang={lang} onOpen={load} />;
+  if (opening) return <PortalOpeningNotice opening={opening.opening} company={opening.company} delivery={opening.delivery} t={t} lang={lang} onOpen={load} />;
   if (!data) return <div className="min-h-screen flex items-center justify-center text-slate-400">{t("common.loading")}</div>;
 
   return (
@@ -197,6 +207,13 @@ export default function PortalPage() {
                 <div className="text-sm text-emerald-700 mt-1">{t("portal.creditAppliedNote", { amount: money(done.creditApplied, cur), remaining: money(done.remainingCredit, cur) })}</div>
               )}
               <button onClick={() => setDone(null)} className="btn-secondary mt-3">{t("portal.newOrder")}</button>
+            </div>
+          )}
+
+          {nicosiaOffer && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 text-sm">
+              <div className="font-semibold">🚚 {t("portal.freeDeliveryTitle")}</div>
+              <div className="text-emerald-700">{slotsSummary(data.delivery.slots, lang === "el" ? "el-GR" : "en-GB")}</div>
             </div>
           )}
 
@@ -367,6 +384,16 @@ export default function PortalPage() {
                 <div className="text-xs text-slate-500">{t("portal.totalWeight")} (≈): <span className="font-semibold text-slate-700">{cartWeightG >= 1000 ? `${(cartWeightG / 1000).toFixed(2)} kg` : `${cartWeightG} g/ml`}</span></div>
                 <div>
                   <label className="label">{t("portal.shippingMethod")}</label>
+                  {nicosiaOffer && (
+                    <button
+                      type="button"
+                      onClick={() => setShippingMethod("nicosia")}
+                      className={`w-full mb-2 px-3 py-2.5 rounded-lg text-sm font-semibold border text-left flex items-center justify-between gap-2 ${shippingMethod === "nicosia" ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "border-emerald-200 text-emerald-700 bg-emerald-50/40"}`}
+                    >
+                      <span>{t("portal.shippingNicosia")}<span className="block text-[11px] font-normal text-emerald-700/80">{t("portal.shippingNicosiaDesc")}</span></span>
+                      <span className="text-xs font-bold bg-emerald-600 text-white rounded-full px-2 py-0.5 shrink-0">{t("portal.free")}</span>
+                    </button>
+                  )}
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
@@ -395,12 +422,21 @@ export default function PortalPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="label">{shippingMethod === "p2d" ? t("portal.deliveryAddressLabel") : t("portal.pickupPointLabel")}</label>
+                  {shippingMethod === "nicosia" && (
+                  <div className="mb-2">
+                    <label className="label">{t("portal.chooseSlot")}</label>
+                    <select className="input" value={slotKey} onChange={(e) => setSlotKey(e.target.value)}>
+                      <option value="">{t("portal.chooseSlotPlaceholder")}</option>
+                      {freeSlots.map((s) => <option key={s.key} value={s.key}>{slotLabel(s)}</option>)}
+                    </select>
+                  </div>
+                  )}
+                  <label className="label">{(shippingMethod === "p2d" || shippingMethod === "nicosia") ? t("portal.deliveryAddressLabel") : t("portal.pickupPointLabel")}</label>
                   <input
                     className="input"
                     value={deliveryLocation}
                     onChange={(e) => setDeliveryLocation(e.target.value)}
-                    placeholder={shippingMethod === "p2d" ? t("portal.deliveryAddressPlaceholder") : t("portal.pickupPointPlaceholder")}
+                    placeholder={(shippingMethod === "p2d" || shippingMethod === "nicosia") ? t("portal.deliveryAddressPlaceholder") : t("portal.pickupPointPlaceholder")}
                   />
                 </div>
               </div>
@@ -415,6 +451,7 @@ export default function PortalPage() {
               <div className="flex justify-between font-bold text-slate-800 text-base"><span>{t("portal.total")}</span><span>{money(grandTotal, cur)}</span></div>
             </div>
             <div className="space-y-3 mt-4">
+              {shippingMethod !== "nicosia" && (
               <div>
                 <label className="label">{t("portal.desiredDelivery")}</label>
                 <input
@@ -425,6 +462,7 @@ export default function PortalPage() {
                   min={new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                 />
               </div>
+              )}
               <div><label className="label">{t("portal.comments")}</label><textarea className="input" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("portal.commentsPlaceholder")} /></div>
               {data.customer.requirePin && <div><label className="label">{t("portal.accessPin")}</label><input className="input" value={pin} onChange={(e) => setPin(e.target.value)} placeholder={t("portal.pinPlaceholder")} /></div>}
               <button onClick={submit} disabled={submitting || cartLines.length === 0} className="btn-primary w-full">{submitting ? t("portal.submitting") : t("portal.submitOrder")}</button>

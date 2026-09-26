@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { slotsSummary } from "@/lib/delivery";
 
 const TZ = "Europe/Nicosia";
 
 // Σελίδα "Ανοίγουμε σύντομα" για τον σύνδεσμο B2B — με αντίστροφη μέτρηση. Μόλις έρθει η ώρα, ξαναφορτώνει
 // το portal και το κατάστημα ανοίγει μόνο του.
-export default function PortalOpeningNotice({ opening, company, t, lang, onOpen }) {
+export default function PortalOpeningNotice({ opening, company, delivery, t, lang, onOpen }) {
   const [now, setNow] = useState(Date.now());
   const fired = useRef(false);
 
@@ -72,6 +73,13 @@ export default function PortalOpeningNotice({ opening, company, t, lang, onOpen 
             {box(minutes, t("portal.openingMinutes"))}
             {box(seconds, t("portal.openingSeconds"))}
           </div>
+
+          {delivery && delivery.enabled !== false && (delivery.slots || []).length > 0 && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 text-sm text-left sm:text-center">
+              <div className="font-semibold">🚚 {t("portal.freeDeliveryTitle")}</div>
+              <div className="text-emerald-700">{slotsSummary(delivery.slots, lang === "el" ? "el-GR" : "en-GB")}</div>
+            </div>
+          )}
 
           <p className="text-sm text-slate-500">{t("portal.openingThanks")}</p>
           {(company?.phone || company?.email) && (

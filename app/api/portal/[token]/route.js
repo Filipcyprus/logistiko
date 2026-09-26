@@ -3,6 +3,7 @@ import { readDB } from "@/lib/db";
 import { originFrom, portalLinkFor, resolveText } from "@/lib/announce";
 import { bestRuleDiscount } from "@/lib/discountRules";
 import { portalOpeningState } from "@/lib/portalOpening";
+import { freeDeliveryConfig } from "@/lib/delivery";
 
 // Δημόσια δεδομένα portal για συγκεκριμένο πελάτη (μέσω token).
 export async function GET(_req, { params }) {
@@ -18,6 +19,7 @@ export async function GET(_req, { params }) {
     return NextResponse.json({
       opening: { opensAtMs: opening.opensAtMs, messageEn: opening.messageEn, messageEl: opening.messageEl },
       company: { name: s.companyName, logo: s.logo, phone: s.phone, email: s.email },
+      delivery: freeDeliveryConfig(s),
     });
   }
   const customPrices = c.customPrices || [];
@@ -94,6 +96,7 @@ export async function GET(_req, { params }) {
       creditBalance: Math.round((Number(c.creditBalance) || 0) * 100) / 100,
     },
     notices,
+    delivery: freeDeliveryConfig(s),
     categories: Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort(),
     // Μάρκες από τα προϊόντα που βλέπει ΑΥΤΟΣ ο πελάτης (μετά το φίλτρο επαγγέλματος) — όχι από
     // ολόκληρο τον κατάλογο, αλλιώς θα έβλεπε μάρκες που δεν του πουλάμε.
