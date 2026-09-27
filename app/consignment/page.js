@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { money, formatDate, todayISO } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-const emptyStore = { name: "", address: "", phone: "", contact: "" };
+const emptyStore = { name: "", legalName: "", afm: "", address: "", city: "", phone: "", email: "", contact: "" };
 
 export default function ConsignmentPage() {
   const { t } = useLanguage();
@@ -53,17 +54,30 @@ export default function ConsignmentPage() {
   const cur = settings?.currency || "€";
   const perfumes = products.filter((p) => p.department === "perfumes");
 
+  const [editingStoreId, setEditingStoreId] = useState(null);
   const addStore = async () => {
     if (!newStore.name.trim()) return;
     setSaving(true);
-    await fetch("/api/consignment-stores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newStore) });
+    if (editingStoreId) {
+      await fetch(`/api/consignment-stores/${editingStoreId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newStore) });
+    } else {
+      await fetch("/api/consignment-stores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newStore) });
+    }
     setNewStore(emptyStore);
+    setEditingStoreId(null);
     setSaving(false);
     load();
   };
+  const editStore = (s) => {
+    setEditingStoreId(s.id);
+    setNewStore({ name: s.name || "", legalName: s.legalName || "", afm: s.afm || "", address: s.address || "", city: s.city || "", phone: s.phone || "", email: s.email || "", contact: s.contact || "" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const cancelEditStore = () => { setEditingStoreId(null); setNewStore(emptyStore); };
   const removeStore = async (id) => {
     if (!confirm(t("consignment.confirmRemoveStore"))) return;
     await fetch(`/api/consignment-stores/${id}`, { method: "DELETE" });
+    if (editingStoreId === id) cancelEditStore();
     load();
   };
 
@@ -128,14 +142,22 @@ export default function ConsignmentPage() {
       {tab === "stores" && (
         <div className="space-y-4">
           <div className="card p-5 space-y-3">
-            <h2 className="font-semibold text-slate-700">{t("consignment.addStore")}</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-slate-700">{editingStoreId ? t("consignment.editStore") : t("consignment.addStore")}</h2>
+              {editingStoreId && <button onClick={cancelEditStore} className="btn-ghost text-sm">{t("common.cancel")}</button>}
+            </div>
+            <p className="text-xs text-slate-500">{t("consignment.storeInfoHint")}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className="label">{t("consignment.storeName")}</label><input className="input" value={newStore.name} onChange={(e) => setNewStore({ ...newStore, name: e.target.value })} /></div>
+              <div><label className="label">{t("consignment.storeLegalName")}</label><input className="input" value={newStore.legalName} onChange={(e) => setNewStore({ ...newStore, legalName: e.target.value })} placeholder={t("consignment.storeLegalNameHint")} /></div>
               <div><label className="label">{t("consignment.storeContact")}</label><input className="input" value={newStore.contact} onChange={(e) => setNewStore({ ...newStore, contact: e.target.value })} /></div>
+              <div><label className="label">{t("consignment.storeAfm")}</label><input className="input" value={newStore.afm} onChange={(e) => setNewStore({ ...newStore, afm: e.target.value })} /></div>
               <div><label className="label">{t("consignment.storePhone")}</label><input className="input" value={newStore.phone} onChange={(e) => setNewStore({ ...newStore, phone: e.target.value })} /></div>
+              <div><label className="label">{t("consignment.storeEmail")}</label><input type="email" className="input" value={newStore.email} onChange={(e) => setNewStore({ ...newStore, email: e.target.value })} /></div>
               <div><label className="label">{t("consignment.storeAddress")}</label><input className="input" value={newStore.address} onChange={(e) => setNewStore({ ...newStore, address: e.target.value })} /></div>
+              <div><label className="label">{t("consignment.storeCity")}</label><input className="input" value={newStore.city} onChange={(e) => setNewStore({ ...newStore, city: e.target.value })} /></div>
             </div>
-            <button onClick={addStore} disabled={saving} className="btn-primary"><Icon name="plus" size={15} /> {t("consignment.addStore")}</button>
+            <button onClick={addStore} disabled={saving} className="btn-primary"><Icon name={editingStoreId ? "check" : "plus"} size={15} /> {editingStoreId ? t("common.save") : t("consignment.addStore")}</button>
           </div>
 
           <div className="card overflow-hidden">
@@ -158,7 +180,11 @@ export default function ConsignmentPage() {
                     <td className="table-td text-slate-500">{s.contact || "—"}</td>
                     <td className="table-td text-slate-500">{s.phone || "—"}</td>
                     <td className="table-td text-slate-500">{s.address || "—"}</td>
-                    <td className="table-td text-right"><button onClick={() => removeStore(s.id)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button></td>
+                    <td className="table-td text-right whitespace-nowrap">
+                      <Link href={`/consignment/agreement?storeId=${s.id}`} className="btn-ghost !px-2 !py-1 text-brand-600" title={t("consignment.generateAgreement")}><Icon name="quote" size={14} /></Link>
+                      <button onClick={() => editStore(s)} className="btn-ghost !px-2 !py-1 text-slate-500"><Icon name="edit" size={14} /></button>
+                      <button onClick={() => removeStore(s.id)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

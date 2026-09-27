@@ -12,8 +12,12 @@ export async function POST(request) {
   }
   const rec = insert("consignmentStores", {
     name: body.name.trim(),
+    legalName: body.legalName || "",
+    afm: body.afm || "",
     address: body.address || "",
+    city: body.city || "",
     phone: body.phone || "",
+    email: body.email || "",
     contact: body.contact || "",
     notes: body.notes || "",
   });
