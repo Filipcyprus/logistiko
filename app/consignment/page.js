@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import ProductPicker from "@/components/ProductPicker";
 import { money, formatDate, todayISO } from "@/lib/format";
 import Icon from "@/components/Icon";
@@ -13,6 +13,7 @@ const emptyStore = { name: "", legalName: "", afm: "", address: "", city: "", ph
 export default function ConsignmentPage() {
   const { t } = useLanguage();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [settings, setSettings] = useState(null);
   const [stores, setStores] = useState([]);
   const [products, setProducts] = useState([]);
@@ -28,6 +29,13 @@ export default function ConsignmentPage() {
   const [sendLines, setSendLines] = useState([{ productId: "", quantity: 1 }]);
   const [sendBusy, setSendBusy] = useState(false);
   const [sendErr, setSendErr] = useState("");
+
+  const [returnStoreId, setReturnStoreId] = useState("");
+  const [returnDate, setReturnDate] = useState(todayISO());
+  const [returnLines, setReturnLines] = useState([{ productId: "", quantity: 1 }]);
+  const [returnBusy, setReturnBusy] = useState(false);
+  const [returnErr, setReturnErr] = useState("");
+  const [returnDone, setReturnDone] = useState(false);
 
   const [sale, setSale] = useState({ productId: "", storeId: "", quantity: 1, unitPrice: 0, date: todayISO(), paymentMethod: "cash" });
   const [saleBusy, setSaleBusy] = useState(false);
@@ -48,6 +56,9 @@ export default function ConsignmentPage() {
     load();
   };
   useEffect(() => {
+    // Σύνδεσμος "Δελτίο Αποστολής" από το tab Καταστήματα: ανοίγει κατευθείαν στο σωστό κατάστημα.
+    const preselect = searchParams.get("storeId");
+    if (preselect) setSendStoreId(preselect);
     load();
     fetch("/api/settings").then((r) => r.json()).then(setSettings);
   }, []);
@@ -104,6 +115,31 @@ export default function ConsignmentPage() {
     } else {
       const err = await res.json().catch(() => ({}));
       setSendErr(err.error ? t(err.error) : t("common.error"));
+    }
+  };
+
+  const addReturnLine = () => setReturnLines((prev) => [...prev, { productId: "", quantity: 1 }]);
+  const removeReturnLine = (idx) => setReturnLines((prev) => prev.filter((_, i) => i !== idx));
+  const updateReturnLine = (idx, patch) => setReturnLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  // Μόνο προϊόντα που το επιλεγμένο κατάστημα έχει πράγματι στην κατοχή του — δεν μπορείς να
+  // επιστρέψεις κάτι που δεν του έχει σταλεί.
+  const returnableProducts = returnStoreId ? perfumes.filter((p) => storeStockFor(p, returnStoreId) > 0) : [];
+
+  const doReturn = async () => {
+    setReturnErr("");
+    setReturnDone(false);
+    const items = returnLines.filter((l) => l.productId && Number(l.quantity) > 0).map((l) => ({ productId: l.productId, quantity: Number(l.quantity) }));
+    if (!returnStoreId || items.length === 0) { setReturnErr(t("consignment.errSendFields")); return; }
+    setReturnBusy(true);
+    const res = await fetch("/api/consignment-stock/return", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ storeId: returnStoreId, date: returnDate, items }) });
+    setReturnBusy(false);
+    if (res.ok) {
+      setReturnLines([{ productId: "", quantity: 1 }]);
+      setReturnDone(true);
+      load();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      setReturnErr(err.error ? t(err.error) : t("common.error"));
     }
   };
 
@@ -183,7 +219,11 @@ export default function ConsignmentPage() {
                     <td className="table-td text-slate-500">{s.address || "—"}</td>
                     <td className="table-td text-right whitespace-nowrap">
                       <Link href={`/consignment/agreement?storeId=${s.id}`} className="btn-ghost !px-2 !py-1 text-brand-600" title={t("consignment.generateAgreement")}><Icon name="quote" size={14} /></Link>
-                      <Link href={`/consignment/delivery-note?storeId=${s.id}`} className="btn-ghost !px-2 !py-1 text-brand-600" title={t("consignment.generateDeliveryNote")}><Icon name="truck" size={14} /></Link>
+                      <button
+                        onClick={() => { setTab("stock"); setSendStoreId(s.id); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                        className="btn-ghost !px-2 !py-1 text-brand-600"
+                        title={t("consignment.generateDeliveryNote")}
+                      ><Icon name="truck" size={14} /></button>
                       <button onClick={() => editStore(s)} className="btn-ghost !px-2 !py-1 text-slate-500"><Icon name="edit" size={14} /></button>
                       <button onClick={() => removeStore(s.id)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button>
                     </td>
@@ -239,6 +279,57 @@ export default function ConsignmentPage() {
               <button onClick={addSendLine} className="btn-secondary"><Icon name="plus" size={15} /> {t("consignment.addLine")}</button>
               <button onClick={doSend} disabled={sendBusy} className="btn-primary">{sendBusy ? t("common.saving") : t("consignment.sendBtn")}</button>
             </div>
+          </div>
+
+          <div className="card p-5 space-y-3">
+            <h2 className="font-semibold text-slate-700">{t("consignment.returnFromStore")}</h2>
+            <p className="text-sm text-slate-500">{t("consignment.returnFromStoreDesc")}</p>
+            {returnErr && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{returnErr}</div>}
+            {returnDone && <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{t("consignment.returnSuccess")}</div>}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label">{t("consignment.fieldStore")}</label>
+                <select className="input" value={returnStoreId} onChange={(e) => { setReturnStoreId(e.target.value); setReturnLines([{ productId: "", quantity: 1 }]); setReturnDone(false); }}>
+                  <option value="">—</option>
+                  {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">{t("consignment.fieldSendDate")}</label>
+                <input type="date" className="input" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
+              </div>
+            </div>
+
+            {returnStoreId && returnableProducts.length === 0 ? (
+              <p className="text-sm text-slate-400">{t("consignment.noReturnableStock")}</p>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  {returnLines.map((line, idx) => (
+                    <div key={idx} className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <label className="label">{t("consignment.fieldProduct")}</label>
+                        <ProductPicker
+                          products={returnableProducts}
+                          value={line.productId}
+                          onChange={(id) => updateReturnLine(idx, { productId: id })}
+                          formatOption={(p) => `${p.name} (${t("consignment.available")}: ${storeStockFor(p, returnStoreId)})`}
+                        />
+                      </div>
+                      <div className="w-28">
+                        <label className="label">{t("consignment.fieldQuantity")}</label>
+                        <input type="number" min="1" step="any" max={line.productId ? storeStockFor(perfumes.find((p) => p.id === line.productId) || {}, returnStoreId) : undefined} className="input" value={line.quantity} onChange={(e) => updateReturnLine(idx, { quantity: e.target.value })} />
+                      </div>
+                      <button onClick={() => removeReturnLine(idx)} disabled={returnLines.length === 1} className="btn-ghost !px-2 !py-2 text-red-500 disabled:opacity-30"><Icon name="trash" size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between">
+                  <button onClick={addReturnLine} className="btn-secondary"><Icon name="plus" size={15} /> {t("consignment.addLine")}</button>
+                  <button onClick={doReturn} disabled={returnBusy} className="btn-primary">{returnBusy ? t("common.saving") : t("consignment.returnBtn")}</button>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="card overflow-hidden">
