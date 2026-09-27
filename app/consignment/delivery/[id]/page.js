@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatDate } from "@/lib/format";
+import { formatDate, money } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
@@ -66,6 +66,8 @@ export default function ConsignmentDeliveryPage() {
             <tr className="border-b border-slate-300 text-slate-500 text-xs uppercase">
               <th className="py-2 text-left">{t("invoices.colDescription")}</th>
               <th className="py-2 text-right">{t("invoices.colQty")}</th>
+              <th className="py-2 text-right">{t("consignment.colPrice")}</th>
+              <th className="py-2 text-right">{t("consignment.colTotal")}</th>
             </tr>
           </thead>
           <tbody>
@@ -73,10 +75,21 @@ export default function ConsignmentDeliveryPage() {
               <tr key={i} className="border-b border-slate-100">
                 <td className="py-2">{it.productName}</td>
                 <td className="py-2 text-right">{it.quantity} {it.unit}</td>
+                <td className="py-2 text-right">{it.unitPrice ? money(it.unitPrice, company.currency) : "—"}</td>
+                <td className="py-2 text-right">{it.unitPrice ? money(it.unitPrice * it.quantity, company.currency) : "—"}</td>
               </tr>
             ))}
           </tbody>
+          {delivery.items.some((it) => it.unitPrice) && (
+            <tfoot>
+              <tr className="border-t border-slate-300 font-semibold text-slate-800">
+                <td className="py-2" colSpan={3}>{t("consignment.deliveryTotalValue")}</td>
+                <td className="py-2 text-right">{money(delivery.items.reduce((sum, it) => sum + (it.unitPrice || 0) * it.quantity, 0), company.currency)}</td>
+              </tr>
+            </tfoot>
+          )}
         </table>
+        <p className="text-xs text-slate-400 mt-1">{t("consignment.deliveryPriceHint")}</p>
 
         <div className="mt-10 grid grid-cols-2 gap-8 text-sm">
           <div>

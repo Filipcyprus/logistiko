@@ -51,7 +51,9 @@ export async function POST(request) {
       createdAt: new Date().toISOString(),
     });
 
-    deliveryItems.push({ productId: p.id, productName: p.name, unit: p.unit, quantity: qty });
+    // Στιγμιότυπο της προτεινόμενης τιμής πώλησης τη στιγμή της παράδοσης — ώστε το τυπωμένο
+    // δελτίο να μη αλλάζει αναδρομικά αν η τιμή του προϊόντος αλλάξει αργότερα.
+    deliveryItems.push({ productId: p.id, productName: p.name, unit: p.unit, quantity: qty, unitPrice: Number(p.retailPrice) || 0 });
   }
 
   const delivery = {
