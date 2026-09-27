@@ -183,6 +183,7 @@ export default function ConsignmentPage() {
                     <td className="table-td text-slate-500">{s.address || "—"}</td>
                     <td className="table-td text-right whitespace-nowrap">
                       <Link href={`/consignment/agreement?storeId=${s.id}`} className="btn-ghost !px-2 !py-1 text-brand-600" title={t("consignment.generateAgreement")}><Icon name="quote" size={14} /></Link>
+                      <Link href={`/consignment/delivery-note?storeId=${s.id}`} className="btn-ghost !px-2 !py-1 text-brand-600" title={t("consignment.generateDeliveryNote")}><Icon name="truck" size={14} /></Link>
                       <button onClick={() => editStore(s)} className="btn-ghost !px-2 !py-1 text-slate-500"><Icon name="edit" size={14} /></button>
                       <button onClick={() => removeStore(s.id)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button>
                     </td>
