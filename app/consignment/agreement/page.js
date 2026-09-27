@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { formatDate, todayISO } from "@/lib/format";
 import Icon from "@/components/Icon";
+import ProductPicker from "@/components/ProductPicker";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 // Αυτόματη δημιουργία σύμβασης παρακαταθήκης: διαλέγεις κατάστημα από τη λίστα (καταχωρισμένη στο
@@ -117,10 +118,7 @@ export default function ConsignmentAgreementPage() {
         <div className="space-y-2">
           {lines.map((l, i) => (
             <div key={i} className="flex items-center gap-2">
-              <select className="input flex-1" value={l.productId} onChange={(e) => setLine(i, { productId: e.target.value })}>
-                <option value="">—</option>
-                {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <ProductPicker className="flex-1" products={products} value={l.productId} onChange={(id) => setLine(i, { productId: id })} />
               <input type="number" min="1" step="any" className="input w-24" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} />
               {lines.length > 1 && <button onClick={() => removeLine(i)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button>}
             </div>

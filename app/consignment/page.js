@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import ProductPicker from "@/components/ProductPicker";
 import { money, formatDate, todayISO } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -218,10 +219,12 @@ export default function ConsignmentPage() {
                 <div key={idx} className="flex gap-2 items-end">
                   <div className="flex-1">
                     <label className="label">{t("consignment.fieldProduct")}</label>
-                    <select className="input" value={line.productId} onChange={(e) => updateSendLine(idx, { productId: e.target.value })}>
-                      <option value="">—</option>
-                      {perfumes.map((p) => <option key={p.id} value={p.id}>{p.name} ({t("consignment.warehouseStock")}: {p.stock})</option>)}
-                    </select>
+                    <ProductPicker
+                      products={perfumes}
+                      value={line.productId}
+                      onChange={(id) => updateSendLine(idx, { productId: id })}
+                      formatOption={(p) => `${p.name} (${t("consignment.warehouseStock")}: ${p.stock})`}
+                    />
                   </div>
                   <div className="w-28">
                     <label className="label">{t("consignment.fieldQuantity")}</label>
@@ -298,10 +301,11 @@ export default function ConsignmentPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">{t("consignment.fieldProduct")}</label>
-              <select className="input" value={sale.productId} onChange={(e) => setSale({ ...sale, productId: e.target.value, storeId: "" })}>
-                <option value="">—</option>
-                {perfumes.filter((p) => (p.consignmentStock || []).some((c) => Number(c.quantity) > 0)).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <ProductPicker
+                products={perfumes.filter((p) => (p.consignmentStock || []).some((c) => Number(c.quantity) > 0))}
+                value={sale.productId}
+                onChange={(id) => setSale({ ...sale, productId: id, storeId: "" })}
+              />
             </div>
             <div>
               <label className="label">{t("consignment.fieldStore")}</label>
