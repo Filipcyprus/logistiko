@@ -31,6 +31,7 @@ export async function POST(request) {
     resolved.push({ product: p, quantity: it.quantity, unitPrice: it.unitPrice });
   }
 
+  const deliveryId = uid();
   const deliveryItems = [];
   for (const { product: p, quantity: qty, unitPrice } of resolved) {
     p.stock = Math.round((Number(p.stock || 0) - qty) * 1000) / 1000;
@@ -47,6 +48,7 @@ export async function POST(request) {
       quantity: qty,
       reason: serverT(db.settings.language, "consignment.reasonSent", { store: store.name }),
       ref: storeId,
+      deliveryId,
       date,
       createdAt: new Date().toISOString(),
     });
@@ -59,7 +61,7 @@ export async function POST(request) {
   }
 
   const delivery = {
-    id: uid(),
+    id: deliveryId,
     storeId,
     storeName: store.name,
     date,
