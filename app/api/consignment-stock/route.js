@@ -10,7 +10,7 @@ export async function POST(request) {
   const storeId = body.storeId;
   const date = body.date || new Date().toISOString().slice(0, 10);
   const items = (Array.isArray(body.items) ? body.items : [])
-    .map((it) => ({ productId: it.productId, quantity: Number(it.quantity || 0) }))
+    .map((it) => ({ productId: it.productId, quantity: Number(it.quantity || 0), unitPrice: it.unitPrice != null && it.unitPrice !== "" ? Number(it.unitPrice) : null }))
     .filter((it) => it.productId && it.quantity > 0);
 
   if (!storeId || items.length === 0) {
@@ -28,11 +28,11 @@ export async function POST(request) {
     if (Number(p.stock || 0) < it.quantity) {
       return NextResponse.json({ error: "errors.insufficientStock" }, { status: 400 });
     }
-    resolved.push({ product: p, quantity: it.quantity });
+    resolved.push({ product: p, quantity: it.quantity, unitPrice: it.unitPrice });
   }
 
   const deliveryItems = [];
-  for (const { product: p, quantity: qty } of resolved) {
+  for (const { product: p, quantity: qty, unitPrice } of resolved) {
     p.stock = Math.round((Number(p.stock || 0) - qty) * 1000) / 1000;
     p.consignmentStock = p.consignmentStock || [];
     const entry = p.consignmentStock.find((c) => c.storeId === storeId);
@@ -51,9 +51,11 @@ export async function POST(request) {
       createdAt: new Date().toISOString(),
     });
 
-    // Στιγμιότυπο της προτεινόμενης τιμής πώλησης τη στιγμή της παράδοσης — ώστε το τυπωμένο
-    // δελτίο να μη αλλάζει αναδρομικά αν η τιμή του προϊόντος αλλάξει αργότερα.
-    deliveryItems.push({ productId: p.id, productName: p.name, unit: p.unit, quantity: qty, unitPrice: Number(p.retailPrice) || 0 });
+    // Τιμή σε αυτό το Δελτίο Αποστολής: αν δόθηκε δική της τιμή για αυτό το κατάστημα (διαφορετικά
+    // καταστήματα μπορεί να έχουν διαφορετική τιμή για το ίδιο άρωμα), αλλιώς η γενική προτεινόμενη
+    // τιμή πώλησης του προϊόντος τη στιγμή της παράδοσης — στιγμιότυπο, ώστε το τυπωμένο δελτίο να
+    // μην αλλάζει αναδρομικά αν η τιμή του προϊόντος αλλάξει αργότερα.
+    deliveryItems.push({ productId: p.id, productName: p.name, unit: p.unit, quantity: qty, unitPrice: unitPrice != null ? unitPrice : (Number(p.retailPrice) || 0) });
   }
 
   const delivery = {

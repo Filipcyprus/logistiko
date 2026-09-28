@@ -26,7 +26,7 @@ export default function ConsignmentPage() {
 
   const [sendStoreId, setSendStoreId] = useState("");
   const [sendDate, setSendDate] = useState(todayISO());
-  const [sendLines, setSendLines] = useState([{ productId: "", quantity: 1 }]);
+  const [sendLines, setSendLines] = useState([{ productId: "", quantity: 1, price: "" }]);
   const [sendBusy, setSendBusy] = useState(false);
   const [sendErr, setSendErr] = useState("");
 
@@ -98,13 +98,13 @@ export default function ConsignmentPage() {
     return entry ? Number(entry.quantity || 0) : 0;
   };
 
-  const addSendLine = () => setSendLines((prev) => [...prev, { productId: "", quantity: 1 }]);
+  const addSendLine = () => setSendLines((prev) => [...prev, { productId: "", quantity: 1, price: "" }]);
   const removeSendLine = (idx) => setSendLines((prev) => prev.filter((_, i) => i !== idx));
   const updateSendLine = (idx, patch) => setSendLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
 
   const doSend = async () => {
     setSendErr("");
-    const items = sendLines.filter((l) => l.productId && Number(l.quantity) > 0).map((l) => ({ productId: l.productId, quantity: Number(l.quantity) }));
+    const items = sendLines.filter((l) => l.productId && Number(l.quantity) > 0).map((l) => ({ productId: l.productId, quantity: Number(l.quantity), unitPrice: l.price !== "" ? Number(l.price) : undefined }));
     if (!sendStoreId || items.length === 0) { setSendErr(t("consignment.errSendFields")); return; }
     setSendBusy(true);
     const res = await fetch("/api/consignment-stock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ storeId: sendStoreId, date: sendDate, items }) });
@@ -240,6 +240,7 @@ export default function ConsignmentPage() {
           <div className="card p-5 space-y-3">
             <h2 className="font-semibold text-slate-700">{t("consignment.sendToStore")}</h2>
             <p className="text-sm text-slate-500">{t("consignment.sendToStoreDesc")}</p>
+            <p className="text-xs text-slate-400">{t("consignment.sendPriceHint")}</p>
             {sendErr && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{sendErr}</div>}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -263,13 +264,20 @@ export default function ConsignmentPage() {
                     <ProductPicker
                       products={perfumes}
                       value={line.productId}
-                      onChange={(id) => updateSendLine(idx, { productId: id })}
+                      onChange={(id) => {
+                        const p = perfumes.find((x) => x.id === id);
+                        updateSendLine(idx, { productId: id, price: p ? (Number(p.retailPrice) || 0) : "" });
+                      }}
                       formatOption={(p) => `${p.name} (${t("consignment.warehouseStock")}: ${p.stock})`}
                     />
                   </div>
-                  <div className="w-28">
+                  <div className="w-24">
                     <label className="label">{t("consignment.fieldQuantity")}</label>
                     <input type="number" min="1" step="any" className="input" value={line.quantity} onChange={(e) => updateSendLine(idx, { quantity: e.target.value })} />
+                  </div>
+                  <div className="w-28">
+                    <label className="label">{t("consignment.fieldPrice")}</label>
+                    <input type="number" min="0" step="any" className="input" value={line.price} onChange={(e) => updateSendLine(idx, { price: e.target.value })} placeholder={t("consignment.fieldPricePlaceholder")} />
                   </div>
                   <button onClick={() => removeSendLine(idx)} disabled={sendLines.length === 1} className="btn-ghost !px-2 !py-2 text-red-500 disabled:opacity-30"><Icon name="trash" size={14} /></button>
                 </div>
