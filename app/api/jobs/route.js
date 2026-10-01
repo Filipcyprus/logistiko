@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { migrateInlineDesigns } from "@/lib/uploads";
+import { notifyPartnerJobAssigned } from "@/lib/notifyPartner";
+import { originFrom } from "@/lib/announce";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -66,5 +68,12 @@ export async function POST(request) {
   db.jobs.unshift(job);
   db.counters.job = seq + 1;
   writeDB(db);
+
+  // Ανατέθηκε κατευθείαν σε συνεργάτη ήδη από τη δημιουργία → ειδοποίηση email αμέσως.
+  if (job.partnerShopId) {
+    const partner = db.partnerShops.find((p) => p.id === job.partnerShopId);
+    if (partner) notifyPartnerJobAssigned(db, job, partner, originFrom(request, db.settings));
+  }
+
   return NextResponse.json(job, { status: 201 });
 }

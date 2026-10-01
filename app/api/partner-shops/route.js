@@ -14,6 +14,10 @@ export async function POST(request) {
   if (!body.name || !body.name.trim()) {
     return NextResponse.json({ error: "errors.nameRequired" }, { status: 400 });
   }
+  // Email υποχρεωτικό — εκεί στέλνεται αυτόματα κάθε δουλειά που ανατίθεται σε αυτόν τον συνεργάτη.
+  if (!body.email || !body.email.trim()) {
+    return NextResponse.json({ error: "errors.partnerEmailRequired" }, { status: 400 });
+  }
   const rec = insert("partnerShops", {
     name: body.name.trim(),
     contact: body.contact || "",

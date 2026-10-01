@@ -499,24 +499,28 @@ function PartnersEditor({ partnerShops, onClose, onChanged, t }) {
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [linkOpenId, setLinkOpenId] = useState(null);
+  const [err, setErr] = useState("");
 
   const startEdit = (p) => {
     setEditingId(p.id);
     setForm({ name: p.name, contact: p.contact || "", phone: p.phone || "", email: p.email || "" });
+    setErr("");
   };
-  const cancelEdit = () => { setEditingId(null); setForm(emptyPartnerForm); };
+  const cancelEdit = () => { setEditingId(null); setForm(emptyPartnerForm); setErr(""); };
 
   const save = async () => {
+    setErr("");
     if (!form.name.trim()) return;
+    // Email υποχρεωτικό εδώ επίσης — εκεί στέλνεται αυτόματα κάθε δουλειά που ανατίθεται στον συνεργάτη.
+    if (!form.email.trim()) { setErr(t("errors.partnerEmailRequired")); return; }
     setSaving(true);
-    if (editingId) {
-      await fetch(`/api/partner-shops/${editingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    } else {
-      await fetch("/api/partner-shops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    }
+    const res = editingId
+      ? await fetch(`/api/partner-shops/${editingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) })
+      : await fetch("/api/partner-shops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setSaving(false);
+    if (!res.ok) { const e = await res.json().catch(() => ({})); setErr(e.error ? t(e.error) : t("common.error")); return; }
     setForm(emptyPartnerForm);
     setEditingId(null);
-    setSaving(false);
     onChanged();
   };
   const remove = async (id) => {
@@ -575,14 +579,16 @@ function PartnersEditor({ partnerShops, onClose, onChanged, t }) {
 
         <div className="border-t border-slate-100 pt-4 space-y-2">
           {editingId && <div className="text-xs font-medium text-brand-700">{t("jobs.editingPartner")}</div>}
+          {err && <div className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{err}</div>}
           <div className="grid grid-cols-2 gap-2">
             <input className="input" placeholder={t("jobs.partnerNamePlaceholder")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <input className="input" placeholder={t("jobs.partnerContactPlaceholder")} value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} />
             <input className="input" placeholder={t("jobs.partnerPhonePlaceholder")} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            <input className="input" placeholder={t("jobs.partnerEmailPlaceholder")} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <input type="email" required className="input" placeholder={t("jobs.partnerEmailPlaceholder")} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </div>
+          <p className="text-xs text-slate-400">{t("jobs.partnerEmailHint")}</p>
           <div className="flex gap-2">
-            <button onClick={save} disabled={saving} className="btn-secondary flex-1">
+            <button onClick={save} disabled={saving || !form.name.trim() || !form.email.trim()} className="btn-secondary flex-1">
               {editingId ? <><Icon name="check" size={15} /> {t("common.save")}</> : <><Icon name="plus" size={15} /> {t("jobs.addPartner")}</>}
             </button>
             {editingId && <button onClick={cancelEdit} className="btn-ghost">{t("common.cancel")}</button>}

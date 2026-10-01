@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { migrateInlineDesigns } from "@/lib/uploads";
+import { notifyPartnerJobAssigned } from "@/lib/notifyPartner";
+import { originFrom } from "@/lib/announce";
 
 export async function GET(_req, { params }) {
   const job = (readDB().jobs || []).find((x) => x.id === params.id);
@@ -45,11 +47,14 @@ export async function PUT(request, { params }) {
     job.customerName = patch.customerId ? (db.customers.find((c) => c.id === patch.customerId)?.name || "") : "";
   }
   // Ενημέρωση ονόματος συνεργάτη αν άλλαξε το partner shop
+  let newlyAssignedPartner = null;
   if (patch.partnerShopId !== undefined) {
     const wasAssigned = !!job.partnerShopId;
-    job.partnerShopName = patch.partnerShopId ? (db.partnerShops.find((p) => p.id === patch.partnerShopId)?.name || "") : "";
+    const newPartner = patch.partnerShopId ? db.partnerShops.find((p) => p.id === patch.partnerShopId) : null;
+    job.partnerShopName = newPartner?.name || "";
     if (patch.partnerShopId && patch.partnerShopId !== job.partnerShopId && !wasAssigned) {
       addSystemMessage(job, "owner", "Job assigned to you.");
+      newlyAssignedPartner = newPartner; // ειδοποίηση email μετά το writeDB πιο κάτω
     }
   }
   // Ολοκλήρωση
@@ -78,6 +83,11 @@ export async function PUT(request, { params }) {
 
   Object.assign(job, patch);
   writeDB(db);
+
+  if (newlyAssignedPartner) {
+    notifyPartnerJobAssigned(db, job, newlyAssignedPartner, originFrom(request, db.settings));
+  }
+
   return NextResponse.json(job);
 }
 
