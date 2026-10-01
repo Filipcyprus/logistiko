@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import { money, formatDate, todayISO } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { downloadHref } from "@/lib/attachments";
 
 function firstOfMonth() {
   const d = new Date();
@@ -286,7 +287,7 @@ export default function AccountantPage() {
                     <td className="table-td text-right font-semibold">{money(e.amount, cur)}</td>
                     <td className="table-td">
                       {e.attachment ? (
-                        <a href={e.attachment.url || e.attachment.data} download={e.attachment.name} target="_blank" rel="noreferrer" className="btn-ghost !px-2 !py-1 inline-flex" title={t("expenses.viewInvoice")}><Icon name="download" size={15} /></a>
+                        <a href={downloadHref(e.attachment.url, e.attachment.name) || e.attachment.data} download={e.attachment.name} target="_blank" rel="noreferrer" className="btn-ghost !px-2 !py-1 inline-flex" title={t("expenses.viewInvoice")}><Icon name="download" size={15} /></a>
                       ) : "—"}
                     </td>
                   </tr>
@@ -327,7 +328,7 @@ export default function AccountantPage() {
                     <td className="table-td"><span className={`badge ${PO_STATUS_COLOR[po.status] || PO_STATUS_COLOR.draft}`}>{t(`purchases.status${po.status.charAt(0).toUpperCase()}${po.status.slice(1)}`)}</span></td>
                     <td className="table-td">
                       {po.attachment ? (
-                        <a href={po.attachment.url || po.attachment.data} download={po.attachment.name} target="_blank" rel="noreferrer" className="btn-ghost !px-2 !py-1 inline-flex" title={t("expenses.viewInvoice")}><Icon name="download" size={15} /></a>
+                        <a href={downloadHref(po.attachment.url, po.attachment.name) || po.attachment.data} download={po.attachment.name} target="_blank" rel="noreferrer" className="btn-ghost !px-2 !py-1 inline-flex" title={t("expenses.viewInvoice")}><Icon name="download" size={15} /></a>
                       ) : "—"}
                     </td>
                   </tr>

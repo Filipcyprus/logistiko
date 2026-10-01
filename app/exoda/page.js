@@ -7,6 +7,7 @@ import { money, formatDate, todayISO } from "@/lib/format";
 import Icon from "@/components/Icon";
 import ReviewDialog from "@/components/ReviewDialog";
 import { purchaseTotal } from "@/lib/purchaseMath";
+import { downloadHref } from "@/lib/attachments";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const CATEGORY_KEYS = ["rawMaterials", "ink", "rent", "utilities", "payroll", "equipment", "vehicle", "shipping", "marketing", "general", "purchaseOrder"];
@@ -298,7 +299,7 @@ function ExpensesInner() {
                           <button onClick={() => openPay(e)} title={t("purchases.recordPayment")} className="btn-ghost !px-2 !py-1 text-emerald-600"><Icon name="wallet" size={15} /></button>
                         )}
                         {e.attachment && (
-                          <a href={e.attachment.url || e.attachment.data} download={e.attachment.name} target="_blank" rel="noreferrer" title={t("expenses.viewInvoice")} className="btn-ghost !px-2 !py-1 inline-flex"><Icon name="download" size={15} /></a>
+                          <a href={downloadHref(e.attachment.url, e.attachment.name) || e.attachment.data} download={e.attachment.name} target="_blank" rel="noreferrer" title={t("expenses.viewInvoice")} className="btn-ghost !px-2 !py-1 inline-flex"><Icon name="download" size={15} /></a>
                         )}
                         {e.purchaseOrderId && (
                           <Link href={`/agores/${e.purchaseOrderId}`} title={t("expenses.viewPO")} className="btn-ghost !px-2 !py-1 inline-flex"><Icon name="external" size={15} /></Link>
@@ -406,7 +407,7 @@ function ExpensesInner() {
                 <label className="label">{t("expenses.fieldInvoice")}</label>
                 {form.attachment ? (
                   <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2.5">
-                    <a href={form.attachment.url || form.attachment.data} download={form.attachment.name} target="_blank" rel="noreferrer" className="text-sm text-brand-700 hover:underline flex items-center gap-2 truncate">
+                    <a href={downloadHref(form.attachment.url, form.attachment.name) || form.attachment.data} download={form.attachment.name} target="_blank" rel="noreferrer" className="text-sm text-brand-700 hover:underline flex items-center gap-2 truncate">
                       <Icon name="invoice" size={15} className="shrink-0" /> <span className="truncate">{form.attachment.name}</span>
                     </a>
                     <button type="button" onClick={() => setForm({ ...form, attachment: null })} className="btn-ghost !px-2 !py-1 text-red-500 shrink-0"><Icon name="trash" size={14} /></button>

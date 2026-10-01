@@ -32,10 +32,21 @@ export async function GET(request, { params }) {
   const ext = path.extname(filename).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
 
-  return new NextResponse(buffer, {
-    headers: {
-      "Content-Type": contentType,
-      "Cache-Control": "public, max-age=31536000, immutable",
-    },
-  });
+  const headers = {
+    "Content-Type": contentType,
+    "Cache-Control": "public, max-age=31536000, immutable",
+  };
+
+  // Το attribute download="..." σε ένα <a> δεν το σέβονται αξιόπιστα τα mobile browsers —
+  // κυρίως το iOS Safari, που απλά ανοίγει εικόνες/PDF στον ενσωματωμένο viewer αντί να τα
+  // κατεβάσει (γι' αυτό ένας συνεργάτης σε κινητό "δεν μπορεί να κατεβάσει" ένα σχέδιο δουλειάς).
+  // Το ?download=1 το κάνει αξιόπιστο παντού, στέλνοντας πραγματικό Content-Disposition: attachment.
+  const { searchParams } = new URL(request.url);
+  if (searchParams.get("download")) {
+    const prettyName = searchParams.get("name") || filename.slice(filename.indexOf("-") + 1) || filename;
+    const safeName = prettyName.replace(/"/g, "");
+    headers["Content-Disposition"] = `attachment; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(prettyName)}`;
+  }
+
+  return new NextResponse(buffer, { headers });
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { formatDate, formatDateTime, todayISO, money } from "@/lib/format";
 import { getPriorities, STAGE_COLORS, STAGE_COLOR_OPTIONS, itemQuoteTotal, jobQuoteTotal, commissionAmount, itemCommissionAmount } from "@/lib/jobs";
 import { partnerMsgCount, setSeenCount } from "@/lib/jobNotifications";
+import { downloadHref } from "@/lib/attachments";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
@@ -346,9 +347,9 @@ export default function JobsPage() {
                   {jobForm.designs.map((d) => (
                     <div key={d.id} className="relative group border border-slate-200 rounded-lg overflow-hidden">
                       {d.type?.startsWith("image/") ? (
-                        <a href={d.url || d.dataUrl} target="_blank" rel="noreferrer" download={d.name}><img src={d.url || d.dataUrl} alt={d.name} className="w-full h-20 object-cover" /></a>
+                        <a href={downloadHref(d.url, d.name) || d.dataUrl} target="_blank" rel="noreferrer" download={d.name}><img src={d.url || d.dataUrl} alt={d.name} className="w-full h-20 object-cover" /></a>
                       ) : (
-                        <a href={d.url || d.dataUrl} target="_blank" rel="noreferrer" download={d.name} className="w-full h-20 flex flex-col items-center justify-center bg-slate-50 gap-1">
+                        <a href={downloadHref(d.url, d.name) || d.dataUrl} target="_blank" rel="noreferrer" download={d.name} className="w-full h-20 flex flex-col items-center justify-center bg-slate-50 gap-1">
                           <Icon name="note" size={20} className="text-slate-400" />
                           <span className="text-[9px] text-slate-500 px-1 truncate w-full text-center">{d.name}</span>
                         </a>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { formatDate, formatDateTime, money } from "@/lib/format";
+import { downloadHref } from "@/lib/attachments";
 import { itemQuoteTotal, jobQuoteTotal, getPriorities } from "@/lib/jobs";
 import { getSeenCount, setSeenCount, ownerMsgCount, unreadCountForJobsFromOwner } from "@/lib/jobNotifications";
 import { playNotifySound } from "@/lib/notifySound";
@@ -185,11 +186,11 @@ export default function PartnerPortalPage() {
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                   {j.designs.map((d) => (
                     d.type?.startsWith("image/") ? (
-                      <a key={d.id} href={d.url || d.dataUrl} target="_blank" rel="noreferrer" download={d.name} className="block border border-slate-200 rounded-lg overflow-hidden">
+                      <a key={d.id} href={downloadHref(d.url, d.name) || d.dataUrl} target="_blank" rel="noreferrer" download={d.name} className="block border border-slate-200 rounded-lg overflow-hidden">
                         <img src={d.url || d.dataUrl} alt={d.name} className="w-full h-16 object-cover" />
                       </a>
                     ) : (
-                      <a key={d.id} href={d.url || d.dataUrl} target="_blank" rel="noreferrer" download={d.name} className="border border-slate-200 rounded-lg h-16 flex flex-col items-center justify-center bg-slate-50 gap-1">
+                      <a key={d.id} href={downloadHref(d.url, d.name) || d.dataUrl} target="_blank" rel="noreferrer" download={d.name} className="border border-slate-200 rounded-lg h-16 flex flex-col items-center justify-center bg-slate-50 gap-1">
                         <Icon name="note" size={16} className="text-slate-400" />
                         <span className="text-[8px] text-slate-500 px-1 truncate w-full text-center">{d.name}</span>
                       </a>

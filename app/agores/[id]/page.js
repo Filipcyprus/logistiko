@@ -9,6 +9,7 @@ import Icon from "@/components/Icon";
 import EmailButton from "@/components/EmailButton";
 import ReviewDialog from "@/components/ReviewDialog";
 import { purchaseNet, purchaseVat, purchaseTotal, lineVat, effectiveQty } from "@/lib/purchaseMath";
+import { downloadHref } from "@/lib/attachments";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const STATUS = {
@@ -269,7 +270,7 @@ export default function PurchaseView() {
       {po.attachment && (
         <div className="card p-3 no-print max-w-3xl mx-auto flex items-center justify-between gap-3">
           {/* url = αρχείο στον δίσκο (νέος τρόπος), data = παλιά base64 επισύναψη — δούλεψε και με τα δύο. */}
-          <a href={po.attachment.url || po.attachment.data} download={po.attachment.name} target="_blank" rel="noreferrer" className="text-sm text-brand-700 hover:underline flex items-center gap-2">
+          <a href={downloadHref(po.attachment.url, po.attachment.name) || po.attachment.data} download={po.attachment.name} target="_blank" rel="noreferrer" className="text-sm text-brand-700 hover:underline flex items-center gap-2">
             <Icon name="invoice" size={15} /> {po.attachment.name}
           </a>
           <button onClick={removeAttachment} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={14} /></button>
