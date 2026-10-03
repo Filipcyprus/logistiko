@@ -74,6 +74,7 @@ export async function middleware(request) {
     pathname.startsWith("/api/users") ||
     pathname.startsWith("/uploads") ||
     (pathname.startsWith("/api/uploads/") && (request.method === "GET" || request.method === "HEAD")) ||
+    pathname === "/api/shopify-sync" ||
     PUBLIC_EXACT.has(pathname) ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
