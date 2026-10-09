@@ -22,6 +22,7 @@ export default function StockPage() {
   const [catFilter, setCatFilter] = useState("");
   const [subFilter, setSubFilter] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
+  const [lowStockOnly, setLowStockOnly] = useState(false);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 50;
   const [reorderCount, setReorderCount] = useState(0);
@@ -105,6 +106,7 @@ export default function StockPage() {
     if (deptFilter && (p.department || "") !== deptFilter) return false;
     if (catFilter && (p.category || "") !== catFilter) return false;
     if (subFilter && (p.subcategory || "") !== subFilter) return false;
+    if (lowStockOnly && (p.trackStock === false || Number(p.stock) > Number(p.lowStock || 0))) return false;
     return productMatchesQuery(p, q);
   });
   // Ο κατάλογος έχει χιλιάδες είδη — να αποδίδουμε (render) ολόκληρη τη φιλτραρισμένη λίστα
@@ -269,6 +271,13 @@ export default function StockPage() {
                 {t(`stock.${key}`)}
               </button>
             ))}
+            <button
+              onClick={() => { setLowStockOnly(!lowStockOnly); setPage(1); }}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${lowStockOnly ? "bg-red-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+              title="Show only products below low stock threshold"
+            >
+              <Icon name="alert" size={14} className="inline mr-1" /> {t("stock.lowStockOnly", "Low Stock")}
+            </button>
           </div>
           <div className="card p-4 flex flex-wrap gap-3 items-center">
             <div className="relative max-w-sm w-full">
