@@ -245,7 +245,6 @@ export default function JobsPage() {
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2"><label className="label">{t("jobs.fieldTitle")}</label><input className="input" value={jobForm.title} onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })} placeholder={t("jobs.titlePlaceholder")} /></div>
               <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-md bg-slate-50 border border-slate-100">
                 <div className="sm:col-span-2 flex items-center gap-1.5 text-xs text-slate-500">
                   <Icon name="lock" size={12} /> {t("jobs.customerPrivateNote")}
