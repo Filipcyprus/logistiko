@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatDate, formatDateTime, todayISO, money } from "@/lib/format";
-import { getPriorities, STAGE_COLORS, STAGE_COLOR_OPTIONS, itemQuoteTotal, jobQuoteTotal, commissionAmount, itemCommissionAmount } from "@/lib/jobs";
+import { getPriorities, STAGE_COLORS, STAGE_COLOR_OPTIONS, itemQuoteTotal, jobQuoteTotal, commissionAmount, itemCommissionAmount, jobDisplayTitle } from "@/lib/jobs";
 import { partnerMsgCount, setSeenCount } from "@/lib/jobNotifications";
 import { downloadHref } from "@/lib/attachments";
 import Icon from "@/components/Icon";
@@ -166,7 +166,7 @@ export default function JobsPage() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <div className="text-[10px] text-slate-400 font-mono">{job.number}</div>
-                            <div className="font-semibold text-sm text-slate-800 leading-tight">{job.title}</div>
+                            <div className="font-semibold text-sm text-slate-800 leading-tight">{jobDisplayTitle(job)}</div>
                           </div>
                           <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1 ${pr.dot}`} title={pr.label}></span>
                         </div>
@@ -220,7 +220,7 @@ export default function JobsPage() {
               {doneJobs.length === 0 ? <tr><td className="table-td text-slate-400" colSpan={5}>{t("jobs.noHistory")}</td></tr> : doneJobs.map((j) => (
                 <tr key={j.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => openJob(j)}>
                   <td className="table-td font-mono text-xs">{j.number}</td>
-                  <td className="table-td font-medium">{j.title}</td>
+                  <td className="table-td font-medium">{jobDisplayTitle(j)}</td>
                   <td className="table-td">{j.customerName || "—"}</td>
                   <td className="table-td">{formatDate(j.completedAt)}</td>
                   <td className="table-td text-right whitespace-nowrap">

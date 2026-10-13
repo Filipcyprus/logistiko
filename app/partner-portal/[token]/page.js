@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { formatDate, formatDateTime, money } from "@/lib/format";
 import { downloadHref } from "@/lib/attachments";
-import { itemQuoteTotal, jobQuoteTotal, getPriorities } from "@/lib/jobs";
+import { itemQuoteTotal, jobQuoteTotal, getPriorities, jobDisplayTitle } from "@/lib/jobs";
 import { getSeenCount, setSeenCount, ownerMsgCount, unreadCountForJobsFromOwner } from "@/lib/jobNotifications";
 import { playNotifySound } from "@/lib/notifySound";
 import Icon from "@/components/Icon";
@@ -131,7 +131,7 @@ export default function PartnerPortalPage() {
               <div>
                 <div className="text-[10px] text-slate-400 font-mono">{j.number}</div>
                 <div className="font-semibold text-slate-800 flex items-center gap-2">
-                  {j.title}
+                  {jobDisplayTitle(j)}
                   {(j.priority === "urgent" || j.priority === "high") && (
                     <span className={`badge ${prio.color} shrink-0`}><span className={`w-1.5 h-1.5 rounded-full ${prio.dot} inline-block mr-1`} />{prio.label}</span>
                   )}
@@ -261,7 +261,7 @@ export default function PartnerPortalPage() {
                 <div key={j.id} className="card p-3 flex items-center justify-between text-sm">
                   <div>
                     <div className="text-[10px] text-slate-400 font-mono">{j.number}</div>
-                    <div className="font-medium text-slate-600">{j.title}</div>
+                    <div className="font-medium text-slate-600">{jobDisplayTitle(j)}</div>
                   </div>
                   <span className="badge bg-emerald-100 text-emerald-700">{formatDate(j.completedAt)}</span>
                 </div>
