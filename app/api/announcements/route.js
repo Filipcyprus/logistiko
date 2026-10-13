@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
+import { createMailTransport } from "@/lib/mailTransport";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { buildAnnouncementEmail, originFrom } from "@/lib/announce";
 
@@ -48,12 +48,7 @@ export async function POST(request) {
     return NextResponse.json({ subject: built.subject, html: built.html, forCustomer: customers[0].name });
   }
 
-  const transporterFor = () => nodemailer.createTransport({
-    host: mail.host,
-    port: Number(mail.port) || 587,
-    secure: !!mail.secure,
-    auth: mail.user ? { user: mail.user, pass: mail.pass } : undefined,
-  });
+  const transporterFor = () => createMailTransport(mail);
   const from = mail.fromEmail ? `"${mail.fromName || db.settings.companyName}" <${mail.fromEmail}>` : (mail.user || undefined);
   const replyTo = db.settings.email || undefined;
 
@@ -64,7 +59,7 @@ export async function POST(request) {
     if (!mail.host) return NextResponse.json({ error: "errors.emailNotConfigured" }, { status: 400 });
     const built = build(customers[0]);
     try {
-      await transporterFor().sendMail({ from, to, replyTo, subject: `[TEST] ${built.subject}`, html: built.html, text: built.text });
+      await (await transporterFor()).sendMail({ from, to, replyTo, subject: `[TEST] ${built.subject}`, html: built.html, text: built.text });
     } catch (e) {
       console.error("Announcement test email error:", e?.message || e);
       return NextResponse.json({ error: "errors.emailFailed" }, { status: 500 });
@@ -79,7 +74,7 @@ export async function POST(request) {
   if (sendEmail && !mail.host) return NextResponse.json({ error: "errors.emailNotConfigured" }, { status: 400 });
   if (customers.length > MAX_RECIPIENTS) return NextResponse.json({ error: "announce.errTooMany" }, { status: 400 });
 
-  const transporter = sendEmail ? transporterFor() : null;
+  const transporter = sendEmail ? await transporterFor() : null;
   const results = [];
   for (const c of customers) {
     const r = { customerId: c.id, name: c.name, email: String(c.email || "").trim(), status: "portalOnly" };

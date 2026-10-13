@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
+import { createMailTransport } from "@/lib/mailTransport";
 import { readDB } from "@/lib/db";
 import { buildEmail } from "@/lib/email";
 
@@ -28,12 +28,7 @@ export async function POST(request) {
   const { subject, html } = buildEmail({ kind: emailKind, doc, settings: db.settings, lang: db.settings.language });
 
   try {
-    const transporter = nodemailer.createTransport({
-      host: mail.host,
-      port: Number(mail.port) || 587,
-      secure: !!mail.secure,
-      auth: mail.user ? { user: mail.user, pass: mail.pass } : undefined,
-    });
+    const transporter = await createMailTransport(mail);
     const from = mail.fromEmail
       ? `"${mail.fromName || db.settings.companyName}" <${mail.fromEmail}>`
       : (mail.user || undefined);
