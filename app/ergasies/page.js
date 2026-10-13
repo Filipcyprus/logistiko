@@ -49,7 +49,7 @@ export default function JobsPage() {
   const today = todayISO();
 
   const saveJob = async () => {
-    if (!jobForm.title.trim()) { alert(t("jobs.errNeedTitle")); return; }
+    // Title is now optional - no validation needed
     // Τελευταία δικλείδα ασφαλείας — και όχι μόνο το onBlur του πεδίου — για την περίπτωση που
     // πατήθηκε Save ενώ το πεδίο ήταν ακόμα εστιασμένο με τιμή κάτω από το ελάχιστο ποσοστό.
     const commissionPercent = jobForm.commissionPercent === "" ? MIN_COMMISSION_PERCENT : Math.max(MIN_COMMISSION_PERCENT, Number(jobForm.commissionPercent) || 0);
