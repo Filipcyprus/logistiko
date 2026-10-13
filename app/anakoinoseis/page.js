@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { isMailConfigured } from "@/lib/mailConfig";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Icon from "@/components/Icon";
@@ -121,7 +122,7 @@ function AnnouncementsInner() {
     if (!sendEmail && !showInPortal) out.push({ level: "error", text: t("announce.errNoChannel") });
     if (chosen.length === 0) out.push({ level: "error", text: t("announce.errNoRecipients") });
     if (chosen.length > MAX_RECIPIENTS) out.push({ level: "error", text: t("announce.errTooMany") });
-    if (sendEmail && !settings?.mail?.host) out.push({ level: "error", text: t("errors.emailNotConfigured") });
+    if (sendEmail && !isMailConfigured(settings?.mail)) out.push({ level: "error", text: t("errors.emailNotConfigured") });
     if (out.some((c) => c.level === "error")) return out;
 
     const names = (list) => list.slice(0, 4).map((c) => c.name).join(", ") + (list.length > 4 ? ` +${list.length - 4}` : "");
@@ -181,7 +182,7 @@ function AnnouncementsInner() {
         <p className="text-slate-500 text-sm max-w-3xl">{t("announce.subtitle")}</p>
       </div>
 
-      {!settings.mail?.host && (
+      {!isMailConfigured(settings.mail) && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center justify-between gap-3 flex-wrap">
           <span>{t("announce.noSmtp")}</span>
           <Link href="/rythmiseis" className="btn-secondary !py-1.5">{t("nav.settings")}</Link>
@@ -248,7 +249,7 @@ function AnnouncementsInner() {
                   <label className="label">{t("announce.testTo")}</label>
                   <input type="email" className="input !w-56" value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="you@example.com" />
                 </div>
-                <button onClick={doTest} disabled={busy === "test" || !subject.trim() || !body.trim() || !settings.mail?.host} className="btn-secondary">{busy === "test" ? t("email.sending") : t("announce.sendTest")}</button>
+                <button onClick={doTest} disabled={busy === "test" || !subject.trim() || !body.trim() || !isMailConfigured(settings.mail)} className="btn-secondary">{busy === "test" ? t("email.sending") : t("announce.sendTest")}</button>
               </div>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createMailTransport } from "@/lib/mailTransport";
+import { isMailConfigured } from "@/lib/mailConfig";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { buildAnnouncementEmail, originFrom } from "@/lib/announce";
 
@@ -56,7 +57,7 @@ export async function POST(request) {
   if (body.testTo) {
     const to = String(body.testTo).trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return NextResponse.json({ error: "announce.errBadTestAddress" }, { status: 400 });
-    if (!mail.host) return NextResponse.json({ error: "errors.emailNotConfigured" }, { status: 400 });
+    if (!isMailConfigured(mail)) return NextResponse.json({ error: "errors.emailNotConfigured" }, { status: 400 });
     const built = build(customers[0]);
     try {
       await (await transporterFor()).sendMail({ from, to, replyTo, subject: `[TEST] ${built.subject}`, html: built.html, text: built.text });
@@ -71,7 +72,7 @@ export async function POST(request) {
   const sendEmail = !!body.sendEmail;
   const showInPortal = !!body.showInPortal;
   if (!sendEmail && !showInPortal) return NextResponse.json({ error: "announce.errNoChannel" }, { status: 400 });
-  if (sendEmail && !mail.host) return NextResponse.json({ error: "errors.emailNotConfigured" }, { status: 400 });
+  if (sendEmail && !isMailConfigured(mail)) return NextResponse.json({ error: "errors.emailNotConfigured" }, { status: 400 });
   if (customers.length > MAX_RECIPIENTS) return NextResponse.json({ error: "announce.errTooMany" }, { status: 400 });
 
   const transporter = sendEmail ? await transporterFor() : null;

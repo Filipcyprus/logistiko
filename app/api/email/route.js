@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createMailTransport } from "@/lib/mailTransport";
 import { readDB } from "@/lib/db";
+import { isMailConfigured } from "@/lib/mailConfig";
 import { buildEmail } from "@/lib/email";
 
 export async function POST(request) {
@@ -8,7 +9,7 @@ export async function POST(request) {
   const db = readDB();
   const mail = db.settings.mail || {};
 
-  if (!mail.host) return NextResponse.json({ error: "errors.emailNotConfigured" }, { status: 400 });
+  if (!isMailConfigured(mail)) return NextResponse.json({ error: "errors.emailNotConfigured" }, { status: 400 });
 
   const kind = body.kind; // invoice | credit | quote | order | purchase
   const coll = kind === "tender" ? db.tenders : kind === "order" ? db.orders : kind === "purchase" ? db.purchases : db.invoices;

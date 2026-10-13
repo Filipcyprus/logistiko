@@ -282,6 +282,11 @@ export default function SettingsPage() {
       <div className="card p-6 space-y-4">
         <h2 className="font-semibold text-slate-700">{t("settings.mailSection")}</h2>
         <p className="text-sm text-slate-500">{t("settings.mailDescription")}</p>
+        <p className="text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-lg p-2">{t("settings.mailRelayHint")}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div><label className="label">{t("settings.fieldMailRelayUrl")}</label><input className="input" value={s.mail?.relayUrl || ""} onChange={(e) => updMail({ relayUrl: e.target.value.trim() })} placeholder="https://script.google.com/macros/s/…/exec" /></div>
+          <div><label className="label">{t("settings.fieldMailRelaySecret")}</label><input type="password" className="input" value={s.mail?.relaySecret || ""} onChange={(e) => updMail({ relaySecret: e.target.value })} /></div>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div><label className="label">{t("settings.fieldMailHost")}</label><input className="input" value={s.mail?.host || ""} onChange={(e) => updMail({ host: e.target.value })} placeholder="smtp.gmail.com" /></div>
           <div className="grid grid-cols-2 gap-2">
