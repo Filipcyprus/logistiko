@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server";
 import { incrementWarehouseStocks } from "@/lib/stockHelpers";
+import { postEntry } from "@/lib/posting";
+import { entryForInvoice } from "@/lib/postingRules";
 
 // Έκδοση πιστωτικού τιμολογίου για ολόκληρο το αρχικό παραστατικό.
 export async function POST(_req, { params }) {
@@ -35,9 +37,11 @@ export async function POST(_req, { params }) {
     // Μεταφέρεται ώστε η ανάλυση ανά συντελεστή ΦΠΑ να αθροίζει σωστά στο καθαρό ποσό.
     invoiceDiscount: Number(orig.invoiceDiscount || 0),
     subtotal: Number(orig.subtotal || 0),
+    // Εξοφλημένο αρχικό → τα χρήματα επιστρέφονται με τον ίδιο τρόπο (μετρητά/τράπεζα).
+    // Απλήρωτο αρχικό → δεν επιστρέφονται χρήματα, απλώς μειώνεται ό,τι χρωστάει ο πελάτης.
     paymentMethod: orig.paymentMethod,
-    status: "paid",
-    paidAmount: -Number(orig.total),
+    status: orig.status === "paid" ? "paid" : "unpaid",
+    paidAmount: orig.status === "paid" ? -Number(orig.total) : 0,
     notes: "",
     createdAt: new Date().toISOString(),
   };
@@ -63,6 +67,16 @@ export async function POST(_req, { params }) {
 
   db.invoices.unshift(credit);
   db.counters.credit = seq + 1;
+
+  // Χωρίς άρθρο στο Καθολικό, η πώληση θα έμενε στα αποτελέσματα και στον ΦΠΑ σαν να μην ακυρώθηκε.
+  try {
+    const entryInput = entryForInvoice(db, credit);
+    if (entryInput) postEntry(db, { ...entryInput, source: { type: "invoice", id: credit.id } });
+  } catch (e) {
+    if (e.code === "PERIOD_LOCKED") return NextResponse.json({ error: "errors.periodLocked" }, { status: 400 });
+    throw e;
+  }
+
   writeDB(db);
   return NextResponse.json(credit, { status: 201 });
 }
