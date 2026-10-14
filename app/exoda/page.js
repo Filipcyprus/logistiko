@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { money, formatDate, todayISO } from "@/lib/format";
@@ -11,7 +11,8 @@ import { downloadHref } from "@/lib/attachments";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const CATEGORY_KEYS = ["rawMaterials", "ink", "rent", "utilities", "payroll", "equipment", "vehicle", "shipping", "marketing", "general", "purchaseOrder"];
-const empty = { date: todayISO(), category: "general", description: "", supplier: "", net: 0, vat: 0, vatRate: 19, amount: 0, paymentMethod: "cash", accountId: "" };
+const empty = { date: todayISO(), category: "general", description: "", supplier: "", net: 0, vat: 0, vatRate: 19, amount: "", paymentMethod: "cash", accountId: "", _basis: "total" };
+const newForm = (keep = {}) => ({ ...empty, date: todayISO(), ...keep });
 
 // Οι συνηθισμένοι συντελεστές ΦΠΑ — 21% (Ρουμανία, για αγορές από εκεί), 19% κανονικός Κύπρου,
 // 9% (ξενοδοχεία/εστίαση), 5% (βιβλία, τρόφιμα, φάρμακα κ.λπ.), 0% (απαλλαγές/εξαγωγές). "custom" = ό,τι ποσό γράψει ο χρήστης, χωρίς
@@ -57,6 +58,7 @@ function ExpensesInner() {
   const [payForm, setPayForm] = useState(null);
   const [paying, setPaying] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [addAnother, setAddAnother] = useState(false);
   const fileRef = useRef();
 
   const load = () => {
@@ -116,20 +118,56 @@ function ExpensesInner() {
   const categoryLabel = (key) => t(`expenses.categories.${key}`) || key;
   // Χρεώνει το ΦΠΑ με βάση τον επιλεγμένο συντελεστή — εκτός αν είναι "custom", οπότε ο χρήστης
   // το γράφει ο ίδιος και δεν ξαναϋπολογίζεται όσο αλλάζει το καθαρό ποσό.
-  const updNet = (netInput) => {
-    const net = Number(netInput) || 0;
-    if (form.vatRate === "custom") {
-      setForm({ ...form, net: netInput, amount: Math.round((net + Number(form.vat)) * 100) / 100 });
-      return;
+  // Οι αποδείξεις γράφουν το ΣΥΝΟΛΟ — οπότε το συνηθισμένο είναι να γράφεις το σύνολο και να
+  // βγαίνουν καθαρό + ΦΠΑ μόνα τους. Αν γράψεις καθαρό (τιμολόγιο), υπολογίζεται το σύνολο.
+  const recalc = (f) => {
+    if (f.vatRate === "custom") {
+      return f._basis === "net" ? { ...f, amount: round2(Number(f.net) + Number(f.vat)) } : f;
     }
-    const vat = Math.round(net * (Number(form.vatRate) / 100) * 100) / 100;
-    setForm({ ...form, net: netInput, vat, amount: Math.round((net + vat) * 100) / 100 });
+    const rate = Number(f.vatRate) / 100;
+    if (f._basis === "net") {
+      const vat = round2(Number(f.net) * rate);
+      return { ...f, vat, amount: round2(Number(f.net) + vat) };
+    }
+    const net = round2(Number(f.amount) / (1 + rate));
+    return { ...f, net, vat: round2(Number(f.amount) - net) };
   };
+  const updTotal = (v) => setForm(recalc({ ...form, amount: v, _basis: "total" }));
+  const updNet = (v) => setForm(recalc({ ...form, net: v, _basis: "net" }));
+  const updVatRate = (rate) => setForm(recalc({ ...form, vatRate: rate }));
 
-  const updVatRate = (rate) => {
-    if (rate === "custom") { setForm({ ...form, vatRate: "custom" }); return; }
-    const vat = Math.round(Number(form.net) * (Number(rate) / 100) * 100) / 100;
-    setForm({ ...form, vatRate: rate, vat, amount: Math.round((Number(form.net) + vat) * 100) / 100 });
+  // Το κατάστημα γράφεται ελεύθερα — δεν χρειάζεται να καταχωριστεί πρώτα ως προμηθευτής.
+  // Προτείνονται όσα έχεις ήδη χρησιμοποιήσει, και ξαναδιαλέγοντας ένα γεμίζουν κατηγορία/ΦΠΑ/πληρωμή
+  // όπως την τελευταία φορά.
+  const lastByShop = useMemo(() => {
+    const map = new Map();
+    [...expenses].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).forEach((e) => {
+      const k = (e.supplier || "").trim().toLowerCase();
+      if (k && !map.has(k)) map.set(k, e);
+    });
+    return map;
+  }, [expenses]);
+  const shopNames = useMemo(() => {
+    const seen = new Set();
+    const out = [];
+    for (const n of [...[...lastByShop.values()].map((e) => e.supplier.trim()), ...suppliers.map((s) => s.name.trim())]) {
+      const k = n.toLowerCase();
+      if (n && !seen.has(k)) { seen.add(k); out.push(n); }
+    }
+    return out;
+  }, [lastByShop, suppliers]);
+  const updShop = (value) => {
+    let next = { ...form, supplier: value };
+    const last = !form.id && lastByShop.get(value.trim().toLowerCase());
+    if (last) {
+      if (form.category === "general" && last.category) next.category = last.category;
+      if (form.paymentMethod === "cash" && last.paymentMethod && last.paymentMethod !== "credit") next.paymentMethod = last.paymentMethod;
+      if (!form.accountId && last.accountId) next.accountId = last.accountId;
+      if (!form.description.trim() && last.description && last.description.trim().toLowerCase() !== last.supplier.trim().toLowerCase()) next.description = last.description;
+      if (Number(form.vatRate) === 19) next.vatRate = inferVatRate(last);
+      next = recalc(next);
+    }
+    setForm(next);
   };
 
   // Έλεγχος πριν μπει το έξοδο στα βιβλία. Πιάνει τα λάθη που δεν φαίνονται μετά: ποσό χωρίς ΦΠΑ
@@ -141,7 +179,6 @@ function ExpensesInner() {
     const vat = Number(form.vat || 0);
     const amount = Number(form.amount || 0);
 
-    if (!form.description.trim()) out.push({ level: "error", text: t("review.expNeedDescription") });
     if (amount <= 0) out.push({ level: "error", text: t("review.expNeedAmount") });
     if (form.date > todayISO()) out.push({ level: "error", text: t("review.dateInFuture") });
 
@@ -151,8 +188,6 @@ function ExpensesInner() {
     // Μηδενικό ΦΠΑ δεν προειδοποιεί όταν επιλέχθηκε ρητά ο συντελεστής 0% — μόνο όταν φαίνεται
     // ξεχασμένο (π.χ. έμεινε στο "Custom" χωρίς να μπει ποτέ ποσό).
     if (amount > 0 && !vat && String(form.vatRate) !== "0") out.push({ level: "warn", text: t("review.expNoVat") });
-    if (!form.supplier.trim()) out.push({ level: "warn", text: t("review.expNoSupplier") });
-    if (!form.attachment) out.push({ level: "warn", text: t("review.expNoInvoice") });
 
     const dup = expenses.find((e) => e.id !== form.id && e.date === form.date && round2(e.amount) === round2(amount) && (e.supplier || "") === (form.supplier || ""));
     if (dup) out.push({ level: "warn", text: t("review.expDuplicate", { number: dup.number || "", description: dup.description }) });
@@ -164,22 +199,27 @@ function ExpensesInner() {
     return out;
   };
 
-  const save = () => {
+  const save = (another = false) => {
+    setAddAnother(another);
     const found = expenseChecks();
-    if (found.length > 0) { setChecks(found); return; }
-    commitSave();
+    if (found.some((c) => c.level !== "info")) { setChecks(found); return; }
+    commitSave(another);
   };
 
-  const commitSave = async () => {
+  const commitSave = async (another = addAnother) => {
     setSaving(true);
     // Σύνδεσε το ελεύθερο όνομα προμηθευτή με την καρτέλα του, όταν ταιριάζει — έτσι ένα απλήρωτο
     // τιμολόγιο μπορεί να εξοφληθεί αργότερα και να μπει στην ενηλικίωση υπολοίπων.
     const matched = suppliers.find((s) => s.name.trim().toLowerCase() === (form.supplier || "").trim().toLowerCase());
-    const payload = { ...form, supplierId: matched?.id || null };
+    const { _basis, ...rest } = form;
+    const description = form.description.trim() || form.supplier.trim() || categoryLabel(form.category);
+    const payload = { ...rest, description, supplierId: matched?.id || null };
     const method = form.id ? "PUT" : "POST";
     const url = form.id ? `/api/expenses/${form.id}` : "/api/expenses";
     await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    setChecks(null); setForm(null); setSaving(false); load();
+    setChecks(null); setSaving(false); load();
+    // "Αποθήκευση & νέο": μένει ανοιχτή φόρμα με ίδια ημερομηνία/πληρωμή για την επόμενη απόδειξη.
+    setForm(another ? newForm({ date: form.date, paymentMethod: form.paymentMethod }) : null);
   };
 
   // Το παραστατικό φυλάσσεται ως αρχείο στον δίσκο (/api/uploads) και στο έξοδο μένει μόνο ο
@@ -232,7 +272,7 @@ function ExpensesInner() {
           <p className="text-slate-500 text-sm">{tab === "expenses" ? t("expenses.periodTotal", { total: money(total) }) : t("purchases.countLabel", { count: purchases.length })}</p>
         </div>
         {tab === "expenses"
-          ? <button onClick={() => setForm({ ...empty })} className="btn-primary"><Icon name="plus" size={16} /> {t("expenses.newExpense")}</button>
+          ? <button onClick={() => setForm(newForm())} className="btn-primary"><Icon name="plus" size={16} /> {t("expenses.newExpense")}</button>
           : (
             <div className="flex items-center gap-2">
               <Link href="/agores/lista" className="btn-secondary"><Icon name="cart" size={16} /> {t("stock.reorderList")}</Link>
@@ -304,7 +344,7 @@ function ExpensesInner() {
                         {e.purchaseOrderId && (
                           <Link href={`/agores/${e.purchaseOrderId}`} title={t("expenses.viewPO")} className="btn-ghost !px-2 !py-1 inline-flex"><Icon name="external" size={15} /></Link>
                         )}
-                        <button onClick={() => setForm({ ...empty, ...e, vatRate: inferVatRate(e) })} className="btn-ghost !px-2 !py-1"><Icon name="edit" size={15} /></button>
+                        <button onClick={() => setForm({ ...empty, ...e, vatRate: inferVatRate(e), _basis: "net" })} className="btn-ghost !px-2 !py-1"><Icon name="edit" size={15} /></button>
                         <button onClick={() => del(e.id)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={15} /></button>
                       </td>
                     </tr>
@@ -361,22 +401,16 @@ function ExpensesInner() {
           <div className="card p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-4">{form.id ? t("expenses.modalEdit") : t("expenses.modalNew")}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div><label className="label">{t("expenses.fieldDate")}</label><input type="date" className="input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
-              <div><label className="label">{t("expenses.fieldCategory")}</label><select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{CATEGORY_KEYS.map((k) => <option key={k} value={k}>{categoryLabel(k)}</option>)}</select></div>
-              <div className="sm:col-span-2">
-                <label className="label">{t("expenses.fieldAccount")}</label>
-                <select className="input" value={form.accountId || ""} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
-                  <option value="">
-                    {t("expenses.accountFromCategory")}
-                    {autoAccountFor(form.category) ? ` — ${autoAccountFor(form.category).number} ${accName(autoAccountFor(form.category))}` : ""}
-                  </option>
-                  {accounts.filter((a) => a.type === "expense" && a.active !== false).map((a) => (
-                    <option key={a.id} value={a.id}>{a.number} — {accName(a)}</option>
-                  ))}
-                </select>
+              <div>
+                <label className="label">{t("expenses.fieldTotal")}</label>
+                <input type="number" step="any" inputMode="decimal" autoFocus={!form.id} className="input text-lg font-semibold" value={form.amount} onChange={(e) => updTotal(e.target.value)} placeholder="0.00" />
               </div>
-              <div className="sm:col-span-2"><label className="label">{t("expenses.fieldDescription")}</label><input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-              <div><label className="label">{t("expenses.fieldSupplier")}</label><input className="input" list="supplier-list" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} /><datalist id="supplier-list">{suppliers.map((s) => <option key={s.id} value={s.name} />)}</datalist></div>
+              <div><label className="label">{t("expenses.fieldDate")}</label><input type="date" className="input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
+              <div>
+                <label className="label">{t("expenses.fieldShop")}</label>
+                <input className="input" list="shop-list" value={form.supplier} onChange={(e) => updShop(e.target.value)} placeholder={t("expenses.shopPlaceholder")} />
+                <datalist id="shop-list">{shopNames.map((n) => <option key={n} value={n} />)}</datalist>
+              </div>
               <div><label className="label">{t("expenses.fieldPaymentMethod")}</label><select className="input" value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
                 <option value="cash">{t("common.paymentMethods.cash")}</option>
                 <option value="card">{t("common.paymentMethods.card")}</option>
@@ -386,7 +420,9 @@ function ExpensesInner() {
               </select>
               {form.paymentMethod === "credit" && <p className="text-xs text-amber-600 mt-1">{t("expenses.notPaidYetHint")}</p>}
               </div>
-              <div><label className="label">{t("expenses.fieldNet")}</label><input type="number" step="any" className="input" value={form.net} onChange={(e) => updNet(e.target.value)} /></div>
+              <p className="sm:col-span-2 -mt-2 text-xs text-slate-400">{t("expenses.shopHint")}</p>
+              <div className="sm:col-span-2"><label className="label">{t("expenses.fieldDescription")}</label><input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t("expenses.descriptionPlaceholder")} /></div>
+              <div><label className="label">{t("expenses.fieldCategory")}</label><select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{CATEGORY_KEYS.map((k) => <option key={k} value={k}>{categoryLabel(k)}</option>)}</select></div>
               <div>
                 <label className="label">{t("expenses.fieldVatRate")}</label>
                 <select className="input" value={form.vatRate} onChange={(e) => updVatRate(e.target.value)}>
@@ -394,15 +430,14 @@ function ExpensesInner() {
                   <option value="custom">{t("expenses.vatRateCustom")}</option>
                 </select>
               </div>
+              <div><label className="label">{t("expenses.fieldNet")}</label><input type="number" step="any" inputMode="decimal" className="input" value={form.net} onChange={(e) => updNet(e.target.value)} /></div>
               <div>
                 <label className="label">{t("common.vat")}</label>
                 <input
-                  type="number" step="any" className="input" value={form.vat}
-                  onChange={(e) => setForm({ ...form, vat: e.target.value, vatRate: "custom", amount: Math.round((Number(form.net) + Number(e.target.value)) * 100) / 100 })}
+                  type="number" step="any" inputMode="decimal" className="input" value={form.vat}
+                  onChange={(e) => setForm({ ...form, vat: e.target.value, vatRate: "custom", _basis: "net", amount: round2(Number(form.net) + Number(e.target.value)) })}
                 />
               </div>
-              <div><label className="label">{t("expenses.fieldTotal")}</label><input type="number" step="any" className="input font-semibold" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
-
               <div className="sm:col-span-2">
                 <label className="label">{t("expenses.fieldInvoice")}</label>
                 {form.attachment ? (
@@ -417,15 +452,28 @@ function ExpensesInner() {
                     <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="btn-secondary w-full justify-center">
                       <Icon name="upload" size={15} /> {uploading ? t("common.saving") : t("expenses.attachInvoice")}
                     </button>
-                    <p className="text-xs text-slate-400 mt-1">{t("expenses.attachInvoiceHint")}</p>
+                    <p className="text-xs text-amber-600 mt-1">{t("expenses.noReceiptHint")}</p>
                   </>
                 )}
                 <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={onAttach} />
               </div>
+              <div className="sm:col-span-2">
+                <label className="label">{t("expenses.fieldAccount")}</label>
+                <select className="input" value={form.accountId || ""} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
+                  <option value="">
+                    {t("expenses.accountFromCategory")}
+                    {autoAccountFor(form.category) ? ` — ${autoAccountFor(form.category).number} ${accName(autoAccountFor(form.category))}` : ""}
+                  </option>
+                  {accounts.filter((a) => a.type === "expense" && a.active !== false).map((a) => (
+                    <option key={a.id} value={a.id}>{a.number} — {accName(a)}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="flex justify-end gap-2 mt-5">
+            <div className="flex flex-wrap justify-end gap-2 mt-5">
               <button onClick={() => setForm(null)} className="btn-secondary">{t("common.cancel")}</button>
-              <button onClick={save} disabled={saving} className="btn-primary">{saving ? t("common.saving") : t("common.save")}</button>
+              {!form.id && <button onClick={() => save(true)} disabled={saving} className="btn-secondary">{t("expenses.saveAndNew")}</button>}
+              <button onClick={() => save(false)} disabled={saving} className="btn-primary">{saving ? t("common.saving") : t("common.save")}</button>
             </div>
           </div>
         </div>
@@ -438,7 +486,7 @@ function ExpensesInner() {
         busy={saving}
         confirmLabel={t("review.saveAnyway")}
         onCancel={() => setChecks(null)}
-        onConfirm={commitSave}
+        onConfirm={() => commitSave(addAnother)}
       />
 
       {payForm && (
