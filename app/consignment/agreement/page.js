@@ -38,7 +38,6 @@ export default function ConsignmentAgreementPage() {
   const supplierAddress = [settings.address, settings.city].filter(Boolean).join(", ");
   const supplierPhone = settings.phone || "";
   const supplierEmail = settings.email || "";
-  const signingCity = settings.city || "";
 
   const storeLegal = store ? (store.legalName || store.name) : "";
   const storeAfm = store?.afm || "";
@@ -84,7 +83,7 @@ export default function ConsignmentAgreementPage() {
           </div>
 
           <p>
-            Η παρούσα συμφωνία καταρτίζεται και υπογράφεται στην πόλη «{signingCity || "Κύπρος"}» σήμερα,{" "}
+            Η παρούσα συμφωνία καταρτίζεται και υπογράφεται σήμερα,{" "}
             <strong>{formatDate(startDate)}</strong>, μεταξύ:
           </p>
 
@@ -164,14 +163,14 @@ export default function ConsignmentAgreementPage() {
             <div>
               <div className="border-t border-slate-400 pt-2">
                 <div className="font-semibold">Ο ΠΡΟΜΗΘΕΥΤΗΣ</div>
-                <div className="text-xs text-slate-500 mt-1">(υπογραφή &amp; σφραγίδα)</div>
+                <div className="text-xs text-slate-500 mt-1">(υπογραφή)</div>
                 <div className="mt-8 text-xs text-slate-500">{supplierName}</div>
               </div>
             </div>
             <div>
               <div className="border-t border-slate-400 pt-2">
                 <div className="font-semibold">Ο ΠΑΡΑΛΗΠΤΗΣ</div>
-                <div className="text-xs text-slate-500 mt-1">(υπογραφή &amp; σφραγίδα)</div>
+                <div className="text-xs text-slate-500 mt-1">(υπογραφή)</div>
                 <div className="mt-8 text-xs text-slate-500">{storeLegal}</div>
               </div>
             </div>
