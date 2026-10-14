@@ -10,7 +10,7 @@ import { purchaseTotal } from "@/lib/purchaseMath";
 import { downloadHref } from "@/lib/attachments";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-const CATEGORY_KEYS = ["rawMaterials", "ink", "rent", "utilities", "payroll", "equipment", "vehicle", "shipping", "marketing", "general", "purchaseOrder"];
+const CATEGORY_KEYS = ["rawMaterials", "ink", "rent", "utilities", "payroll", "equipment", "vehicle", "phoneInternet", "repairs", "office", "cleaning", "shipping", "marketing", "general", "purchaseOrder"];
 const empty = { date: todayISO(), category: "general", description: "", supplier: "", net: 0, vat: 0, vatRate: 19, amount: "", paymentMethod: "cash", accountId: "", _basis: "total" };
 const newForm = (keep = {}) => ({ ...empty, date: todayISO(), ...keep });
 
@@ -79,6 +79,7 @@ function ExpensesInner() {
     rawMaterials: "expMaterials", ink: "expMaterials", rent: "expRent",
     utilities: "expUtilities", payroll: "expPayroll", equipment: "expEquipment",
     shipping: "expShipping", marketing: "expMarketing", vehicle: "expVehicle",
+    phoneInternet: "expPhone", repairs: "expRepairs", office: "expOffice", cleaning: "expCleaning",
   };
   const autoAccountFor = (category) => {
     const key = CATEGORY_ACCOUNT[category];
