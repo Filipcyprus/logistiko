@@ -68,6 +68,7 @@ export async function POST(request) {
     description: body.description || "",
     descriptionEl: body.descriptionEl || "",
     hideFromCatalogue: !!body.hideFromCatalogue,
+    noShipAbroad: !!body.noShipAbroad,
   });
 
   if (trackStock && initialStock > 0) {

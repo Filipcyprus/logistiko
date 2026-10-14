@@ -53,6 +53,8 @@ export async function GET(_req, { params }) {
       customDiscountTiers: p.customDiscountTiers || [],
       weightG: p.weightG || 0,
       finalPrice, hasCustomPrice, discountPercent,
+      // Εύφλεκτα/αεροζόλ: δεν αποστέλλονται εκτός Κύπρου (π.χ. Ελλάδα) — φαίνονται αλλά δεν παραγγέλνονται.
+      shipRestricted: p.noShipAbroad === true && !!c.country && c.country !== "CY",
     };
   });
   // Προϊόν χωρίς τιμή (0€) δεν εμφανίζεται ποτέ στον πελάτη — εκτός αν ο ιδιοκτήτης του έβαλε ειδική τιμή.

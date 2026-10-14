@@ -25,6 +25,11 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: "errors.cartEmpty" }, { status: 400 });
   }
 
+  if (c.country && c.country !== "CY") {
+    const blocked = items.some((it) => it.productId && db.products.find((p) => p.id === it.productId)?.noShipAbroad === true);
+    if (blocked) return NextResponse.json({ error: "errors.notShippable" }, { status: 400 });
+  }
+
   const discount = Number(c.defaultDiscount || 0);
   const doc = createDoc("orders", {
     customerId: c.id,

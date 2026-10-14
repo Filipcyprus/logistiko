@@ -557,6 +557,7 @@ export default function CustomerProfile() {
             <Field label={t("customers.fieldPhone")}><input className="input" value={cust.phone} onChange={(e) => setCust({ ...cust, phone: e.target.value })} /></Field>
             <Field label={t("customers.fieldAddress")}><input className="input" value={cust.address} onChange={(e) => setCust({ ...cust, address: e.target.value })} /></Field>
             <Field label={t("customers.fieldCity")}><input className="input" value={cust.city} onChange={(e) => setCust({ ...cust, city: e.target.value })} /></Field>
+            <Field label={t("customers.fieldCountry")}><select className="input" value={cust.country || "CY"} onChange={(e) => setCust({ ...cust, country: e.target.value })}><option value="CY">{t("customers.countryCY")}</option><option value="GR">{t("customers.countryGR")}</option></select></Field>
             <Field label={t("customers.fieldEmail")}><input className="input" value={cust.email} onChange={(e) => setCust({ ...cust, email: e.target.value })} /></Field>
             <Field label={t("customers.fieldPriceList")}><input className="input" value={cust.priceListName} onChange={(e) => setCust({ ...cust, priceListName: e.target.value })} placeholder={t("customers.priceListPlaceholder")} /></Field>
             <Field label={t("customers.fieldDiscount")}><input type="number" step="any" className="input" value={cust.defaultDiscount} onChange={(e) => setCust({ ...cust, defaultDiscount: e.target.value })} /></Field>
