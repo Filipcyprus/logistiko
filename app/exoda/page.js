@@ -22,6 +22,7 @@ const VAT_RATES = [21, 19, 9, 5, 0];
 // Ανοίγοντας παλιό έξοδο για επεξεργασία, μάντεψε ποιον συντελεστή είχε (δεν αποθηκευόταν πριν) —
 // αλλιώς κάθε παλιά εγγραφή θα άνοιγε σαν "Custom" χωρίς λόγο.
 function inferVatRate(e) {
+  if (e.vatLines?.length > 1) return "mixed";
   const net = Number(e.net || 0);
   const vat = Number(e.vat || 0);
   if (!net) return e.vatRate ?? 19;
@@ -137,6 +138,26 @@ function ExpensesInner() {
   const updNet = (v) => setForm(recalc({ ...form, net: v, _basis: "net" }));
   const updVatRate = (rate) => setForm(recalc({ ...form, vatRate: rate }));
 
+  // Ένα τιμολόγιο με δύο συντελεστές ΦΠΑ (π.χ. βιβλία 5% + μεταφορικά 19%) μπαίνει ως ΕΝΑ έξοδο
+  // με γραμμές ΦΠΑ· καθαρό/ΦΠΑ/σύνολο του εξόδου είναι το άθροισμά τους.
+  const isSplit = form?.vatLines?.length > 1;
+  const withLines = (f, lines) => {
+    const ls = lines.map((l) => ({ ...l, vat: round2(Number(l.net || 0) * (Number(l.rate) / 100)) }));
+    const net = round2(ls.reduce((a, l) => a + Number(l.net || 0), 0));
+    const vat = round2(ls.reduce((a, l) => a + l.vat, 0));
+    return { ...f, vatLines: ls, net, vat, amount: round2(net + vat), vatRate: "mixed", _basis: "net" };
+  };
+  const splitVat = () => {
+    const rate = form.vatRate !== "custom" && form.vatRate !== "mixed" ? Number(form.vatRate) : 19;
+    setForm(withLines(form, [{ rate, net: form.net || "" }, { rate: rate === 5 ? 19 : 5, net: "" }]));
+  };
+  const updLine = (i, patch) => setForm(withLines(form, form.vatLines.map((l, j) => (j === i ? { ...l, ...patch } : l))));
+  const removeLine = (i) => {
+    const rest = form.vatLines.filter((_, j) => j !== i);
+    if (rest.length > 1) { setForm(withLines(form, rest)); return; }
+    setForm(recalc({ ...form, vatLines: null, vatRate: rest[0].rate, net: rest[0].net, _basis: "net" }));
+  };
+
   // Το κατάστημα γράφεται ελεύθερα — δεν χρειάζεται να καταχωριστεί πρώτα ως προμηθευτής.
   // Προτείνονται όσα έχεις ήδη χρησιμοποιήσει, και ξαναδιαλέγοντας ένα γεμίζουν κατηγορία/ΦΠΑ/πληρωμή
   // όπως την τελευταία φορά.
@@ -165,7 +186,7 @@ function ExpensesInner() {
       if (form.paymentMethod === "cash" && last.paymentMethod && last.paymentMethod !== "credit") next.paymentMethod = last.paymentMethod;
       if (!form.accountId && last.accountId) next.accountId = last.accountId;
       if (!form.description.trim() && last.description && last.description.trim().toLowerCase() !== last.supplier.trim().toLowerCase()) next.description = last.description;
-      if (Number(form.vatRate) === 19) next.vatRate = inferVatRate(last);
+      if (Number(form.vatRate) === 19 && !last.vatLines?.length) next.vatRate = inferVatRate(last);
       next = recalc(next);
     }
     setForm(next);
@@ -214,7 +235,8 @@ function ExpensesInner() {
     const matched = suppliers.find((s) => s.name.trim().toLowerCase() === (form.supplier || "").trim().toLowerCase());
     const { _basis, ...rest } = form;
     const description = form.description.trim() || form.supplier.trim() || categoryLabel(form.category);
-    const payload = { ...rest, description, supplierId: matched?.id || null };
+    const vatLines = form.vatLines?.length > 1 ? form.vatLines.map((l) => ({ rate: Number(l.rate), net: round2(Number(l.net || 0)), vat: l.vat })) : null;
+    const payload = { ...rest, description, vatLines, supplierId: matched?.id || null };
     const method = form.id ? "PUT" : "POST";
     const url = form.id ? `/api/expenses/${form.id}` : "/api/expenses";
     await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -321,7 +343,7 @@ function ExpensesInner() {
                       <td className="table-td font-medium">{e.description}{e.number && <div className="text-xs text-slate-400 font-normal">{e.number}</div>}</td>
                       <td className="table-td">{e.supplier || "—"}</td>
                       <td className="table-td text-right">{money(e.net)}</td>
-                      <td className="table-td text-right">{money(e.vat)}</td>
+                      <td className="table-td text-right">{money(e.vat)}{e.vatLines?.length > 1 && <div className="text-xs text-slate-400">{e.vatLines.map((l) => `${l.rate}%`).join(" + ")}</div>}</td>
                       <td className="table-td text-right font-semibold">{money(e.amount)}</td>
                       <td className="table-td">
                         {e.paymentMethod !== "credit" ? (
@@ -404,7 +426,7 @@ function ExpensesInner() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label">{t("expenses.fieldTotal")}</label>
-                <input type="number" step="any" inputMode="decimal" autoFocus={!form.id} className="input text-lg font-semibold" value={form.amount} onChange={(e) => updTotal(e.target.value)} placeholder="0.00" />
+                <input type="number" step="any" inputMode="decimal" autoFocus={!form.id} className="input text-lg font-semibold" value={form.amount} readOnly={isSplit} onChange={(e) => !isSplit && updTotal(e.target.value)} placeholder="0.00" />
               </div>
               <div><label className="label">{t("expenses.fieldDate")}</label><input type="date" className="input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
               <div>
@@ -423,22 +445,43 @@ function ExpensesInner() {
               </div>
               <p className="sm:col-span-2 -mt-2 text-xs text-slate-400">{t("expenses.shopHint")}</p>
               <div className="sm:col-span-2"><label className="label">{t("expenses.fieldDescription")}</label><input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t("expenses.descriptionPlaceholder")} /></div>
-              <div><label className="label">{t("expenses.fieldCategory")}</label><select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{CATEGORY_KEYS.map((k) => <option key={k} value={k}>{categoryLabel(k)}</option>)}</select></div>
-              <div>
-                <label className="label">{t("expenses.fieldVatRate")}</label>
-                <select className="input" value={form.vatRate} onChange={(e) => updVatRate(e.target.value)}>
-                  {VAT_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}
-                  <option value="custom">{t("expenses.vatRateCustom")}</option>
-                </select>
-              </div>
-              <div><label className="label">{t("expenses.fieldNet")}</label><input type="number" step="any" inputMode="decimal" className="input" value={form.net} onChange={(e) => updNet(e.target.value)} /></div>
-              <div>
-                <label className="label">{t("common.vat")}</label>
-                <input
-                  type="number" step="any" inputMode="decimal" className="input" value={form.vat}
-                  onChange={(e) => setForm({ ...form, vat: e.target.value, vatRate: "custom", _basis: "net", amount: round2(Number(form.net) + Number(e.target.value)) })}
-                />
-              </div>
+              <div className={isSplit ? "sm:col-span-2" : ""}><label className="label">{t("expenses.fieldCategory")}</label><select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{CATEGORY_KEYS.map((k) => <option key={k} value={k}>{categoryLabel(k)}</option>)}</select></div>
+              {isSplit ? (
+                <div className="sm:col-span-2 space-y-2">
+                  <label className="label">{t("expenses.vatLinesLabel")}</label>
+                  {form.vatLines.map((l, i) => (
+                    <div key={i} className="flex items-end gap-2">
+                      <div className="flex-1"><label className="text-xs text-slate-500">{t("expenses.fieldNet")}</label><input type="number" step="any" inputMode="decimal" className="input" value={l.net} onChange={(e) => updLine(i, { net: e.target.value })} /></div>
+                      <div className="w-24"><label className="text-xs text-slate-500">{t("expenses.fieldVatRate")}</label><select className="input" value={l.rate} onChange={(e) => updLine(i, { rate: Number(e.target.value) })}>{VAT_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}</select></div>
+                      <div className="w-24 text-right text-sm text-slate-600 pb-2.5">{t("common.vat")} {money(l.vat)}</div>
+                      <button type="button" onClick={() => removeLine(i)} className="btn-ghost !px-2 !py-2 text-red-500"><Icon name="trash" size={14} /></button>
+                    </div>
+                  ))}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <button type="button" onClick={() => setForm(withLines(form, [...form.vatLines, { rate: 19, net: "" }]))} className="btn-ghost text-sm"><Icon name="plus" size={14} /> {t("expenses.addVatLine")}</button>
+                    <span className="text-sm text-slate-600">{t("expenses.fieldNet")} {money(form.net)} · {t("common.vat")} {money(form.vat)}</span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                <div>
+                  <label className="label">{t("expenses.fieldVatRate")}</label>
+                  <select className="input" value={form.vatRate} onChange={(e) => updVatRate(e.target.value)}>
+                    {VAT_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}
+                    <option value="custom">{t("expenses.vatRateCustom")}</option>
+                  </select>
+                </div>
+                <div><label className="label">{t("expenses.fieldNet")}</label><input type="number" step="any" inputMode="decimal" className="input" value={form.net} onChange={(e) => updNet(e.target.value)} /></div>
+                <div>
+                  <label className="label">{t("common.vat")}</label>
+                  <input
+                    type="number" step="any" inputMode="decimal" className="input" value={form.vat}
+                    onChange={(e) => setForm({ ...form, vat: e.target.value, vatRate: "custom", _basis: "net", amount: round2(Number(form.net) + Number(e.target.value)) })}
+                  />
+                </div>
+                    <button type="button" onClick={splitVat} className="sm:col-span-2 -mt-2 text-left text-xs text-brand-700 hover:underline">+ {t("expenses.splitVat")}</button>
+                </>
+              )}
               <div className="sm:col-span-2">
                 <label className="label">{t("expenses.fieldInvoice")}</label>
                 {form.attachment ? (

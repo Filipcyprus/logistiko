@@ -32,6 +32,8 @@ export async function POST(request) {
     // Ο συντελεστής που επιλέχθηκε στη φόρμα (19/9/5/0 ή "custom") — καθαρά για να ξανανοίγει η
     // επεξεργασία σωστά επιλεγμένη· η ίδια η καταχώριση (net/vat/amount) δεν εξαρτάται από αυτό.
     vatRate: body.vatRate ?? null,
+    // Τιμολόγιο με πολλούς συντελεστές: [{ rate, net, vat }] — τα net/vat παραπάνω είναι το άθροισμα.
+    vatLines: Array.isArray(body.vatLines) && body.vatLines.length > 1 ? body.vatLines : null,
     amount: Number(body.amount || 0),
     // "credit" = ήρθε το τιμολόγιο αλλά δεν πληρώθηκε ακόμα.
     paymentMethod: body.paymentMethod || "cash",
