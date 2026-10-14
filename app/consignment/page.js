@@ -270,6 +270,7 @@ export default function ConsignmentPage() {
                       }}
                       formatOption={(p) => `${p.name} (${t("consignment.warehouseStock")}: ${p.stock})`}
                     />
+                    {(() => { const p = perfumes.find((x) => x.id === line.productId); return p && Number(line.quantity) > Number(p.stock || 0) ? <div className="text-xs text-amber-600 mt-1">{t("consignment.beyondStockHint")}</div> : null; })()}
                   </div>
                   <div className="w-24">
                     <label className="label">{t("consignment.fieldQuantity")}</label>

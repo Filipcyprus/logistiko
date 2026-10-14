@@ -25,9 +25,8 @@ export async function POST(request) {
   for (const it of items) {
     const p = db.products.find((x) => x.id === it.productId);
     if (!p) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
-    if (Number(p.stock || 0) < it.quantity) {
-      return NextResponse.json({ error: "errors.insufficientStock" }, { status: 400 });
-    }
+    // Επιτρέπεται και χωρίς επαρκές απόθεμα (π.χ. άρωμα που δεν έχει έρθει ακόμα): το απόθεμα αποθήκης
+    // πάει αρνητικό μέχρι να γίνει παραλαβή, όπως ήδη γίνεται και σε άλλα προϊόντα.
     resolved.push({ product: p, quantity: it.quantity, unitPrice: it.unitPrice });
   }
 
