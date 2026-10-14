@@ -183,7 +183,7 @@ export default function PortalPage() {
             <div className="text-right text-sm">
               <div className="font-semibold">{data.customer.name}</div>
               {data.customer.priceListName && <div className="text-brand-100 text-xs">{t("customers.fieldPriceList")}: {data.customer.priceListName}{disc ? ` (−${disc}%)` : ""}</div>}
-              {data.customer.creditBalance > 0 && <div className="text-emerald-200 text-xs font-medium mt-0.5">{t("portal.creditBalance")}: {money(data.customer.creditBalance, cur)}</div>}
+              {data.customer.creditBalance > 0 && <div className="text-emerald-200 text-xs font-medium mt-0.5">{t("portal.creditBalance")}: {money(data.customer.creditBalance, cur)}{data.customer.creditCategory ? ` (${t("portal.creditOnlyFor", { category: data.customer.creditCategory })})` : ""}</div>}
             </div>
             <LanguageSwitcher />
           </div>

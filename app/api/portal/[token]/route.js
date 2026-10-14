@@ -94,6 +94,7 @@ export async function GET(_req, { params }) {
       requirePin: c.requirePin !== false,
       address: c.address || "", city: c.city || "",
       creditBalance: Math.round((Number(c.creditBalance) || 0) * 100) / 100,
+      creditCategory: c.creditCategory || "",
     },
     notices,
     delivery: freeDeliveryConfig(s),

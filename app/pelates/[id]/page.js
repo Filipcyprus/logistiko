@@ -64,6 +64,12 @@ export default function CustomerProfile() {
     loadLedger();
   };
 
+  const creditCategories = [...new Set(products.map((p) => (p.category || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const setCreditCategory = async (creditCategory) => {
+    await fetch(`/api/customers/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creditCategory }) });
+    loadLedger();
+  };
+
   const openEdit = () => { setCust({ ...emptyCust, ...c }); setEditOpen(true); };
   const saveCust = async () => {
     await fetch(`/api/customers/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cust) });
@@ -361,6 +367,13 @@ export default function CustomerProfile() {
                   <div>
                     <div className="text-xs text-slate-500">{t("customers.creditBalance")}</div>
                     <div className="text-xl font-bold text-slate-800">{money(c.creditBalance || 0)}</div>
+                  </div>
+                  <div className="ml-auto">
+                    <label className="label">{t("customers.creditUsableFor")}</label>
+                    <select className="input !w-auto" value={c.creditCategory || ""} onChange={(e) => setCreditCategory(e.target.value)}>
+                      <option value="">{t("customers.creditAnyProduct")}</option>
+                      {[...new Set([...(c.creditCategory ? [c.creditCategory] : []), ...creditCategories])].map((cat) => <option key={cat} value={cat}>{t("customers.creditOnlyCategory", { category: cat })}</option>)}
+                    </select>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 items-end">

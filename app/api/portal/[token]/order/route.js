@@ -3,6 +3,7 @@ import { readDB, writeDB, uid } from "@/lib/db";
 import { createDoc, updateDoc } from "@/lib/docs";
 import { serverT } from "@/lib/i18n/server";
 import { portalOpeningState } from "@/lib/portalOpening";
+import { creditEligibleTotal } from "@/lib/storeCredit";
 
 // Υποβολή παραγγελίας από τον B2B πελάτη.
 export async function POST(request, { params }) {
@@ -47,7 +48,9 @@ export async function POST(request, { params }) {
   // εδώ — μέχρι το σύνολο της παραγγελίας. Το ποσό μένει σημειωμένο στην παραγγελία ώστε να
   // περάσει ως έκπτωση όταν ο ιδιοκτήτης την τιμολογήσει, αντί να χαθεί η πληροφορία.
   const creditBalance = Number(c.creditBalance || 0);
-  const creditApplied = Math.round(Math.min(creditBalance, Number(doc.total || 0)) * 100) / 100;
+  // Αν η πίστωση επιτρέπεται μόνο για μια κατηγορία (π.χ. εργαλεία), καλύπτει μόνο εκείνες τις γραμμές.
+  const eligible = creditEligibleTotal(doc.items || [], db.products, c.creditCategory);
+  const creditApplied = Math.round(Math.max(0, Math.min(creditBalance, eligible)) * 100) / 100;
   if (creditApplied > 0) {
     updateDoc("orders", doc.id, { creditApplied });
     const db2 = readDB();
