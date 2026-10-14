@@ -10,8 +10,13 @@ export async function GET(request) {
   const to = searchParams.get("to") || "9999-12-31";
   const inRange = (d) => d >= from && d <= to;
 
+  // Κάθε έμβασμα πρέπει να εμφανίζεται ΜΙΑ φορά. Ένα παραστατικό είναι κίνηση τράπεζας μόνο αν
+  // εξοφλήθηκε επιτόπου με έμβασμα — ίδια λογική με το lib/postingRules.js. Αν εξοφλήθηκε αργότερα
+  // με είσπραξη, η τράπεζα είναι η είσπραξη· η απόδειξη είσπραξης είναι απλώς το χαρτί της.
+  const paidViaPayment = new Set((db.payments || []).map((p) => p.invoiceId).filter(Boolean));
   const invoices = (db.invoices || [])
     .filter((i) => i.paymentMethod === "bank" && inRange(i.date))
+    .filter((i) => !i.isPaymentReceipt && i.status === "paid" && !paidViaPayment.has(i.id))
     .map((i) => ({
       type: "invoice", id: i.id, date: i.date, amount: Number(i.total || 0),
       label: i.customer?.name || "", ref: i.number,
