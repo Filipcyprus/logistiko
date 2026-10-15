@@ -18,6 +18,8 @@ const ACTION_ICON = {
   product_delete: "trash",
   staff_create: "users",
   staff_delete: "users",
+  email_sent: "external",
+  email_failed: "alert",
 };
 
 export default function ActivityLogPage() {
@@ -49,6 +51,8 @@ export default function ActivityLogPage() {
       case "product_delete": return t("activity.descProductDelete", { name: d.name });
       case "staff_create": return t("activity.descStaffCreate", { username: d.targetUsername, role: d.role });
       case "staff_delete": return t("activity.descStaffDelete", { username: d.targetUsername });
+      case "email_sent": return t("activity.descEmailSent", { to: d.to || "?", subject: d.subject || d.number || "" });
+      case "email_failed": return t("activity.descEmailFailed", { to: d.to || "?", subject: d.subject || d.number || "", error: d.error || "" });
       default: return e.action;
     }
   };

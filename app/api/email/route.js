@@ -3,6 +3,7 @@ import { createMailTransport } from "@/lib/mailTransport";
 import { readDB } from "@/lib/db";
 import { isMailConfigured } from "@/lib/mailConfig";
 import { buildEmail } from "@/lib/email";
+import { logActivity } from "@/lib/audit";
 
 export async function POST(request) {
   const body = await request.json();
@@ -36,8 +37,10 @@ export async function POST(request) {
     await transporter.sendMail({ from, to, subject, html });
   } catch (e) {
     console.error("Email error:", e?.message || e);
+    await logActivity(request, "email_failed", { kind: emailKind, number: doc.number || "", to, subject, error: String(e?.message || e) });
     return NextResponse.json({ error: "errors.emailFailed" }, { status: 500 });
   }
+  await logActivity(request, "email_sent", { kind: emailKind, number: doc.number || "", to, subject });
 
   return NextResponse.json({ ok: true });
 }
