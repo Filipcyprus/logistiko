@@ -24,6 +24,7 @@ export async function PUT(request, { params }) {
   // που έστειλε ο χρήστης, αλλιώς μια παλιά (stale) αντιγραφή θα έσβηνε μηνύματα που ήρθαν στο μεταξύ.
   delete patch.messages;
   delete patch.history;
+  delete patch.partnerEmail; // κατάσταση αποστολής email — γράφεται μόνο από τον server
 
   // Άμυνα κατά της διόγκωσης της βάσης: αν ο client (π.χ. παλιό/μη ανανεωμένο tab)
   // στείλει σχέδια με ενσωματωμένο base64 αντί για url, μετέτρεψέ τα σε αρχεία στο δίσκο.
@@ -49,10 +50,10 @@ export async function PUT(request, { params }) {
   // Ενημέρωση ονόματος συνεργάτη αν άλλαξε το partner shop
   let newlyAssignedPartner = null;
   if (patch.partnerShopId !== undefined) {
-    const wasAssigned = !!job.partnerShopId;
     const newPartner = patch.partnerShopId ? db.partnerShops.find((p) => p.id === patch.partnerShopId) : null;
     job.partnerShopName = newPartner?.name || "";
-    if (patch.partnerShopId && patch.partnerShopId !== job.partnerShopId && !wasAssigned) {
+    // Νέος ή ΑΛΛΟΣ συνεργάτης → παίρνει email. (Αν ξαναστείλεις την ίδια αντιγραφή, χρησιμοποίησε το κουμπί αποστολής.)
+    if (patch.partnerShopId && patch.partnerShopId !== job.partnerShopId) {
       addSystemMessage(job, "owner", "Job assigned to you.");
       newlyAssignedPartner = newPartner; // ειδοποίηση email μετά το writeDB πιο κάτω
     }
