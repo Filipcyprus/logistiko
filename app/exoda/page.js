@@ -80,7 +80,7 @@ function ExpensesInner() {
     rawMaterials: "expMaterials", ink: "expMaterials", rent: "expRent",
     utilities: "expUtilities", payroll: "expPayroll", equipment: "expEquipment",
     shipping: "expShipping", marketing: "expMarketing", vehicle: "expVehicle",
-    phoneInternet: "expPhone", repairs: "expRepairs", office: "expOffice", cleaning: "expCleaning",
+    phoneInternet: "expPhone", repairs: "expRepairs", office: "expOffice", cleaning: "expCleaning", purchaseOrder: "inventory",
   };
   const autoAccountFor = (category) => {
     const key = CATEGORY_ACCOUNT[category];
@@ -445,7 +445,8 @@ function ExpensesInner() {
               </div>
               <p className="sm:col-span-2 -mt-2 text-xs text-slate-400">{t("expenses.shopHint")}</p>
               <div className="sm:col-span-2"><label className="label">{t("expenses.fieldDescription")}</label><input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t("expenses.descriptionPlaceholder")} /></div>
-              <div className={isSplit ? "sm:col-span-2" : ""}><label className="label">{t("expenses.fieldCategory")}</label><select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{CATEGORY_KEYS.map((k) => <option key={k} value={k}>{categoryLabel(k)}</option>)}</select></div>
+              <div className={isSplit ? "sm:col-span-2" : ""}><label className="label">{t("expenses.fieldCategory")}</label><select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{CATEGORY_KEYS.map((k) => <option key={k} value={k}>{categoryLabel(k)}</option>)}</select>
+                {form.category === "purchaseOrder" && <p className="text-xs text-sky-700 mt-1">{t("expenses.stockPurchaseHint")}</p>}</div>
               {isSplit ? (
                 <div className="sm:col-span-2 space-y-2">
                   <label className="label">{t("expenses.vatLinesLabel")}</label>
