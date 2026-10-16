@@ -52,6 +52,7 @@ function ExpensesInner() {
   // Προεπιλογή: όλα τα έξοδα — με φίλτρο τρέχοντος μήνα, παραστατικά προηγούμενων μηνών που
   // καταχωρούνται τώρα φαίνονταν "χαμένα". Το φίλτρο μήνα παραμένει διαθέσιμο.
   const [month, setMonth] = useState("");
+  const [q, setQ] = useState("");
   const [suppliers, setSuppliers] = useState([]);
   const [settings, setSettings] = useState(null);
   const [accounts, setAccounts] = useState([]);
@@ -113,8 +114,18 @@ function ExpensesInner() {
 
   // Ταξινόμηση κατά ημερομηνία παραστατικού (πιο πρόσφατα πρώτα), όχι με σειρά καταχώρισης —
   // αλλιώς παραστατικά που καταχωρούνται μαζί αργότερα εμφανίζονται ανακατεμένα.
+  // Αναζήτηση χωρίς τόνους/κεφαλαία σε: αριθμό, περιγραφή, προμηθευτή, κατηγορία, ποσό, ημερομηνία, σημειώσεις.
+  // Κάθε λέξη πρέπει να υπάρχει κάπου (π.χ. "coral 40" βρίσκει το Coral των 40 €).
+  const norm = (x) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const words = norm(q).split(/\s+/).filter(Boolean);
+  const matchesQuery = (e) => {
+    if (words.length === 0) return true;
+    const hay = norm([e.number, e.description, e.supplier, t(`expenses.categories.${e.category}`), Number(e.amount || 0).toFixed(2), e.date, formatDate(e.date), e.notes, e.attachment?.name].join(" "));
+    return words.every((w) => hay.includes(w));
+  };
   const filtered = expenses
     .filter((e) => !month || (e.date || "").startsWith(month))
+    .filter(matchesQuery)
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.number || "").localeCompare(String(a.number || "")));
   const total = filtered.reduce((a, x) => a + Number(x.amount || 0), 0);
   const categoryLabel = (key) => t(`expenses.categories.${key}`) || key;
@@ -315,6 +326,11 @@ function ExpensesInner() {
             <label className="text-sm text-slate-500">{t("expenses.month")}</label>
             <input type="month" className="input max-w-[200px]" value={month} onChange={(e) => setMonth(e.target.value)} />
             <button onClick={() => setMonth("")} className="btn-ghost text-sm">{t("expenses.all")}</button>
+            <div className="relative flex-1 min-w-[200px]">
+              <Icon name="search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input className="input pl-9" placeholder={t("expenses.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} />
+            </div>
+            {(q || month) && <span className="text-sm text-slate-500 whitespace-nowrap">{t("expenses.resultsCount", { count: filtered.length })}</span>}
           </div>
 
           <div className="card overflow-hidden">
@@ -335,7 +351,7 @@ function ExpensesInner() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filtered.length === 0 ? (
-                    <tr><td className="table-td text-slate-400" colSpan={9}>{t("expenses.noExpenses")}</td></tr>
+                    <tr><td className="table-td text-slate-400" colSpan={9}>{q || month ? t("expenses.noMatch") : t("expenses.noExpenses")}</td></tr>
                   ) : filtered.map((e) => (
                     <tr key={e.id} className="hover:bg-slate-50">
                       <td className="table-td">{formatDate(e.date)}</td>
