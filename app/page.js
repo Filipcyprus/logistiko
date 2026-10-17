@@ -27,6 +27,9 @@ export default function Dashboard() {
   const [s, setS] = useState(null);
   const [tbMismatch, setTbMismatch] = useState(null);
   const [pendingZ, setPendingZ] = useState(null);
+  // Τα ποσά είναι κρυμμένα ΚΑΘΕ φορά που ανοίγει ο πίνακας — το μάτι τα δείχνει μέχρι να φύγεις/ανανεώσεις.
+  const [show, setShow] = useState(false);
+  const mny = (v) => (show ? money(v) : "•••••");
 
   useEffect(() => {
     fetch("/api/stats")
@@ -63,9 +66,14 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold text-slate-800">{t("dashboard.title")}</h1>
           <p className="text-slate-500 text-sm">{t("dashboard.subtitle", { year: s.year })}</p>
         </div>
-        <Link href="/parastatika/neo" className="btn-primary">
-          <Icon name="plus" size={16} /> {t("dashboard.newInvoice")}
-        </Link>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShow((v) => !v)} className="btn-secondary" aria-pressed={show} title={show ? t("dashboard.hideNumbers") : t("dashboard.showNumbers")}>
+            <Icon name={show ? "eyeOff" : "eye"} size={16} /> {show ? t("dashboard.hideNumbers") : t("dashboard.showNumbers")}
+          </button>
+          <Link href="/parastatika/neo" className="btn-primary">
+            <Icon name="plus" size={16} /> {t("dashboard.newInvoice")}
+          </Link>
+        </div>
       </div>
 
       {pendingZ && (
@@ -73,7 +81,7 @@ export default function Dashboard() {
           <Icon name="printer" size={20} className="text-brand-600 shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-brand-700">{t("dashboard.pendingZTitle", { number: pendingZ.number })}</div>
-            <div className="text-sm text-brand-600">{t("dashboard.pendingZSub", { period: pendingZ.period, total: money(pendingZ.total) })}</div>
+            <div className="text-sm text-brand-600">{t("dashboard.pendingZSub", { period: pendingZ.period, total: mny(pendingZ.total) })}</div>
           </div>
         </Link>
       )}
@@ -83,19 +91,19 @@ export default function Dashboard() {
           <Icon name="alert" size={20} className="text-red-600 shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-red-700">{t("dashboard.trialBalanceOff")}</div>
-            <div className="text-sm text-red-600">{t("dashboard.trialBalanceOffSub", { debit: money(tbMismatch.debitTotal), credit: money(tbMismatch.creditTotal) })}</div>
+            <div className="text-sm text-red-600">{t("dashboard.trialBalanceOffSub", { debit: mny(tbMismatch.debitTotal), credit: mny(tbMismatch.creditTotal) })}</div>
           </div>
         </Link>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat label={t("dashboard.monthRevenue")} value={money(s.monthRevenue)} sub={t("dashboard.yearRevenue", { value: money(s.yearRevenue) })} color="brand" />
-        <Stat label={t("dashboard.monthExpenses")} value={money(s.monthExpenses)} sub={t("dashboard.yearRevenue", { value: money(s.yearExpenses) })} color="red" />
-        <Stat label={t("dashboard.monthProfit")} value={money(s.monthProfit)} sub={t("dashboard.profitSub")} color="green" />
+        <Stat label={t("dashboard.monthRevenue")} value={mny(s.monthRevenue)} sub={t("dashboard.yearRevenue", { value: mny(s.yearRevenue) })} color="brand" />
+        <Stat label={t("dashboard.monthExpenses")} value={mny(s.monthExpenses)} sub={t("dashboard.yearRevenue", { value: mny(s.yearExpenses) })} color="red" />
+        <Stat label={t("dashboard.monthProfit")} value={mny(s.monthProfit)} sub={t("dashboard.profitSub")} color="green" />
         <Stat
           label={t("dashboard.monthVatBalance")}
-          value={money(s.vatBalance)}
-          sub={t("dashboard.vatSub", { collected: money(s.monthVatCollected), paid: money(s.monthVatPaid) })}
+          value={mny(s.vatBalance)}
+          sub={t("dashboard.vatSub", { collected: mny(s.monthVatCollected), paid: mny(s.monthVatPaid) })}
           color="amber"
         />
       </div>
@@ -110,19 +118,19 @@ export default function Dashboard() {
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-400 inline-block"></span> {t("dashboard.chartExpenses")}</span>
             </div>
           </div>
-          <div className="flex items-end gap-2 h-48">
+          <div className={`flex items-end gap-2 h-48 transition ${show ? "" : "blur-sm select-none pointer-events-none"}`}>
             {s.monthly.map((m, i) => (
               <div key={i} className="flex-1 flex flex-col items-center gap-1">
                 <div className="w-full flex items-end justify-center gap-0.5 h-40">
                   <div
                     className="w-1/2 bg-brand-500 rounded-t"
                     style={{ height: `${(m.revenue / maxBar) * 100}%` }}
-                    title={money(m.revenue)}
+                    title={mny(m.revenue)}
                   ></div>
                   <div
                     className="w-1/2 bg-red-400 rounded-t"
                     style={{ height: `${(m.expenses / maxBar) * 100}%` }}
-                    title={money(m.expenses)}
+                    title={mny(m.expenses)}
                   ></div>
                 </div>
                 <span className="text-[10px] text-slate-400">{months[i]}</span>
@@ -135,7 +143,7 @@ export default function Dashboard() {
         <div className="space-y-6">
           <div className="card p-5">
             <h2 className="font-semibold text-slate-800 mb-3">{t("dashboard.unpaid")}</h2>
-            <div className="text-2xl font-bold text-amber-600">{money(s.unpaidTotal)}</div>
+            <div className="text-2xl font-bold text-amber-600">{mny(s.unpaidTotal)}</div>
             <div className="text-sm text-slate-500">{t("dashboard.unpaidSub", { count: s.unpaidCount })}</div>
           </div>
 
@@ -208,7 +216,7 @@ export default function Dashboard() {
                     <Link href={`/parastatika/${i.id}`} className="font-medium text-brand-700 hover:underline">{i.number}</Link>
                     <div className="text-xs text-slate-400">{i.customer?.name || t("common.retail")} · {formatDate(i.date)}</div>
                   </div>
-                  <span className="font-semibold text-slate-700">{money(i.total)}</span>
+                  <span className="font-semibold text-slate-700">{mny(i.total)}</span>
                 </li>
               ))}
             </ul>
@@ -225,7 +233,7 @@ export default function Dashboard() {
               {s.topProducts.map((p, i) => (
                 <li key={i} className="flex items-center justify-between text-sm">
                   <span className="text-slate-700 truncate">{i + 1}. {p.name}</span>
-                  <span className="text-slate-500">{t("dashboard.qtyUnit", { qty: p.qty })} · <b className="text-slate-700">{money(p.revenue)}</b></span>
+                  <span className="text-slate-500">{t("dashboard.qtyUnit", { qty: p.qty })} · <b className="text-slate-700">{mny(p.revenue)}</b></span>
                 </li>
               ))}
             </ul>
