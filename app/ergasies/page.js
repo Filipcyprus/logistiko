@@ -24,6 +24,7 @@ export default function JobsPage() {
   const [msgDraft, setMsgDraft] = useState("");
   const [showPerItemCommission, setShowPerItemCommission] = useState(false);
   const [emailBusy, setEmailBusy] = useState(null);
+  const [invoiceAsk, setInvoiceAsk] = useState(null); // { job, state: ask|busy|ok|err, msg }
 
   const loadJobs = () => {
     fetch("/api/jobs?status=active").then((r) => r.json()).then(setJobs);
@@ -105,7 +106,18 @@ export default function JobsPage() {
       loadJobs();
     }
   };
-  const completeJob = async (id) => { await fetch(`/api/jobs/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "done" }) }); loadJobs(); };
+  const completeJob = async (job) => {
+    await fetch(`/api/jobs/${job.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "done" }) });
+    loadJobs();
+    if (job.partnerShopId) setInvoiceAsk({ job, state: "ask", msg: "" });
+  };
+  const requestInvoice = async (job) => {
+    setInvoiceAsk({ job, state: "busy", msg: "" });
+    const res = await fetch(`/api/jobs/${job.id}/invoice-request`, { method: "POST" });
+    const r = await res.json().catch(() => ({}));
+    setInvoiceAsk({ job, state: r.ok ? "ok" : "err", msg: r.ok ? t("jobs.invoiceSentOk", { to: r.to }) : t("jobs.invoiceFailed", { error: r.error || "" }) });
+    loadJobs();
+  };
   const reopenJob = async (id) => { await fetch(`/api/jobs/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "active" }) }); loadJobs(); };
 
   return (
@@ -152,7 +164,7 @@ export default function JobsPage() {
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <button onClick={() => openJob(job)} className="btn-ghost !px-2 !py-1"><Icon name="edit" size={15} /></button>
-                    <button onClick={() => completeJob(job.id)} className="btn-ghost !px-2 !py-1 text-emerald-600" title={t("jobs.complete")}><Icon name="check" size={15} /></button>
+                    <button onClick={() => completeJob(job)} className="btn-ghost !px-2 !py-1 text-emerald-600" title={t("jobs.complete")}><Icon name="check" size={15} /></button>
                     <button onClick={() => delJob(job.id)} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={15} /></button>
                   </div>
                 </div>
@@ -189,8 +201,16 @@ export default function JobsPage() {
                   <td className="table-td font-mono text-xs">{j.number}</td>
                   <td className="table-td font-medium">{jobDisplayTitle(j)}</td>
                   <td className="table-td">{j.customerName || "—"}</td>
-                  <td className="table-td">{formatDate(j.completedAt)}</td>
+                  <td className="table-td">
+                    {formatDate(j.completedAt)}
+                    {j.partnerShopId && (j.invoiceRequest?.ok
+                      ? <div className="text-xs text-emerald-600">{t("jobs.invoiceRequestedBadge", { date: formatDate(j.invoiceRequest.at) })}</div>
+                      : j.invoiceRequest
+                        ? <div className="text-xs text-red-600">{t("jobs.invoiceFailedBadge")}</div>
+                        : <div className="text-xs text-slate-400">{t("jobs.invoiceNotRequested")}</div>)}
+                  </td>
                   <td className="table-td text-right whitespace-nowrap">
+                    {j.partnerShopId && <button onClick={(e) => { e.stopPropagation(); requestInvoice(j); }} className="btn-ghost !px-2 !py-1 text-xs text-brand-700"><Icon name="invoice" size={13} /> {j.invoiceRequest?.ok ? t("jobs.requestInvoiceAgain") : t("jobs.requestInvoice")}</button>}
                     <button onClick={(e) => { e.stopPropagation(); reopenJob(j.id); }} className="btn-ghost !px-2 !py-1 text-xs"><Icon name="refresh" size={13} /> {t("jobs.restore")}</button>
                     <button onClick={(e) => { e.stopPropagation(); delJob(j.id); }} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={15} /></button>
                   </td>
@@ -440,6 +460,36 @@ export default function JobsPage() {
           </div>
         </div>
       )}
+
+      {/* Ερώτηση τιμολογίου μετά το "ολοκληρώθηκε" */}
+      {invoiceAsk && (() => {
+        const job = invoiceAsk.job;
+        const partner = partnerShops.find((p) => p.id === job.partnerShopId);
+        const partnerName = partner?.name || job.partnerShopName || "";
+        const close = () => setInvoiceAsk(null);
+        return (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+            <div className="card p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-lg font-bold mb-1">{t("jobs.invoiceAskTitle")}</h2>
+              <p className="text-sm text-slate-600 mb-5">
+                {invoiceAsk.state === "ask" && t("jobs.invoiceAskBody", { number: job.number, partner: partnerName })}
+                {invoiceAsk.state === "busy" && t("jobs.invoiceSending")}
+                {(invoiceAsk.state === "ok" || invoiceAsk.state === "err") && invoiceAsk.msg}
+              </p>
+              <div className="flex flex-wrap justify-end gap-2">
+                {invoiceAsk.state === "ask" && (
+                  <>
+                    <button onClick={close} className="btn-secondary">{t("jobs.invoiceNo")}</button>
+                    <button onClick={() => requestInvoice(job)} className="btn-primary">{t("jobs.invoiceYes", { to: partner?.email || partnerName })}</button>
+                  </>
+                )}
+                {invoiceAsk.state === "err" && <button onClick={() => requestInvoice(job)} className="btn-secondary">{t("jobs.invoiceRetry")}</button>}
+                {(invoiceAsk.state === "ok" || invoiceAsk.state === "err") && <button onClick={close} className="btn-primary">{t("common.close")}</button>}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal συνεργατών τυπογραφείων */}
       {partnersModal && (

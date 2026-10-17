@@ -25,6 +25,7 @@ export async function PUT(request, { params }) {
   delete patch.messages;
   delete patch.history;
   delete patch.partnerEmail; // κατάσταση αποστολής email — γράφεται μόνο από τον server
+  delete patch.invoiceRequest;
 
   // Άμυνα κατά της διόγκωσης της βάσης: αν ο client (π.χ. παλιό/μη ανανεωμένο tab)
   // στείλει σχέδια με ενσωματωμένο base64 αντί για url, μετέτρεψέ τα σε αρχεία στο δίσκο.
