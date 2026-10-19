@@ -110,7 +110,14 @@ export default function InvoicesPage() {
                     <td className={`table-td text-right ${i.type === "credit" ? "text-red-600" : ""}`}>{money(i.vat)}</td>
                     <td className={`table-td text-right font-semibold ${i.type === "credit" ? "text-red-600" : ""}`}>{money(i.total)}</td>
                     <td className="table-td">
-                      {i.type !== "credit" && <span className={`badge ${i.status === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                      {i.type === "credit" && i.relatedNumber && <span className="text-xs text-slate-500">{t("invoices.creditFor", { number: i.relatedNumber })}</span>}
+                      {i.type !== "credit" && i.creditNoteId && (
+                        <>
+                          <span className="badge bg-slate-200 text-slate-700">{t("invoices.statusCredited")}</span>
+                          <div className="text-xs text-slate-400 mt-0.5">{i.creditNoteNumber}</div>
+                        </>
+                      )}
+                      {i.type !== "credit" && !i.creditNoteId && <span className={`badge ${i.status === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
                         {i.status === "paid" ? t("invoices.statusPaid") : t("invoices.statusUnpaid")}
                       </span>}
                     </td>
