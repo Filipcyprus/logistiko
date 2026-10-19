@@ -17,6 +17,7 @@ export default function InvoiceView() {
   const [notFound, setNotFound] = useState(false);
   const [busy, setBusy] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [creditPick, setCreditPick] = useState(null); // [{ on, qty }] ανά γραμμή — null = κλειστό
   const [pay, setPay] = useState({ amount: 0, method: "cash", date: new Date().toISOString().slice(0, 10) });
 
   const load = () => fetch(`/api/invoices/${id}`).then((r) => (r.ok ? r.json() : null)).then((i) => (i ? setInv(i) : setNotFound(true)));
@@ -44,10 +45,15 @@ export default function InvoiceView() {
   const balance = Math.round((Number(inv.total) - Number(inv.paidAmount || 0)) * 100) / 100;
   const docTitle = isCredit ? t("invoices.docCredit") : isTim ? t("invoices.docInvoice") : inv.isPaymentReceipt ? t("invoices.docPaymentReceipt") : t("invoices.docReceipt");
 
+  // Επιλογή γραμμών/ποσοτήτων που επιστρέφονται (ανοίγει από το κουμπί "Πιστωτικό").
+  const openCreditPicker = () => setCreditPick((inv.items || []).map((it) => ({ on: true, qty: String(it.quantity) })));
+  const creditPickItems = creditPick ? (inv.items || []).map((it, i) => ({ ...it, quantity: creditPick[i].on ? Math.min(Number(creditPick[i].qty) || 0, Number(it.quantity)) : 0 })).filter((it) => it.quantity > 0) : [];
+  const creditPickTotals = computeTotals(creditPickItems, 0);
   const createCreditNote = async () => {
-    if (!confirm(t("invoices.confirmCreditNote"))) return;
+    const lines = creditPick.map((p, index) => ({ index, quantity: p.on ? Math.min(Number(p.qty) || 0, Number(inv.items[index].quantity)) : 0 })).filter((l) => l.quantity > 0);
+    if (lines.length === 0) { alert(t("invoices.creditPickNone")); return; }
     setBusy(true);
-    const res = await fetch(`/api/invoices/${id}/credit`, { method: "POST" });
+    const res = await fetch(`/api/invoices/${id}/credit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lines }) });
     if (res.ok) { const cn = await res.json(); router.push(`/parastatika/${cn.id}`); }
     else { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); setBusy(false); }
   };
@@ -104,7 +110,7 @@ export default function InvoiceView() {
               <Icon name="invoice" size={15} /> {t("invoices.reissueAsInvoice")}
             </Link>
           )}
-          {!isCredit && !inv.creditNoteId && <button onClick={createCreditNote} disabled={busy} className="btn-secondary"><Icon name="invoice" size={15} /> {t("invoices.createCreditNote")}</button>}
+          {!isCredit && !inv.creditNoteId && <button onClick={openCreditPicker} disabled={busy} className="btn-secondary"><Icon name="invoice" size={15} /> {t("invoices.createCreditNote")}</button>}
           {inv.creditNoteId && <Link href={`/parastatika/${inv.creditNoteId}`} className="btn-secondary text-red-600">{t("invoices.creditNoteLink", { number: inv.creditNoteNumber })}</Link>}
           {(inv.paymentReceipts || []).map((r) => (
             <Link key={r.id} href={`/parastatika/${r.id}`} className="btn-secondary text-emerald-600">{t("invoices.paymentReceiptLink", { number: r.number })}</Link>
@@ -218,6 +224,36 @@ export default function InvoiceView() {
       </div>
 
       {/* Modal είσπραξης */}
+      {creditPick && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-1">{t("invoices.creditPickTitle", { number: inv.number })}</h2>
+            <p className="text-sm text-slate-500 mb-4">{t("invoices.creditPickHint")}</p>
+            <div className="space-y-2">
+              {inv.items.map((it, i) => (
+                <label key={i} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${creditPick[i].on ? "border-brand-300 bg-brand-50/40" : "border-slate-200"}`}>
+                  <input type="checkbox" checked={creditPick[i].on} onChange={(e) => setCreditPick(creditPick.map((p, j) => (j === i ? { ...p, on: e.target.checked } : p)))} />
+                  <span className="flex-1 min-w-0 text-sm truncate">{it.description}</span>
+                  <input
+                    type="number" min="0" max={it.quantity} step="any" className="input !w-20 !py-1 text-right text-sm" disabled={!creditPick[i].on}
+                    value={creditPick[i].qty} onChange={(e) => setCreditPick(creditPick.map((p, j) => (j === i ? { ...p, qty: e.target.value } : p)))}
+                  />
+                  <span className="text-xs text-slate-400 w-14 text-right">/ {it.quantity}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex items-center justify-between mt-4 text-sm">
+              <span className="text-slate-500">{t("invoices.creditRefundTotal")}</span>
+              <span className="text-lg font-bold text-red-600">{money(creditPickTotals.total, cur)}</span>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setCreditPick(null)} className="btn-secondary">{t("common.cancel")}</button>
+              <button onClick={createCreditNote} disabled={busy} className="btn-primary">{busy ? t("common.saving") : t("invoices.createCreditNote")}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {payOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 no-print">
           <div className="card p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>

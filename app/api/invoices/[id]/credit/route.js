@@ -4,9 +4,11 @@ import { serverT } from "@/lib/i18n/server";
 import { incrementWarehouseStocks } from "@/lib/stockHelpers";
 import { postEntry } from "@/lib/posting";
 import { entryForInvoice } from "@/lib/postingRules";
+import { computeTotals } from "@/lib/format";
 
 // Έκδοση πιστωτικού τιμολογίου για ολόκληρο το αρχικό παραστατικό.
-export async function POST(_req, { params }) {
+export async function POST(request, { params }) {
+  const body = await request.json().catch(() => ({}));
   const db = readDB();
   const orig = db.invoices.find((x) => x.id === params.id);
   if (!orig) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
@@ -14,6 +16,30 @@ export async function POST(_req, { params }) {
   if (orig.creditNoteId) {
     return NextResponse.json({ error: "errors.invalidData" }, { status: 400 });
   }
+
+  // Ολόκληρο το παραστατικό, ή μόνο συγκεκριμένες γραμμές/ποσότητες: lines = [{ index, quantity }].
+  let creditItems;
+  let partial = false;
+  if (Array.isArray(body.lines) && body.lines.length > 0) {
+    creditItems = [];
+    for (const l of body.lines) {
+      const src = (orig.items || [])[Number(l.index)];
+      const qty = Math.round(Number(l.quantity) * 1000) / 1000;
+      if (!src || !(qty > 0) || qty > Number(src.quantity) + 1e-9) {
+        return NextResponse.json({ error: "errors.invalidData" }, { status: 400 });
+      }
+      creditItems.push({ ...src, quantity: qty, unitPrice: Number(src.unitPrice) });
+    }
+    const sameAsAll = creditItems.length === (orig.items || []).length && creditItems.every((it, i) => Number(it.quantity) === Number(orig.items[i].quantity));
+    partial = !sameAsAll;
+  }
+  if (!creditItems) creditItems = (orig.items || []).map((it) => ({ ...it, quantity: Number(it.quantity), unitPrice: Number(it.unitPrice) }));
+
+  // Η έκπτωση επί του συνόλου μοιράζεται αναλογικά στο μέρος που επιστρέφεται.
+  const origGross = computeTotals(orig.items || [], 0).subtotal;
+  const creditGross = computeTotals(creditItems, 0).subtotal;
+  const discountShare = partial && origGross > 0 ? Math.round(Number(orig.invoiceDiscount || 0) * (creditGross / origGross) * 100) / 100 : Number(orig.invoiceDiscount || 0);
+  const t = partial ? computeTotals(creditItems, discountShare) : null;
 
   const seq = db.counters.credit || 1;
   const number = `${db.settings.creditPrefix || "CN-"}${db.settings.series || "A"}-${String(seq).padStart(5, "0")}`;
@@ -30,24 +56,25 @@ export async function POST(_req, { params }) {
     relatedInvoiceId: orig.id,
     relatedNumber: orig.number,
     // Αρνητικά ποσά ώστε να μειώνουν πωλήσεις/ΦΠΑ/υπόλοιπο σε αναφορές & καρτέλα.
-    items: (orig.items || []).map((it) => ({ ...it, quantity: Number(it.quantity), unitPrice: Number(it.unitPrice) })),
-    net: -Number(orig.net),
-    vat: -Number(orig.vat),
-    total: -Number(orig.total),
+    items: creditItems,
+    net: partial ? -t.net : -Number(orig.net),
+    vat: partial ? -t.vat : -Number(orig.vat),
+    total: partial ? -t.total : -Number(orig.total),
     // Μεταφέρεται ώστε η ανάλυση ανά συντελεστή ΦΠΑ να αθροίζει σωστά στο καθαρό ποσό.
-    invoiceDiscount: Number(orig.invoiceDiscount || 0),
-    subtotal: Number(orig.subtotal || 0),
+    invoiceDiscount: discountShare,
+    subtotal: partial ? t.subtotal : Number(orig.subtotal || 0),
+    partial,
     // Εξοφλημένο αρχικό → τα χρήματα επιστρέφονται με τον ίδιο τρόπο (μετρητά/τράπεζα).
     // Απλήρωτο αρχικό → δεν επιστρέφονται χρήματα, απλώς μειώνεται ό,τι χρωστάει ο πελάτης.
     paymentMethod: orig.paymentMethod,
     status: orig.status === "paid" ? "paid" : "unpaid",
-    paidAmount: orig.status === "paid" ? -Number(orig.total) : 0,
+    paidAmount: orig.status === "paid" ? (partial ? -t.total : -Number(orig.total)) : 0,
     notes: "",
     createdAt: new Date().toISOString(),
   };
 
   // Επιστροφή αποθέματος (τα είδη γυρίζουν πίσω).
-  for (const it of orig.items || []) {
+  for (const it of creditItems) {
     if (!it.productId) continue;
     const p = db.products.find((x) => x.id === it.productId);
     if (p && p.trackStock !== false) {
