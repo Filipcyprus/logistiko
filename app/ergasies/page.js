@@ -111,11 +111,12 @@ export default function JobsPage() {
     loadJobs();
     if (job.partnerShopId) setInvoiceAsk({ job, state: "ask", msg: "" });
   };
-  const requestInvoice = async (job) => {
-    setInvoiceAsk({ job, state: "busy", msg: "" });
-    const res = await fetch(`/api/jobs/${job.id}/invoice-request`, { method: "POST" });
+  // wanted=true: "θέλω τιμολόγιο"· wanted=false: "δεν χρειάζομαι τιμολόγιο" — ο συνεργάτης ενημερώνεται και στις δύο.
+  const requestInvoice = async (job, wanted = true) => {
+    setInvoiceAsk({ job, state: "busy", msg: "", wanted });
+    const res = await fetch(`/api/jobs/${job.id}/invoice-request`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wanted }) });
     const r = await res.json().catch(() => ({}));
-    setInvoiceAsk({ job, state: r.ok ? "ok" : "err", msg: r.ok ? t("jobs.invoiceSentOk", { to: r.to }) : t("jobs.invoiceFailed", { error: r.error || "" }) });
+    setInvoiceAsk({ job, state: r.ok ? "ok" : "err", wanted, msg: r.ok ? t(wanted ? "jobs.invoiceSentOk" : "jobs.noInvoiceSentOk", { to: r.to }) : t("jobs.invoiceFailed", { error: r.error || "" }) });
     loadJobs();
   };
   const reopenJob = async (id) => { await fetch(`/api/jobs/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "active" }) }); loadJobs(); };
@@ -204,13 +205,14 @@ export default function JobsPage() {
                   <td className="table-td">
                     {formatDate(j.completedAt)}
                     {j.partnerShopId && (j.invoiceRequest?.ok
-                      ? <div className="text-xs text-emerald-600">{t("jobs.invoiceRequestedBadge", { date: formatDate(j.invoiceRequest.at) })}</div>
+                      ? <div className={`text-xs ${j.invoiceRequest.wanted === false ? "text-slate-500" : "text-emerald-600"}`}>{t(j.invoiceRequest.wanted === false ? "jobs.noInvoiceBadge" : "jobs.invoiceRequestedBadge", { date: formatDate(j.invoiceRequest.at) })}</div>
                       : j.invoiceRequest
                         ? <div className="text-xs text-red-600">{t("jobs.invoiceFailedBadge")}</div>
                         : <div className="text-xs text-slate-400">{t("jobs.invoiceNotRequested")}</div>)}
                   </td>
                   <td className="table-td text-right whitespace-nowrap">
-                    {j.partnerShopId && <button onClick={(e) => { e.stopPropagation(); requestInvoice(j); }} className="btn-ghost !px-2 !py-1 text-xs text-brand-700"><Icon name="invoice" size={13} /> {j.invoiceRequest?.ok ? t("jobs.requestInvoiceAgain") : t("jobs.requestInvoice")}</button>}
+                    {j.partnerShopId && <button onClick={(e) => { e.stopPropagation(); requestInvoice(j, true); }} className="btn-ghost !px-2 !py-1 text-xs text-brand-700"><Icon name="invoice" size={13} /> {j.invoiceRequest?.ok && j.invoiceRequest.wanted !== false ? t("jobs.requestInvoiceAgain") : t("jobs.requestInvoice")}</button>}
+                    {j.partnerShopId && <button onClick={(e) => { e.stopPropagation(); requestInvoice(j, false); }} className="btn-ghost !px-2 !py-1 text-xs text-slate-500">{t("jobs.invoiceNo")}</button>}
                     <button onClick={(e) => { e.stopPropagation(); reopenJob(j.id); }} className="btn-ghost !px-2 !py-1 text-xs"><Icon name="refresh" size={13} /> {t("jobs.restore")}</button>
                     <button onClick={(e) => { e.stopPropagation(); delJob(j.id); }} className="btn-ghost !px-2 !py-1 text-red-500"><Icon name="trash" size={15} /></button>
                   </td>
@@ -472,18 +474,18 @@ export default function JobsPage() {
             <div className="card p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
               <h2 className="text-lg font-bold mb-1">{t("jobs.invoiceAskTitle")}</h2>
               <p className="text-sm text-slate-600 mb-5">
-                {invoiceAsk.state === "ask" && t("jobs.invoiceAskBody", { number: job.number, partner: partnerName })}
+                {invoiceAsk.state === "ask" && t("jobs.invoiceAskBody", { number: job.number, partner: partnerName, to: partner?.email || partnerName })}
                 {invoiceAsk.state === "busy" && t("jobs.invoiceSending")}
                 {(invoiceAsk.state === "ok" || invoiceAsk.state === "err") && invoiceAsk.msg}
               </p>
               <div className="flex flex-wrap justify-end gap-2">
                 {invoiceAsk.state === "ask" && (
                   <>
-                    <button onClick={close} className="btn-secondary">{t("jobs.invoiceNo")}</button>
-                    <button onClick={() => requestInvoice(job)} className="btn-primary">{t("jobs.invoiceYes", { to: partner?.email || partnerName })}</button>
+                    <button onClick={() => requestInvoice(job, false)} className="btn-secondary">{t("jobs.invoiceNo")}</button>
+                    <button onClick={() => requestInvoice(job, true)} className="btn-primary">{t("jobs.invoiceYes")}</button>
                   </>
                 )}
-                {invoiceAsk.state === "err" && <button onClick={() => requestInvoice(job)} className="btn-secondary">{t("jobs.invoiceRetry")}</button>}
+                {invoiceAsk.state === "err" && <button onClick={() => requestInvoice(job, invoiceAsk.wanted !== false)} className="btn-secondary">{t("jobs.invoiceRetry")}</button>}
                 {(invoiceAsk.state === "ok" || invoiceAsk.state === "err") && <button onClick={close} className="btn-primary">{t("common.close")}</button>}
               </div>
             </div>

@@ -10,7 +10,14 @@ export async function GET(_req, { params }) {
   // Μόνο οι αποδείξεις πληρωμής που όντως συνδέονται με τιμολόγιο εξαιρούνται (η πληρωμή
   // τους καταγράφεται ήδη ως πίστωση μέσω του payments). Χωρίς σύνδεση είναι κανονική χρέωση.
   const invoices = db.invoices.filter((i) => i.customerId === params.id && !(i.isPaymentReceipt && i.relatedInvoiceId));
-  const payments = db.payments.filter((p) => p.customerId === params.id);
+  const recordedPayments = db.payments.filter((p) => p.customerId === params.id);
+  // Παραστατικό που εξοφλήθηκε επιτόπου (απόδειξη/τιμολόγιο "πληρωμένο" χωρίς ξεχωριστή είσπραξη)
+  // δεν έχει εγγραφή στα payments — χωρίς αυτό το βήμα θα φαινόταν ότι ο πελάτης το χρωστάει.
+  // Στα πιστωτικά το paidAmount είναι αρνητικό (επιστροφή), άρα η "είσπραξη" αντιστρέφεται σωστά.
+  const settledOnSpot = invoices
+    .filter((i) => i.status === "paid" && !db.payments.some((p) => p.invoiceId === i.id) && Number(i.paidAmount || 0) !== 0)
+    .map((i) => ({ id: "spot-" + i.id, date: i.date, method: i.paymentMethod, notes: i.number, amount: Number(i.paidAmount), createdAt: i.createdAt }));
+  const payments = [...recordedPayments, ...settledOnSpot];
   const orders = db.orders.filter((o) => o.customerId === params.id);
 
   // Το ref/desc μεταφράζονται στο client (kind/invoiceKind/method περνιούνται ως δεδομένα, όχι έτοιμο κείμενο).
