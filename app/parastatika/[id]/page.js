@@ -17,6 +17,7 @@ export default function InvoiceView() {
   const [notFound, setNotFound] = useState(false);
   const [busy, setBusy] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [dateEdit, setDateEdit] = useState(null); // νέα ημερομηνία (YYYY-MM-DD) — null = κλειστό
   const [creditPick, setCreditPick] = useState(null); // [{ on, qty }] ανά γραμμή — null = κλειστό
   const [pay, setPay] = useState({ amount: 0, method: "cash", date: new Date().toISOString().slice(0, 10) });
 
@@ -56,6 +57,14 @@ export default function InvoiceView() {
     const res = await fetch(`/api/invoices/${id}/credit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lines }) });
     if (res.ok) { const cn = await res.json(); router.push(`/parastatika/${cn.id}`); }
     else { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); setBusy(false); }
+  };
+
+  const saveDate = async () => {
+    setBusy(true);
+    const res = await fetch(`/api/invoices/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: dateEdit }) });
+    setBusy(false);
+    if (res.ok) { setDateEdit(null); load(); }
+    else { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); }
   };
 
   const issuePaymentReceipt = async () => {
@@ -110,6 +119,7 @@ export default function InvoiceView() {
               <Icon name="invoice" size={15} /> {t("invoices.reissueAsInvoice")}
             </Link>
           )}
+          <button onClick={() => setDateEdit(inv.date)} className="btn-secondary"><Icon name="calendar" size={15} /> {t("invoices.changeDate")}</button>
           {!isCredit && !inv.creditNoteId && <button onClick={openCreditPicker} disabled={busy} className="btn-secondary"><Icon name="invoice" size={15} /> {t("invoices.createCreditNote")}</button>}
           {inv.creditNoteId && <Link href={`/parastatika/${inv.creditNoteId}`} className="btn-secondary text-red-600">{t("invoices.creditNoteLink", { number: inv.creditNoteNumber })}</Link>}
           {(inv.paymentReceipts || []).map((r) => (
@@ -224,6 +234,20 @@ export default function InvoiceView() {
       </div>
 
       {/* Modal είσπραξης */}
+      {dateEdit !== null && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="card p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-1">{t("invoices.changeDateTitle", { number: inv.number })}</h2>
+            <p className="text-sm text-slate-500 mb-4">{t("invoices.changeDateHint")}</p>
+            <input type="date" className="input" value={dateEdit} onChange={(e) => setDateEdit(e.target.value)} />
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setDateEdit(null)} className="btn-secondary">{t("common.cancel")}</button>
+              <button onClick={saveDate} disabled={busy || !dateEdit || dateEdit === inv.date} className="btn-primary">{busy ? t("common.saving") : t("common.save")}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {creditPick && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>

@@ -2,13 +2,54 @@ import { NextResponse } from "next/server";
 import { readDB, writeDB, uid } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server";
 import { decrementWarehouseStocks, incrementWarehouseStocks } from "@/lib/stockHelpers";
-import { removeEntriesBySource } from "@/lib/posting";
+import { removeEntriesBySource, repostSource } from "@/lib/posting";
+import { entryForInvoice } from "@/lib/postingRules";
+import { pushActivity } from "@/lib/audit";
+import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
 
 export async function GET(_req, { params }) {
   const db = readDB();
   const rec = db.invoices.find((x) => x.id === params.id);
   if (!rec) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
   return NextResponse.json(rec);
+}
+
+// Αλλαγή ημερομηνίας παραστατικού (π.χ. ξεχάστηκε να κοπεί την ίδια μέρα). Μόνο ο owner. Μετακινεί μαζί
+// του τη λογιστική εγγραφή και το ιστορικό αποθέματος· δεν αγγίζει ποσά, αριθμό ή πληρωμές.
+// Η πραγματική ώρα καταχώρισης μένει στο Ιστορικό Δραστηριότητας.
+export async function PUT(request, { params }) {
+  const session = await verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
+  if (session?.role !== "owner") return NextResponse.json({ error: "errors.dateOnlyOwner" }, { status: 403 });
+
+  const body = await request.json().catch(() => ({}));
+  const date = String(body.date || "");
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(new Date(date + "T00:00:00Z").getTime());
+  if (!valid) return NextResponse.json({ error: "errors.invalidData" }, { status: 400 });
+  // Ανοχή μίας ημέρας: ο server τρέχει σε UTC, η Κύπρος είναι 2-3 ώρες μπροστά.
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  if (date > tomorrow) return NextResponse.json({ error: "errors.dateFuture" }, { status: 400 });
+
+  const db = readDB();
+  const inv = db.invoices.find((x) => x.id === params.id);
+  if (!inv) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
+  const oldDate = inv.date;
+  if (oldDate === date) return NextResponse.json(inv);
+
+  // Κλεισμένη Ζ = παγωμένη περίοδος: ούτε μέσα ούτε έξω από αυτήν δεν μετακινούνται παραστατικά.
+  const closedZ = (db.zReports || []).find((z) => [oldDate, date].some((d) => (z.mode === "month" ? String(d).startsWith(z.period) : d === z.period)));
+  if (closedZ) return NextResponse.json({ error: "errors.dateZClosed" }, { status: 400 });
+
+  inv.date = date;
+  try {
+    repostSource(db, "invoice", inv.id, entryForInvoice(db, inv));
+  } catch (e) {
+    if (e.code === "PERIOD_LOCKED") return NextResponse.json({ error: "errors.periodLocked" }, { status: 400 });
+    throw e;
+  }
+  for (const m of db.stockMovements || []) if (m.ref === inv.id) m.date = date;
+  pushActivity(db, "invoice_date_changed", { number: inv.number, from: oldDate, to: date }, session);
+  writeDB(db);
+  return NextResponse.json(inv);
 }
 
 // Ακύρωση/διαγραφή παραστατικού — αντιστρέφει την κίνηση αποθέματος.
