@@ -10,10 +10,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "dejavu-fonts-ttf": "^2.37.3",
     "next": "14.2.5",
     "nodemailer": "^9.0.3",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "5.4.296",
+    "pdfkit": "^0.20.2",
     "qz-tray": "^2.2.6",
     "react": "18.3.1",
     "react-dom": "18.3.1",

@@ -3,6 +3,7 @@ import { createMailTransport } from "@/lib/mailTransport";
 import { readDB } from "@/lib/db";
 import { isMailConfigured } from "@/lib/mailConfig";
 import { buildEmail } from "@/lib/email";
+import { buildDocumentPdf } from "@/lib/pdf";
 import { logActivity } from "@/lib/audit";
 
 export async function POST(request) {
@@ -27,14 +28,23 @@ export async function POST(request) {
   if (!to) return NextResponse.json({ error: "errors.noRecipient" }, { status: 400 });
 
   const emailKind = kind === "credit" || doc.type === "credit" ? "credit" : kind;
-  const { subject, html } = buildEmail({ kind: emailKind, doc, settings: db.settings, lang: db.settings.language });
+  // Το παραστατικό επισυνάπτεται και ως PDF. Αν η δημιουργία του αποτύχει, το email φεύγει κανονικά (χωρίς
+  // συνημμένο) και το σφάλμα καταγράφεται — δεν χάνεται η αποστολή.
+  let attachments;
+  try {
+    const pdf = await buildDocumentPdf({ kind: emailKind, doc, settings: db.settings, lang: db.settings.language });
+    attachments = [{ filename: `${String(doc.number || "document").replace(/[^\w.-]+/g, "_")}.pdf`, content: pdf, contentType: "application/pdf" }];
+  } catch (e) {
+    console.error("PDF build failed:", e?.message || e);
+  }
+  const { subject, html } = buildEmail({ kind: emailKind, doc, settings: db.settings, lang: db.settings.language, hasPdf: !!attachments });
 
   try {
     const transporter = await createMailTransport(mail);
     const from = mail.fromEmail
       ? `"${mail.fromName || db.settings.companyName}" <${mail.fromEmail}>`
       : (mail.user || undefined);
-    await transporter.sendMail({ from, to, subject, html });
+    await transporter.sendMail({ from, to, subject, html, attachments });
   } catch (e) {
     console.error("Email error:", e?.message || e);
     await logActivity(request, "email_failed", { kind: emailKind, number: doc.number || "", to, subject, error: String(e?.message || e) });
@@ -42,5 +52,5 @@ export async function POST(request) {
   }
   await logActivity(request, "email_sent", { kind: emailKind, number: doc.number || "", to, subject });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, pdf: !!attachments });
 }
