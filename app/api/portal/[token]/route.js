@@ -35,7 +35,7 @@ export async function GET(_req, { params }) {
   const discountRules = Array.isArray(c.discountRules) ? c.discountRules : [];
   const ruleDiscountFor = (p) => bestRuleDiscount(discountRules, p);
 
-  let products = (db.products || []).map((p) => {
+  let products = (db.products || []).filter((p) => !p.archived).map((p) => {
     const hasCustomPrice = customPriceMap.has(p.id);
     const ruleDisc = hasCustomPrice ? null : ruleDiscountFor(p);
     const discountPercent = hasCustomPrice ? 0 : (ruleDisc !== null ? ruleDisc : disc);

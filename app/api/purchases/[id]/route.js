@@ -32,6 +32,7 @@ export async function PUT(request, { params }) {
       if (p && p.trackStock !== false && qty > 0) {
         p.stock = Math.round((Number(p.stock || 0) + qty) * 1000) / 1000;
         incrementWarehouseStocks(p, qty);
+        if (p.archived && Number(p.stock) > 0) delete p.archived; // παρέλαβες ξανά → επανέρχεται
         receivedTotalQty += qty;
         db.stockMovements.unshift({
           id: uid(), productId: p.id, productName: p.name, type: "in",

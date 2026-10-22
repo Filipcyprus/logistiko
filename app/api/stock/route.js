@@ -49,6 +49,8 @@ export async function POST(request) {
     createdAt: new Date().toISOString(),
   };
   db.stockMovements.unshift(movement);
+  // Κρυμμένο είδος που ξαναπήρε απόθεμα επανέρχεται αυτόματα στη λίστα και στις πωλήσεις.
+  if (p.archived && Number(p.stock) > 0) delete p.archived;
   writeDB(db);
   return NextResponse.json({ product: p, movement });
 }

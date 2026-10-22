@@ -92,7 +92,9 @@ export default function LineItems({ items, onChange, products = [], currency = "
 
   const matchesFor = (idx) => {
     const q = (query[idx] || "").trim();
-    const pool = q ? products.filter((p) => productMatchesQuery(p, q)) : products;
+    // Τα κρυμμένα είδη δεν προτείνονται — εκτός αν σκαναριστεί ακριβώς το barcode τους.
+    const visible = products.filter((p) => !p.archived || (q && p.barcode === q));
+    const pool = q ? visible.filter((p) => productMatchesQuery(p, q)) : visible;
     return pool.slice(0, 8);
   };
 

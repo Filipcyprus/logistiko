@@ -64,7 +64,7 @@ export async function GET() {
 
   const products = db.products || [];
   const lowStock = products.filter(
-    (p) => p.trackStock !== false && Number(p.stock) <= Number(p.lowStock || 0)
+    (p) => !p.archived && p.trackStock !== false && Number(p.stock) <= Number(p.lowStock || 0)
   );
 
   // Κορυφαία προϊόντα (βάσει τεμαχίων που πωλήθηκαν)

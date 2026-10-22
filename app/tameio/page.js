@@ -91,7 +91,8 @@ export default function TillPage() {
   // (π.χ. άρωμα) δεν έβρισκε τίποτα, παρότι υπήρχε απόθεμα.
   const tillProducts = products;
   const q = query.trim();
-  const matches = q ? tillProducts.filter((p) => productMatchesQuery(p, q)).slice(0, 8) : [];
+  // Τα κρυμμένα είδη δεν εμφανίζονται στην αναζήτηση· το σκανάρισμα barcode τα βρίσκει κανονικά.
+  const matches = q ? tillProducts.filter((p) => !p.archived && productMatchesQuery(p, q)).slice(0, 8) : [];
 
   const addToCart = (p) => {
     setCart((prev) => {

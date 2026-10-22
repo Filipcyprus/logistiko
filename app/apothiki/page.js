@@ -23,6 +23,7 @@ export default function StockPage() {
   const [subFilter, setSubFilter] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
   const [lowStockOnly, setLowStockOnly] = useState(false);
+  const [showHidden, setShowHidden] = useState(false); // κρυμμένα είδη (π.χ. χωρίς απόθεμα που δεν φέρνουμε πια)
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 50;
   const [reorderCount, setReorderCount] = useState(0);
@@ -103,6 +104,7 @@ export default function StockPage() {
   // Υποκατηγορίες: μόνο όσες υπάρχουν στην επιλεγμένη κατηγορία (ή όλες, αν δεν έχει επιλεγεί).
   const subNames = Array.from(new Set(products.filter((p) => !catFilter || (p.category || "") === catFilter).map((p) => p.subcategory).filter(Boolean))).sort((a, b) => a.localeCompare(b));
   const filtered = products.filter((p) => {
+    if (!!p.archived !== showHidden) return false;
     if (deptFilter && (p.department || "") !== deptFilter) return false;
     if (catFilter && (p.category || "") !== catFilter) return false;
     if (subFilter && (p.subcategory || "") !== subFilter) return false;
@@ -122,6 +124,24 @@ export default function StockPage() {
     ["barber", "deptBarber"],
     ["perfumes", "deptPerfumes"],
   ];
+
+  const hiddenCount = products.filter((p) => p.archived).length;
+  // Είδη με απόθεμα 0 (ή μείον) μέσα στο τρέχον φίλτρο — οι υπηρεσίες δεν μετράνε.
+  const zeroStock = showHidden ? [] : filtered.filter((p) => p.trackStock !== false && Number(p.stock || 0) <= 0);
+
+  const flagProducts = async (ids, field, value) => {
+    const res = await fetch("/api/products/bulk-update", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productIds: ids, field, value }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error ? t(err.error) : t("common.error")); return; }
+    setSelected(new Set());
+    load();
+  };
+  const hideZeroStock = () => {
+    if (!zeroStock.length || !confirm(t("stock.confirmHideZero", { count: zeroStock.length }))) return;
+    flagProducts(zeroStock.map((p) => p.id), "archived", true);
+  };
 
   const delProduct = async (id) => {
     if (!confirm(t("stock.confirmDeleteProduct"))) return;
@@ -278,7 +298,21 @@ export default function StockPage() {
             >
               <Icon name="alert" size={14} className="inline mr-1" /> {t("stock.lowStockOnly", "Low Stock")}
             </button>
+            {(hiddenCount > 0 || showHidden) && (
+              <button
+                onClick={() => { setShowHidden(!showHidden); setSelected(new Set()); setPage(1); }}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${showHidden ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+              >
+                <Icon name="eyeOff" size={14} className="inline mr-1" /> {t("stock.hiddenFilter", { count: hiddenCount })}
+              </button>
+            )}
+            {zeroStock.length > 0 && (
+              <button onClick={hideZeroStock} className="px-3 py-1.5 rounded-full text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200">
+                {t("stock.hideZeroStock", { count: zeroStock.length })}
+              </button>
+            )}
           </div>
+          {showHidden && <p className="text-sm text-slate-500 -mt-2">{t("stock.hiddenHint")}</p>}
           <div className="card p-4 flex flex-wrap gap-3 items-center">
             <div className="relative max-w-sm w-full">
               <Icon name="search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -299,7 +333,15 @@ export default function StockPage() {
           {selected.size > 0 && (
             <div className="card p-3 flex items-center gap-3 bg-brand-50 border-brand-100">
               <span className="text-sm font-medium text-brand-800">{t("stock.bulkSelectedCount", { count: selected.size })}</span>
-              <button onClick={openBulkEdit} className="btn-primary text-sm"><Icon name="edit" size={14} /> {t("stock.bulkEditBtn")}</button>
+              {showHidden ? (
+                <button onClick={() => flagProducts(Array.from(selected), "archived", false)} className="btn-primary text-sm"><Icon name="eye" size={14} /> {t("stock.restoreBtn")}</button>
+              ) : (
+                <>
+                  <button onClick={openBulkEdit} className="btn-primary text-sm"><Icon name="edit" size={14} /> {t("stock.bulkEditBtn")}</button>
+                  <button onClick={() => flagProducts(Array.from(selected), "archived", true)} className="btn-secondary text-sm"><Icon name="eyeOff" size={14} /> {t("stock.hideBtn")}</button>
+                  <button onClick={() => flagProducts(Array.from(selected), "service", true)} className="btn-secondary text-sm">{t("stock.makeService")}</button>
+                </>
+              )}
               <button onClick={() => setSelected(new Set())} className="btn-ghost text-sm">{t("stock.bulkClearSelection")}</button>
             </div>
           )}
@@ -423,6 +465,9 @@ export default function StockPage() {
                           ) : "—"}
                         </td>
                         <td className="table-td text-right whitespace-nowrap sticky right-0 bg-white border-l border-slate-200">
+                          {p.archived
+                            ? <button onClick={() => flagProducts([p.id], "archived", false)} className="btn-ghost !px-2 !py-1 text-brand-700" title={t("stock.restoreBtn")}><Icon name="eye" size={15} /></button>
+                            : <button onClick={() => flagProducts([p.id], "archived", true)} className="btn-ghost !px-2 !py-1" title={t("stock.hideBtn")}><Icon name="eyeOff" size={15} /></button>}
                           <button onClick={() => addToReorderList(p.id)} className={`btn-ghost !px-2 !py-1 ${justAdded === p.id ? "text-emerald-600" : ""}`} title={t("stock.addToReorderList")}>
                             <Icon name={justAdded === p.id ? "check" : "cart"} size={15} />
                           </button>

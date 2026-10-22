@@ -17,6 +17,31 @@ export async function POST(request) {
   if (!Array.isArray(productIds) || productIds.length === 0) {
     return NextResponse.json({ error: "errors.invalidInput" }, { status: 400 });
   }
+  // Απόκρυψη/επαναφορά και "υπηρεσία" (χωρίς απόθεμα) — σημαίες ναι/όχι, όχι αριθμοί.
+  // Τα κρυμμένα είδη δεν σβήνονται: μένουν στα παλιά παραστατικά και επανέρχονται με ένα κλικ.
+  if (field === "archived" || field === "service") {
+    const db = readDB();
+    const idSet = new Set(productIds);
+    const on = !!value;
+    let updated = 0;
+    for (const p of db.products) {
+      if (!idSet.has(p.id)) continue;
+      if (field === "archived") {
+        if (!!p.archived === on) continue;
+        if (on) p.archived = true; else delete p.archived;
+      } else {
+        if ((p.trackStock === false) === on) continue;
+        p.trackStock = !on;
+        // Υπηρεσία = δεν έχει απόθεμα· τα αρνητικά νούμερα από τις πωλήσεις μηδενίζονται,
+        // και δεν κρύβεται ποτέ (πουλιέται συνέχεια).
+        if (on) { p.stock = 0; delete p.archived; }
+      }
+      updated++;
+    }
+    writeDB(db);
+    return NextResponse.json({ updated, total: idSet.size });
+  }
+
   const isNumeric = NUMERIC_FIELDS.includes(field);
   if (!isNumeric && !TEXT_FIELDS.includes(field)) {
     return NextResponse.json({ error: "errors.invalidInput" }, { status: 400 });
