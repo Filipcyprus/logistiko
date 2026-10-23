@@ -253,6 +253,11 @@ export default function StockPage() {
   // ούτε στον αριθμό ούτε στην αξία — τα αρνητικά θα τραβούσαν την αξία προς τα κάτω.
   const inStock = products.filter((p) => p.trackStock !== false && Number(p.stock) > 0);
   const stockValue = inStock.reduce((a, p) => a + Number(p.stock) * Number(p.cost || 0), 0);
+  // Αξία (κόστος) και πλήθος ειδών σε απόθεμα ανά τμήμα — οι κάρτες πάνω από τη λίστα.
+  const deptStats = ["printShop", "barber", "perfumes", ""].map((d) => {
+    const items = inStock.filter((p) => (p.department || "") === d);
+    return { d, count: items.length, value: items.reduce((a, p) => a + Number(p.stock) * Number(p.cost || 0), 0) };
+  }).filter((x) => x.d !== "" || x.count > 0);
 
   return (
     <div className="space-y-6">
@@ -270,6 +275,25 @@ export default function StockPage() {
           <a href="/api/products/import-excel/template" className="text-xs text-brand-600 hover:underline whitespace-nowrap">{t("stock.downloadTemplate")}</a>
           <a href="/api/products/export-excel" className="btn-secondary"><Icon name="download" size={16} /> {t("stock.exportExcel")}</a>
           <Link href="/apothiki/neo" className="btn-primary"><Icon name="plus" size={16} /> {t("stock.newItem")}</Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {deptStats.map((x) => {
+          const key = x.d === "printShop" ? "deptPrintShop" : x.d === "barber" ? "deptBarber" : x.d === "perfumes" ? "deptPerfumes" : "deptOther";
+          return (
+            <button key={x.d || "other"} onClick={() => { setDeptFilter(x.d); setTab("products"); setPage(1); }}
+              className={`card p-4 text-left transition-colors hover:border-brand-300 ${deptFilter === x.d && x.d !== "" ? "!border-brand-500 bg-brand-50/40" : ""}`}>
+              <div className="text-xs font-medium text-slate-500">{t(`stock.${key}`)}</div>
+              <div className="text-xl font-bold text-slate-800 mt-1">{money(x.value, cur)}</div>
+              <div className="text-xs text-slate-400 mt-0.5">{t("stock.deptItemsInStock", { count: x.count })}</div>
+            </button>
+          );
+        })}
+        <div className="card p-4 bg-slate-800 border-slate-800">
+          <div className="text-xs font-medium text-slate-300">{t("stock.allDepartments")}</div>
+          <div className="text-xl font-bold text-white mt-1">{money(stockValue, cur)}</div>
+          <div className="text-xs text-slate-400 mt-0.5">{t("stock.deptItemsInStock", { count: inStock.length })}</div>
         </div>
       </div>
 
