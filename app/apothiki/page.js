@@ -249,14 +249,17 @@ export default function StockPage() {
 
   const brandList = useMemo(() => [...new Set(products.map((p) => p.brand).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [products]);
 
-  const stockValue = products.reduce((a, p) => a + Number(p.stock || 0) * Number(p.cost || 0), 0);
+  // Μετράμε μόνο ό,τι έχουμε πραγματικά στο ράφι (απόθεμα > 0). Τα είδη με 0 ή μείον δεν μπαίνουν
+  // ούτε στον αριθμό ούτε στην αξία — τα αρνητικά θα τραβούσαν την αξία προς τα κάτω.
+  const inStock = products.filter((p) => p.trackStock !== false && Number(p.stock) > 0);
+  const stockValue = inStock.reduce((a, p) => a + Number(p.stock) * Number(p.cost || 0), 0);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">{t("stock.title")}</h1>
-          <p className="text-slate-500 text-sm">{t("stock.summary", { count: products.length, value: money(stockValue, cur) })}</p>
+          <p className="text-slate-500 text-sm">{t("stock.summary", { count: inStock.length, value: money(stockValue, cur) })}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Link href="/agores/lista" className="btn-secondary"><Icon name="cart" size={16} /> {t("stock.reorderList")}{reorderCount > 0 && <span className="badge bg-brand-100 text-brand-700 ml-1">{reorderCount}</span>}</Link>
