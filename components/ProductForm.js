@@ -375,6 +375,43 @@ export default function ProductForm({ form, setForm, categories = [], subcategor
             </div>
           )}
         </div>
+
+        <div className="border-t pt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="font-semibold text-slate-700 text-sm">{t("stock.priceTiersTitle")}</label>
+              <p className="text-xs text-slate-500 mt-0.5">{t("stock.priceTiersDesc")}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => upd({ priceTiers: [...(form.priceTiers || []), { min: "", price: "" }] })}
+              className="btn-secondary text-sm flex items-center gap-1 whitespace-nowrap"
+            >
+              <Icon name="plus" size={14} /> {t("stock.priceTiersAdd")}
+            </button>
+          </div>
+          {(form.priceTiers || []).length > 0 && (
+            <div className="space-y-2">
+              {form.priceTiers.map((tier, idx) => (
+                <div key={idx} className="flex gap-2 items-end bg-slate-50 p-3 rounded-lg">
+                  <div className="flex-1">
+                    <label className="label">{t("stock.priceTiersFrom")}</label>
+                    <input type="number" step="1" min="1" className="input" value={tier.min}
+                      onChange={(e) => { const n = [...form.priceTiers]; n[idx] = { ...n[idx], min: e.target.value }; upd({ priceTiers: n }); }} />
+                  </div>
+                  <div className="flex-1">
+                    <label className="label">{t("stock.priceTiersPrice")}</label>
+                    <input type="number" step="any" min="0" className="input" value={tier.price}
+                      onChange={(e) => { const n = [...form.priceTiers]; n[idx] = { ...n[idx], price: e.target.value }; upd({ priceTiers: n }); }} />
+                  </div>
+                  <button type="button" onClick={() => upd({ priceTiers: form.priceTiers.filter((_, i) => i !== idx) })} className="btn-ghost text-red-600">
+                    <Icon name="trash" size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* INVENTORY */}

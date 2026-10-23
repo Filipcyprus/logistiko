@@ -3,6 +3,7 @@ import { getById, update, remove } from "@/lib/db";
 import { generateBarcode } from "@/lib/barcode";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
 import { logActivity } from "@/lib/audit";
+import { sortPriceTiers } from "@/lib/pricing";
 
 async function getRole(request) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
@@ -40,6 +41,7 @@ export async function PUT(request, { params }) {
   if (patch.shippingRate != null) {
     patch.shippingRate = patch.shippingRate === "" ? 2.4 : Number(patch.shippingRate);
   }
+  if (patch.priceTiers != null) patch.priceTiers = sortPriceTiers(patch.priceTiers);
   // Η "τιμή" που χρησιμοποιείται σε παραστατικά/προσφορές ταυτίζεται με τη χονδρική τιμή.
   if (patch.wholesalePrice != null) patch.price = patch.wholesalePrice;
   if (!patch.barcode || !patch.barcode.trim()) {

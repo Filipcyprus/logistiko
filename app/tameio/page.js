@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { money, computeTotals } from "@/lib/format";
+import { priceTierFor } from "@/lib/pricing";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { printReceipt, warmUpPrinterConnection } from "@/lib/receiptPrinter";
@@ -94,12 +95,20 @@ export default function TillPage() {
   // Τα κρυμμένα είδη δεν εμφανίζονται στην αναζήτηση· το σκανάρισμα barcode τα βρίσκει κανονικά.
   const matches = q ? tillProducts.filter((p) => !p.archived && productMatchesQuery(p, q)).slice(0, 8) : [];
 
+  // Προϊόν με κλίμακες τιμής (π.χ. φωτοτυπίες): η τιμή ανά τεμάχιο αλλάζει με την ποσότητα. Οι τιμές
+  // των κλιμάκων είναι τελικές (με ΦΠΑ), όπως η λιανική — το ΦΠΑ αφαιρείται για το καθαρό.
+  const tierPatch = (p, qty, vatRate) => {
+    const tp = priceTierFor(p, qty);
+    return tp == null ? {} : { price: Math.round((tp / (1 + Number(vatRate || 0) / 100)) * 10000) / 10000 };
+  };
+
   const addToCart = (p) => {
     setCart((prev) => {
       const idx = prev.findIndex((c) => c.productId === p.id);
       if (idx !== -1) {
         const next = [...prev];
-        next[idx] = { ...next[idx], qty: next[idx].qty + 1 };
+        const qty = next[idx].qty + 1;
+        next[idx] = { ...next[idx], qty, ...tierPatch(p, qty, next[idx].vatRate) };
         return next;
       }
       // Retail price already includes Sales VAT, so back it out to net for correct VAT display.
@@ -107,7 +116,7 @@ export default function TillPage() {
       const saleVat = Number(p.saleVatRate ?? p.vatRate ?? 19);
       const retail = Number(p.retailPrice || 0);
       const netPrice = retail > 0 ? Math.round((retail / (1 + saleVat / 100)) * 10000) / 10000 : Number(p.price || 0);
-      return [...prev, { productId: p.id, name: p.name, unit: p.unit, price: netPrice, vatRate: saleVat, qty: 1, discount: 0 }];
+      return [...prev, { productId: p.id, name: p.name, unit: p.unit, price: netPrice, vatRate: saleVat, qty: 1, discount: 0, ...tierPatch(p, 1, saleVat) }];
     });
     setQuery("");
     setLastSale(null);
@@ -141,7 +150,15 @@ export default function TillPage() {
     if (matches.length === 1) addToCart(matches[0]);
   };
 
-  const updateLine = (idx, patch) => setCart((prev) => prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
+  const updateLine = (idx, patch) => setCart((prev) => prev.map((c, i) => {
+    if (i !== idx) return c;
+    // Άλλαξε η ποσότητα σε προϊόν με κλίμακες τιμής → ξαναϋπολογίζεται η τιμή τεμαχίου.
+    if (patch.qty !== undefined && patch.price === undefined) {
+      const p = products.find((x) => x.id === c.productId);
+      if (p) patch = { ...patch, ...tierPatch(p, patch.qty, c.vatRate) };
+    }
+    return { ...c, ...patch };
+  }));
   const removeLine = (idx) => setCart((prev) => prev.filter((_, i) => i !== idx));
 
   const lineItems = cart.map((c) => ({ quantity: c.qty, unitPrice: c.price, vatRate: c.vatRate, discount: c.discount || 0 }));

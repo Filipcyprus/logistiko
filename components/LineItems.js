@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { money, computeTotals } from "@/lib/format";
-import { quantityDiscountPercentForProduct } from "@/lib/pricing";
+import { quantityDiscountPercentForProduct, priceTierFor } from "@/lib/pricing";
 import { productMatchesQuery } from "@/lib/productSearch";
 import { lineNet, lineVat, purchaseNet, purchaseVat, purchaseTotal } from "@/lib/purchaseMath";
 import Icon from "@/components/Icon";
@@ -87,6 +87,8 @@ export default function LineItems({ items, onChange, products = [], currency = "
     const patch = { productId: p.id, description: p.name, unit: p.unit, unitPrice, vatRate };
     const hasDiscount = ["cosmetic", "consumable"].includes(p.productType) || (p.customDiscountTiers || []).length > 0;
     if (hasDiscount) patch.discount = quantityDiscountPercentForProduct(items[idx].quantity, p, discountTiers);
+    const tierPrice = priceTierFor(p, items[idx].quantity);
+    if (tierPrice != null) patch.unitPrice = tierPrice;
     setLine(idx, patch);
   };
 
@@ -185,6 +187,8 @@ export default function LineItems({ items, onChange, products = [], currency = "
                         const patch = { quantity };
                         const hasDiscount = pricing && p && (["cosmetic", "consumable"].includes(p.productType) || (p.customDiscountTiers || []).length > 0);
                         if (hasDiscount) patch.discount = quantityDiscountPercentForProduct(quantity, p, discountTiers);
+                        const tierPrice = pricing && p ? priceTierFor(p, quantity) : null;
+                        if (tierPrice != null) patch.unitPrice = tierPrice;
                         setLine(idx, patch);
                       }}
                     />

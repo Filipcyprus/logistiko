@@ -3,6 +3,7 @@ import { list, insert, readDB, writeDB, uid } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server";
 import { generateBarcode } from "@/lib/barcode";
 import { logActivity } from "@/lib/audit";
+import { sortPriceTiers } from "@/lib/pricing";
 
 export async function GET() {
   return NextResponse.json(list("products"));
@@ -61,6 +62,7 @@ export async function POST(request) {
     serialNumbers: Array.isArray(body.serialNumbers) ? body.serialNumbers.map((s) => String(s).trim()).filter(Boolean) : [],
     trackBatch: !!body.trackBatch,
     trackExpiry: !!body.trackExpiry,
+    priceTiers: sortPriceTiers(body.priceTiers),
     customDiscountTiers: Array.isArray(body.customDiscountTiers)
       ? body.customDiscountTiers.map((t) => ({ min: Number(t.min || 0), percent: Number(t.percent || 0) }))
       : [],
