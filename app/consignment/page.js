@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import ProductPicker from "@/components/ProductPicker";
 import { money, formatDate, todayISO } from "@/lib/format";
+import { bonusFor, nextBonus, soldBottlesOf } from "@/lib/consignmentBonus";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-const emptyStore = { name: "", legalName: "", afm: "", address: "", city: "", phone: "", email: "", contact: "", commissionPercent: "" };
+const emptyStore = { name: "", legalName: "", afm: "", address: "", city: "", phone: "", email: "", contact: "", commissionPercent: "", bonusLevels: [] };
 
 export default function ConsignmentPage() {
   const { t } = useLanguage();
@@ -81,7 +82,7 @@ export default function ConsignmentPage() {
   };
   const editStore = (s) => {
     setEditingStoreId(s.id);
-    setNewStore({ name: s.name || "", legalName: s.legalName || "", afm: s.afm || "", address: s.address || "", city: s.city || "", phone: s.phone || "", email: s.email || "", contact: s.contact || "", commissionPercent: s.commissionPercent ?? "" });
+    setNewStore({ name: s.name || "", legalName: s.legalName || "", afm: s.afm || "", address: s.address || "", city: s.city || "", phone: s.phone || "", email: s.email || "", contact: s.contact || "", commissionPercent: s.commissionPercent ?? "", bonusLevels: (s.bonusLevels || []).map((l) => ({ ...l })) });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const cancelEditStore = () => { setEditingStoreId(null); setNewStore(emptyStore); };
@@ -113,6 +114,7 @@ export default function ConsignmentPage() {
     ? perfumes.map((p) => ({ p, qty: storeStockFor(p, activeStoreId) })).filter((x) => x.qty > 0).sort((a, b) => a.p.name.localeCompare(b.p.name))
     : [];
   const piecesAtStore = (storeId) => perfumes.reduce((a, p) => a + storeStockFor(p, storeId), 0);
+  const soldBottles = (storeId) => soldBottlesOf(sales, storeId);
 
   // Τιμή πώλησης προς το κατάστημα: ό,τι έχεις γράψει εσύ εδώ, αλλιώς η τιμή του τελευταίου δελτίου αποστολής
   // προς αυτό το κατάστημα, αλλιώς η προτεινόμενη τιμή του προϊόντος.
@@ -234,6 +236,28 @@ export default function ConsignmentPage() {
                 <input type="number" min="0" max="100" step="any" className="input" value={newStore.commissionPercent} onChange={(e) => setNewStore({ ...newStore, commissionPercent: e.target.value })} placeholder="20" />
                 <p className="text-xs text-slate-400 mt-1">{t("consignment.storeCommissionHint")}</p>
               </div>
+              <div className="sm:col-span-2 border-t pt-3 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-semibold text-slate-700 text-sm">{t("consignment.bonusTitle")}</div>
+                    <p className="text-xs text-slate-500 mt-0.5">{t("consignment.bonusDesc")}</p>
+                  </div>
+                  <button type="button" onClick={() => setNewStore({ ...newStore, bonusLevels: [...(newStore.bonusLevels || []), { bottles: "", extraPercent: "" }] })} className="btn-secondary text-sm whitespace-nowrap"><Icon name="plus" size={14} /> {t("consignment.bonusAdd")}</button>
+                </div>
+                {(newStore.bonusLevels || []).map((lv, idx) => (
+                  <div key={idx} className="flex gap-2 items-end bg-slate-50 p-3 rounded-lg">
+                    <div className="flex-1">
+                      <label className="label">{t("consignment.bonusBottles")}</label>
+                      <input type="number" min="1" step="1" className="input" value={lv.bottles} onChange={(e) => { const n = [...newStore.bonusLevels]; n[idx] = { ...n[idx], bottles: e.target.value }; setNewStore({ ...newStore, bonusLevels: n }); }} />
+                    </div>
+                    <div className="flex-1">
+                      <label className="label">{t("consignment.bonusExtra")}</label>
+                      <input type="number" min="0" max="100" step="any" className="input" value={lv.extraPercent} onChange={(e) => { const n = [...newStore.bonusLevels]; n[idx] = { ...n[idx], extraPercent: e.target.value }; setNewStore({ ...newStore, bonusLevels: n }); }} />
+                    </div>
+                    <button type="button" onClick={() => setNewStore({ ...newStore, bonusLevels: newStore.bonusLevels.filter((_, i) => i !== idx) })} className="btn-ghost text-red-600"><Icon name="trash" size={16} /></button>
+                  </div>
+                ))}
+              </div>
             </div>
             <button onClick={addStore} disabled={saving} className="btn-primary"><Icon name={editingStoreId ? "check" : "plus"} size={15} /> {editingStoreId ? t("common.save") : t("consignment.addStore")}</button>
           </div>
@@ -321,6 +345,19 @@ export default function ConsignmentPage() {
                     </div>
                   </div>
                 </div>
+                {(soldBottles(activeStoreId) > 0 || (activeStore.bonusLevels || []).length > 0) && (() => {
+                  const sold = soldBottles(activeStoreId);
+                  const cur_ = bonusFor(activeStore.bonusLevels, sold);
+                  const nxt = nextBonus(activeStore.bonusLevels, sold);
+                  return (
+                    <div className="mx-4 mt-3 text-xs text-slate-500 flex items-center gap-x-4 gap-y-1 flex-wrap">
+                      <span>{t("consignment.bonusSoldSoFar", { count: sold })}</span>
+                      {cur_ && <span className="font-medium text-emerald-700">{t("consignment.bonusActive", { extra: cur_.extraPercent })}</span>}
+                      {nxt && <span>{t("consignment.bonusNext", { extra: nxt.extraPercent, bottles: nxt.bottles, left: nxt.bottles - sold })}</span>}
+                      <button onClick={() => { editStore(activeStore); setTab("stores"); }} className="text-brand-600 hover:underline">{t("consignment.bonusEditLevels")}</button>
+                    </div>
+                  );
+                })()}
                 {storeMsg.text && (
                   <div className={`mx-4 mt-3 text-sm rounded-lg px-3 py-2 ${storeMsg.type === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>{storeMsg.text}</div>
                 )}
@@ -468,7 +505,11 @@ export default function ConsignmentPage() {
 
       {saleModal && activeStore && (() => {
         const m = saleModal;
-        const pct = Math.min(Math.max(Number(m.commission) || 0, 0), 100);
+        const basePct = Math.min(Math.max(Number(m.commission) || 0, 0), 100);
+        const soldNowQty = soldLines.reduce((a, l) => a + l.quantity, 0);
+        const levelNow = bonusFor(activeStore.bonusLevels, soldBottles(activeStoreId) + soldNowQty);
+        const extra = levelNow ? levelNow.extraPercent : 0;
+        const pct = Math.min(basePct + extra, 100);
         const commission = Math.round(soldGross * pct) / 100;
         const done = m.result;
         return (
@@ -523,6 +564,9 @@ export default function ConsignmentPage() {
                       </div>
                       <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm space-y-1">
                         <div className="flex justify-between"><span className="text-slate-500">{t("consignment.salesTotal")}</span><span>{money(soldGross, cur)}</span></div>
+                        {extra > 0 && (
+                          <div className="flex justify-between text-emerald-700"><span>{t("consignment.bonusUnlocked", { bottles: levelNow.bottles })}</span><span>+{extra}%</span></div>
+                        )}
                         <div className="flex justify-between font-semibold border-t border-slate-200 pt-1"><span>{t("consignment.amountDueShop")} ({pct}%)</span><span>{money(commission, cur)}</span></div>
                       </div>
                       <div>

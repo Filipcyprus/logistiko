@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { list, insert } from "@/lib/db";
+import { cleanBonusLevels } from "@/lib/consignmentBonus";
 
 export async function GET() {
   return NextResponse.json(list("consignmentStores"));
@@ -22,6 +23,7 @@ export async function POST(request) {
     // Το ποσοστό κέρδους που δίνουμε στο κατάστημα για κάθε πώληση (π.χ. 20 = 20%). null = δεν έχει οριστεί.
     commissionPercent: body.commissionPercent === "" || body.commissionPercent == null ? null : Number(body.commissionPercent),
     notes: body.notes || "",
+    bonusLevels: cleanBonusLevels(body.bonusLevels),
   });
   return NextResponse.json(rec, { status: 201 });
 }
