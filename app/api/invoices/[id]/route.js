@@ -68,8 +68,25 @@ export async function DELETE(_req, { params }) {
   }
 
   const isCredit = inv.type === "credit";
+
+  // Πώληση παρακαταθήκης: το εμπόρευμα είχε φύγει από την αποθήκη μας ΗΔΗ όταν στάλθηκε στο κατάστημα, και η
+  // πώληση το αφαίρεσε από το κατάστημα. Άρα η διαγραφή το επιστρέφει ΣΤΟ κατάστημα (όχι στη δική μας αποθήκη)
+  // και σβήνει τις αντίστοιχες εγγραφές πωλήσεων παρακαταθήκης.
+  if (inv.sourceType === "consignment" && inv.sourceId && !isCredit) {
+    for (const it of inv.items || []) {
+      if (!it.productId) continue;
+      const p = db.products.find((x) => x.id === it.productId);
+      if (!p) continue;
+      p.consignmentStock = p.consignmentStock || [];
+      const entry = p.consignmentStock.find((c) => c.storeId === inv.sourceId);
+      if (entry) entry.quantity = Math.round((Number(entry.quantity || 0) + Number(it.quantity)) * 1000) / 1000;
+      else p.consignmentStock.push({ storeId: inv.sourceId, quantity: Number(it.quantity) });
+    }
+    db.consignmentSales = (db.consignmentSales || []).filter((x) => x.invoiceId !== inv.id);
+  }
+
   // Κανονικό παραστατικό: είχε βγάλει στοκ → επιστροφή (+). Πιστωτικό: είχε προσθέσει στοκ → αφαίρεση (−).
-  for (const it of inv.items || []) {
+  for (const it of inv.sourceType === "consignment" && !isCredit ? [] : inv.items || []) {
     if (!it.productId) continue;
     const p = db.products.find((x) => x.id === it.productId);
     if (p && p.trackStock !== false) {
