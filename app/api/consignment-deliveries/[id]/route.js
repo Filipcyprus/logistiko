@@ -20,6 +20,7 @@ export async function GET(request, { params }) {
       postalCode: db.settings.postalCode,
       afm: db.settings.afm,
       phone: db.settings.phone,
+      email: db.settings.email,
       currency: db.settings.currency || "€",
     },
   });

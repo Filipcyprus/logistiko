@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatDate, money } from "@/lib/format";
 import Icon from "@/components/Icon";
@@ -11,6 +11,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 export default function ConsignmentDeliveryPage() {
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [notFound, setNotFound] = useState(false);
@@ -29,6 +30,15 @@ export default function ConsignmentDeliveryPage() {
     fetch("/api/products").then((r) => r.json()).then((list) => setPerfumes(list.filter((p) => p.department === "perfumes")));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Ήρθαμε κατευθείαν από το "Αποστολή": ανοίγει μόνο του το παράθυρο εκτύπωσης (μία φορά).
+  useEffect(() => {
+    if (!data || searchParams.get("print") !== "1") return;
+    router.replace(`/consignment/delivery/${id}`);
+    const timer = setTimeout(() => window.print(), 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   if (notFound) return (
     <div className="text-slate-500">
@@ -135,6 +145,7 @@ export default function ConsignmentDeliveryPage() {
               {(company.address || company.city) && <div>{company.address}{company.city ? `, ${company.city}` : ""} {company.postalCode}</div>}
               {company.afm && <div>{t("customers.fieldTaxId")}: {company.afm}</div>}
               {company.phone && <div>{t("customers.fieldPhone")}: {company.phone}</div>}
+              {company.email && <div>{company.email}</div>}
             </div>
           </div>
           <div className="text-right">
@@ -147,9 +158,12 @@ export default function ConsignmentDeliveryPage() {
           <div className="text-xs uppercase tracking-wide text-slate-400 mb-1">{t("consignment.deliveryToStore")}</div>
           <div className="text-sm text-slate-700">
             <div className="font-semibold">{delivery.storeName}</div>
-            {store?.address && <div>{store.address}</div>}
+            {store?.legalName && store.legalName !== delivery.storeName && <div>{store.legalName}</div>}
+            {store?.afm && <div>{t("consignment.deliveryStoreVat")}: {store.afm}</div>}
+            {(store?.address || store?.city) && <div>{[store.address, store.city].filter(Boolean).join(", ")}</div>}
             {store?.contact && <div>{t("consignment.storeContact")}: {store.contact}</div>}
             {store?.phone && <div>{t("customers.fieldPhone")}: {store.phone}</div>}
+            {store?.email && <div>{store.email}</div>}
           </div>
         </div>
 
@@ -172,24 +186,37 @@ export default function ConsignmentDeliveryPage() {
               </tr>
             ))}
           </tbody>
-          {delivery.items.some((it) => it.unitPrice) && (
-            <tfoot>
-              <tr className="border-t border-slate-300 font-semibold text-slate-800">
+          <tfoot>
+            <tr className="border-t border-slate-300 text-slate-700">
+              <td className="py-2" colSpan={3}>{t("consignment.deliveryTotalBottles")}</td>
+              <td className="py-2 text-right font-semibold">{delivery.items.reduce((sum, it) => sum + Number(it.quantity || 0), 0)}</td>
+            </tr>
+            {delivery.items.some((it) => it.unitPrice) && (
+              <tr className="font-semibold text-slate-800">
                 <td className="py-2" colSpan={3}>{t("consignment.deliveryTotalValue")}</td>
                 <td className="py-2 text-right">{money(delivery.items.reduce((sum, it) => sum + (it.unitPrice || 0) * it.quantity, 0), company.currency)}</td>
               </tr>
-            </tfoot>
-          )}
+            )}
+          </tfoot>
         </table>
         <p className="text-xs text-slate-400 mt-1">{t("consignment.deliveryPriceHint")}</p>
 
-        <div className="mt-10 grid grid-cols-2 gap-8 text-sm">
-          <div>
-            <div className="border-t border-slate-300 pt-2 text-slate-500">{t("consignment.deliveredBy")}</div>
-          </div>
-          <div>
-            <div className="border-t border-slate-300 pt-2 text-slate-500">{t("consignment.receivedBy")}</div>
-          </div>
+        <p className="mt-6 text-sm text-slate-600">
+          {store?.commissionPercent
+            ? t("consignment.deliveryTerms", { company: company.companyName, percent: store.commissionPercent })
+            : t("consignment.deliveryTermsNoPercent", { company: company.companyName })}
+        </p>
+
+        <div className="mt-12 grid grid-cols-2 gap-10 text-sm">
+          {[["consignment.deliveredBy", company.companyName], ["consignment.receivedBy", store?.legalName || delivery.storeName]].map(([key, who]) => (
+            <div key={key}>
+              <div className="font-semibold text-slate-700">{t(key)}</div>
+              <div className="text-slate-500 text-xs mb-8">{who}</div>
+              <div className="border-t border-slate-400 pt-1 text-slate-500 text-xs">{t("consignment.signSignature")}</div>
+              <div className="mt-6 border-t border-slate-300 pt-1 text-slate-500 text-xs">{t("consignment.signName")}</div>
+              <div className="mt-6 border-t border-slate-300 pt-1 text-slate-500 text-xs">{t("consignment.signDate")}</div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

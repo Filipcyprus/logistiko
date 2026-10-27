@@ -188,7 +188,7 @@ export default function ConsignmentPage() {
     setSendBusy(false);
     if (res.ok) {
       const { deliveryId } = await res.json();
-      router.push(`/consignment/delivery/${deliveryId}`);
+      router.push(`/consignment/delivery/${deliveryId}?print=1`);
     } else {
       const err = await res.json().catch(() => ({}));
       setSendErr(err.error ? t(err.error) : t("common.error"));
