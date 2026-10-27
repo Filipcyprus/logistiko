@@ -8,7 +8,7 @@ import { money, formatDate, todayISO } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-const emptyStore = { name: "", legalName: "", afm: "", address: "", city: "", phone: "", email: "", contact: "" };
+const emptyStore = { name: "", legalName: "", afm: "", address: "", city: "", phone: "", email: "", contact: "", commissionPercent: "" };
 
 export default function ConsignmentPage() {
   const { t } = useLanguage();
@@ -68,10 +68,11 @@ export default function ConsignmentPage() {
   const addStore = async () => {
     if (!newStore.name.trim()) return;
     setSaving(true);
+    const payload = { ...newStore, commissionPercent: newStore.commissionPercent === "" ? null : Number(newStore.commissionPercent) };
     if (editingStoreId) {
-      await fetch(`/api/consignment-stores/${editingStoreId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newStore) });
+      await fetch(`/api/consignment-stores/${editingStoreId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     } else {
-      await fetch("/api/consignment-stores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newStore) });
+      await fetch("/api/consignment-stores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     }
     setNewStore(emptyStore);
     setEditingStoreId(null);
@@ -80,7 +81,7 @@ export default function ConsignmentPage() {
   };
   const editStore = (s) => {
     setEditingStoreId(s.id);
-    setNewStore({ name: s.name || "", legalName: s.legalName || "", afm: s.afm || "", address: s.address || "", city: s.city || "", phone: s.phone || "", email: s.email || "", contact: s.contact || "" });
+    setNewStore({ name: s.name || "", legalName: s.legalName || "", afm: s.afm || "", address: s.address || "", city: s.city || "", phone: s.phone || "", email: s.email || "", contact: s.contact || "", commissionPercent: s.commissionPercent ?? "" });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const cancelEditStore = () => { setEditingStoreId(null); setNewStore(emptyStore); };
@@ -140,8 +141,8 @@ export default function ConsignmentPage() {
 
   const confirmSale = async () => {
     const m = saleModal;
-    const asInvoice = m.invoice === true && m.holder !== "me";
-    const holdMoney = m.invoice === true && m.holder === "me";
+    const asInvoice = false; // τα λεφτά τα έχουμε πάντα εμείς — δεν υπάρχει περίπτωση "το κατάστημα μας οφείλει"
+    const holdMoney = m.invoice === true;
     setSaleModal({ ...m, busy: true, err: "" });
     const res = await fetch("/api/consignment-sales", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -228,6 +229,11 @@ export default function ConsignmentPage() {
               <div><label className="label">{t("consignment.storeEmail")}</label><input type="email" className="input" value={newStore.email} onChange={(e) => setNewStore({ ...newStore, email: e.target.value })} /></div>
               <div><label className="label">{t("consignment.storeAddress")}</label><input className="input" value={newStore.address} onChange={(e) => setNewStore({ ...newStore, address: e.target.value })} /></div>
               <div><label className="label">{t("consignment.storeCity")}</label><input className="input" value={newStore.city} onChange={(e) => setNewStore({ ...newStore, city: e.target.value })} /></div>
+              <div>
+                <label className="label">{t("consignment.storeCommission")}</label>
+                <input type="number" min="0" max="100" step="any" className="input" value={newStore.commissionPercent} onChange={(e) => setNewStore({ ...newStore, commissionPercent: e.target.value })} placeholder="20" />
+                <p className="text-xs text-slate-400 mt-1">{t("consignment.storeCommissionHint")}</p>
+              </div>
             </div>
             <button onClick={addStore} disabled={saving} className="btn-primary"><Icon name={editingStoreId ? "check" : "plus"} size={15} /> {editingStoreId ? t("common.save") : t("consignment.addStore")}</button>
           </div>
@@ -291,9 +297,28 @@ export default function ConsignmentPage() {
               <div className="card overflow-hidden">
                 <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
                   <h2 className="font-semibold text-slate-700">{t("consignment.atStoreTitle", { store: activeStore.name })}</h2>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-slate-500">{t("consignment.fieldDate")}</label>
-                    <input type="date" className="input !py-1 !w-40" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-slate-500">{t("consignment.shopPercentLabel")}</label>
+                      <input
+                        type="number" min="0" max="100" step="any" placeholder="—" className="input !py-1 !w-20 text-right"
+                        key={`pct-${activeStore.id}-${activeStore.commissionPercent ?? ""}`}
+                        defaultValue={activeStore.commissionPercent ?? ""}
+                        onBlur={async (e) => {
+                          const raw = e.target.value;
+                          const v = raw === "" ? null : Math.min(Math.max(Number(raw) || 0, 0), 100);
+                          if (v === (activeStore.commissionPercent ?? null)) return;
+                          await fetch(`/api/consignment-stores/${activeStore.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ commissionPercent: v }) });
+                          load();
+                        }}
+                        onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                      />
+                      <span className="text-xs text-slate-500">%</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-slate-500">{t("consignment.fieldDate")}</label>
+                      <input type="date" className="input !py-1 !w-40" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+                    </div>
                   </div>
                 </div>
                 {storeMsg.text && (
@@ -493,40 +518,20 @@ export default function ConsignmentPage() {
                   {m.invoice === true && (
                     <div className="space-y-3">
                       <div>
-                        <div className="font-medium text-slate-700 mb-2">{t("consignment.holderAsk")}</div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <button onClick={() => setSaleModal({ ...m, holder: "shop" })} className={`text-left rounded-lg border p-3 ${m.holder !== "me" ? "border-brand-600 bg-brand-50" : "border-slate-200 hover:border-slate-300"}`}>
-                            <div className="font-medium text-slate-800">{t("consignment.holderShop")}</div>
-                            <div className="text-xs text-slate-500 mt-0.5">{t("consignment.holderShopHint")}</div>
-                          </button>
-                          <button onClick={() => setSaleModal({ ...m, holder: "me" })} className={`text-left rounded-lg border p-3 ${m.holder === "me" ? "border-brand-600 bg-brand-50" : "border-slate-200 hover:border-slate-300"}`}>
-                            <div className="font-medium text-slate-800">{t("consignment.holderMe")}</div>
-                            <div className="text-xs text-slate-500 mt-0.5">{t("consignment.holderMeHint")}</div>
-                          </button>
-                        </div>
-                      </div>
-                      <div>
                         <label className="label">{t("consignment.commissionLabel")}</label>
-                        <input type="number" min="0" max="100" step="any" autoFocus className="input" value={m.commission} onChange={(e) => setSaleModal({ ...m, commission: e.target.value })} placeholder="0" />
+                        <input type="number" min="0" max="100" step="any" className="input" value={m.commission} onChange={(e) => setSaleModal({ ...m, commission: e.target.value })} placeholder="0" />
                       </div>
                       <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm space-y-1">
                         <div className="flex justify-between"><span className="text-slate-500">{t("consignment.salesTotal")}</span><span>{money(soldGross, cur)}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-500">{t("consignment.commissionAmount")} ({pct}%)</span><span>{m.holder === "me" ? "" : "−"}{money(commission, cur)}</span></div>
-                        {m.holder === "me" ? (
-                          <div className="flex justify-between font-semibold border-t border-slate-200 pt-1"><span>{t("consignment.amountDueShop")}</span><span>{money(commission, cur)}</span></div>
-                        ) : (
-                          <div className="flex justify-between font-semibold border-t border-slate-200 pt-1"><span>{t("consignment.shopPays")}</span><span>{money(soldGross - commission, cur)}</span></div>
-                        )}
+                        <div className="flex justify-between font-semibold border-t border-slate-200 pt-1"><span>{t("consignment.amountDueShop")} ({pct}%)</span><span>{money(commission, cur)}</span></div>
                       </div>
-                      {m.holder === "me" && (
-                        <div>
-                          <label className="label">{t("consignment.howReceived")}</label>
-                          <select className="input" value={m.payment} onChange={(e) => setSaleModal({ ...m, payment: e.target.value })}>
-                            <option value="cash">{t("common.paymentMethods.cash")}</option>
-                            <option value="card">{t("common.paymentMethods.card")}</option>
-                          </select>
-                        </div>
-                      )}
+                      <div>
+                        <label className="label">{t("consignment.howReceived")}</label>
+                        <select className="input" value={m.payment} onChange={(e) => setSaleModal({ ...m, payment: e.target.value })}>
+                          <option value="cash">{t("common.paymentMethods.cash")}</option>
+                          <option value="card">{t("common.paymentMethods.card")}</option>
+                        </select>
+                      </div>
                     </div>
                   )}
                   {m.invoice === false && (
@@ -543,7 +548,7 @@ export default function ConsignmentPage() {
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setSaleModal(null)} disabled={m.busy} className="btn-secondary">{t("common.cancel")}</button>
                     <button onClick={confirmSale} disabled={m.busy || m.invoice === null} className="btn-primary disabled:opacity-40">
-                      {m.busy ? t("common.saving") : m.invoice === true && m.holder !== "me" ? t("consignment.createInvoiceBtn") : t("consignment.recordReceiptBtn")}
+                      {m.busy ? t("common.saving") : t("consignment.recordReceiptBtn")}
                     </button>
                   </div>
                 </>
