@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { readDB, writeDB } from "@/lib/db";
 import { registerConsignmentSales } from "@/lib/stockHelpers";
 import { postEntry } from "@/lib/posting";
-import { entryForInvoice } from "@/lib/postingRules";
+import { entryForInvoice, entryForExpense } from "@/lib/postingRules";
 import { logActivity } from "@/lib/audit";
 
 export async function GET() {
@@ -23,7 +23,7 @@ export async function POST(request) {
 
   const db = readDB();
   const result = registerConsignmentSales(db, {
-    storeId, lines, date: body.date, invoice: !!body.invoice, commissionPercent: body.commissionPercent, paymentMethod: body.paymentMethod,
+    storeId, lines, date: body.date, invoice: !!body.invoice, holdMoney: !!body.holdMoney, commissionPercent: body.commissionPercent, paymentMethod: body.paymentMethod,
   });
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.error === "errors.notFound" ? 404 : 400 });
 
@@ -31,6 +31,10 @@ export async function POST(request) {
   try {
     const entryInput = entryForInvoice(db, result.invoice);
     if (entryInput) postEntry(db, { ...entryInput, source: { type: "invoice", id: result.invoice.id } });
+    if (result.expense) {
+      const expInput = entryForExpense(db, result.expense);
+      if (expInput) postEntry(db, { ...expInput, source: { type: "expense", id: result.expense.id } });
+    }
   } catch (e) {
     if (e.code === "PERIOD_LOCKED") return NextResponse.json({ error: "errors.periodLocked" }, { status: 400 });
     throw e;
@@ -39,7 +43,7 @@ export async function POST(request) {
   writeDB(db);
   await logActivity(request, "consignment_sale", {
     store: result.invoice.shopName, number: result.invoice.number, type: result.invoice.type, total: result.invoice.total,
-    commission: result.commissionAmount || 0,
+    commission: result.commissionAmount || 0, holdMoney: !!body.holdMoney,
   });
-  return NextResponse.json({ invoice: result.invoice, sales: result.sales, commissionAmount: result.commissionAmount }, { status: 201 });
+  return NextResponse.json({ invoice: result.invoice, sales: result.sales, commissionAmount: result.commissionAmount, expense: result.expense || null }, { status: 201 });
 }

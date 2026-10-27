@@ -135,19 +135,20 @@ export default function ConsignmentPage() {
   const startSale = () => {
     setStoreMsg({ type: "", text: "" });
     if (soldLines.length === 0) { setStoreMsg({ type: "err", text: t("consignment.errNothingSold") }); return; }
-    setSaleModal({ invoice: null, commission: activeStore?.commissionPercent ?? "", payment: "cash", busy: false, err: "", result: null });
+    setSaleModal({ invoice: null, holder: "shop", commission: activeStore?.commissionPercent ?? "", payment: "cash", busy: false, err: "", result: null });
   };
 
   const confirmSale = async () => {
     const m = saleModal;
-    const asInvoice = m.invoice === true;
+    const asInvoice = m.invoice === true && m.holder !== "me";
+    const holdMoney = m.invoice === true && m.holder === "me";
     setSaleModal({ ...m, busy: true, err: "" });
     const res = await fetch("/api/consignment-sales", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         storeId: activeStoreId, date: saleDate,
         lines: soldLines.map((l) => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.unitPrice })),
-        invoice: asInvoice, commissionPercent: asInvoice ? Number(m.commission || 0) : 0, paymentMethod: asInvoice ? "bank" : m.payment,
+        invoice: asInvoice, holdMoney, commissionPercent: asInvoice || holdMoney ? Number(m.commission || 0) : 0, paymentMethod: asInvoice ? "bank" : m.payment,
       }),
     });
     if (res.ok) {
@@ -454,7 +455,9 @@ export default function ConsignmentPage() {
                   <div className="text-sm rounded-lg px-3 py-2 bg-emerald-50 text-emerald-700">
                     {done.invoice.type === "timologio"
                       ? t("consignment.saleRecordedInvoice", { number: done.invoice.number, amount: money(done.invoice.total, cur) })
-                      : t("consignment.saleRecordedReceipt", { number: done.invoice.number })}
+                      : done.invoice.commissionDue
+                        ? t("consignment.saleRecordedHeld", { number: done.invoice.number, amount: money(done.invoice.commissionDue.amount, cur) })
+                        : t("consignment.saleRecordedReceipt", { number: done.invoice.number })}
                   </div>
                   <div className="flex justify-end gap-2">
                     <Link href={`/parastatika/${done.invoice.id}`} className="btn-secondary">{t("consignment.openDocument")} {done.invoice.number}</Link>
@@ -490,14 +493,40 @@ export default function ConsignmentPage() {
                   {m.invoice === true && (
                     <div className="space-y-3">
                       <div>
+                        <div className="font-medium text-slate-700 mb-2">{t("consignment.holderAsk")}</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <button onClick={() => setSaleModal({ ...m, holder: "shop" })} className={`text-left rounded-lg border p-3 ${m.holder !== "me" ? "border-brand-600 bg-brand-50" : "border-slate-200 hover:border-slate-300"}`}>
+                            <div className="font-medium text-slate-800">{t("consignment.holderShop")}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">{t("consignment.holderShopHint")}</div>
+                          </button>
+                          <button onClick={() => setSaleModal({ ...m, holder: "me" })} className={`text-left rounded-lg border p-3 ${m.holder === "me" ? "border-brand-600 bg-brand-50" : "border-slate-200 hover:border-slate-300"}`}>
+                            <div className="font-medium text-slate-800">{t("consignment.holderMe")}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">{t("consignment.holderMeHint")}</div>
+                          </button>
+                        </div>
+                      </div>
+                      <div>
                         <label className="label">{t("consignment.commissionLabel")}</label>
                         <input type="number" min="0" max="100" step="any" autoFocus className="input" value={m.commission} onChange={(e) => setSaleModal({ ...m, commission: e.target.value })} placeholder="0" />
                       </div>
                       <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm space-y-1">
                         <div className="flex justify-between"><span className="text-slate-500">{t("consignment.salesTotal")}</span><span>{money(soldGross, cur)}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-500">{t("consignment.commissionAmount")} ({pct}%)</span><span>−{money(commission, cur)}</span></div>
-                        <div className="flex justify-between font-semibold border-t border-slate-200 pt-1"><span>{t("consignment.shopPays")}</span><span>{money(soldGross - commission, cur)}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">{t("consignment.commissionAmount")} ({pct}%)</span><span>{m.holder === "me" ? "" : "−"}{money(commission, cur)}</span></div>
+                        {m.holder === "me" ? (
+                          <div className="flex justify-between font-semibold border-t border-slate-200 pt-1"><span>{t("consignment.amountDueShop")}</span><span>{money(commission, cur)}</span></div>
+                        ) : (
+                          <div className="flex justify-between font-semibold border-t border-slate-200 pt-1"><span>{t("consignment.shopPays")}</span><span>{money(soldGross - commission, cur)}</span></div>
+                        )}
                       </div>
+                      {m.holder === "me" && (
+                        <div>
+                          <label className="label">{t("consignment.howReceived")}</label>
+                          <select className="input" value={m.payment} onChange={(e) => setSaleModal({ ...m, payment: e.target.value })}>
+                            <option value="cash">{t("common.paymentMethods.cash")}</option>
+                            <option value="card">{t("common.paymentMethods.card")}</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
                   )}
                   {m.invoice === false && (
@@ -514,7 +543,7 @@ export default function ConsignmentPage() {
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setSaleModal(null)} disabled={m.busy} className="btn-secondary">{t("common.cancel")}</button>
                     <button onClick={confirmSale} disabled={m.busy || m.invoice === null} className="btn-primary disabled:opacity-40">
-                      {m.busy ? t("common.saving") : m.invoice === true ? t("consignment.createInvoiceBtn") : t("consignment.recordReceiptBtn")}
+                      {m.busy ? t("common.saving") : m.invoice === true && m.holder !== "me" ? t("consignment.createInvoiceBtn") : t("consignment.recordReceiptBtn")}
                     </button>
                   </div>
                 </>

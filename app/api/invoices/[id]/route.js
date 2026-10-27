@@ -83,6 +83,20 @@ export async function DELETE(_req, { params }) {
       else p.consignmentStock.push({ storeId: inv.sourceId, quantity: Number(it.quantity) });
     }
     db.consignmentSales = (db.consignmentSales || []).filter((x) => x.invoiceId !== inv.id);
+
+    // Η προμήθεια που είχε γραφτεί προς το κατάστημα φεύγει μαζί, εφόσον δεν έχει ήδη πληρωθεί.
+    const ex = inv.commissionExpenseId ? (db.expenses || []).find((x) => x.id === inv.commissionExpenseId) : null;
+    if (ex && !Number(ex.paidAmount || 0)) {
+      try {
+        removeEntriesBySource(db, "expense", ex.id);
+      } catch (e) {
+        if (e.code === "PERIOD_LOCKED") return NextResponse.json({ error: "errors.periodLocked" }, { status: 400 });
+        throw e;
+      }
+      db.expenses = db.expenses.filter((x) => x.id !== ex.id);
+      const n = Number(String(ex.number).match(/(\d+)$/)?.[1]);
+      if (n && n === (db.counters.expense || 1) - 1) db.counters.expense = n;
+    }
   }
 
   // Κανονικό παραστατικό: είχε βγάλει στοκ → επιστροφή (+). Πιστωτικό: είχε προσθέσει στοκ → αφαίρεση (−).
