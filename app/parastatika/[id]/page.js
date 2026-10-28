@@ -213,7 +213,7 @@ export default function InvoiceView() {
           </div>
         </div>
 
-        <div className="mt-5 pt-4 border-t border-slate-100 text-sm text-slate-600">{t("invoices.paymentMethodLine", { method: inv.paymentMethod })}</div>
+        <div className="mt-5 pt-4 border-t border-slate-100 text-sm text-slate-600">{t("invoices.paymentMethodLine", { method: Array.isArray(inv.paymentSplit) && inv.paymentSplit.length > 1 ? inv.paymentSplit.map((s) => `${t(`common.paymentMethods.${s.method}`)} ${money(s.amount, cur)}`).join(" + ") : inv.paymentMethod })}</div>
         {settings.bankIban && !isCredit && inv.status === "unpaid" && (
           <div className="mt-3 bg-slate-50 rounded-lg p-3 text-sm text-slate-600 space-y-0.5">
             <div className="font-semibold text-slate-700 text-xs uppercase tracking-wide mb-1">{t("invoices.bankDetailsTitle")}</div>

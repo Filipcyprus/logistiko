@@ -147,7 +147,7 @@ export default function ConsignmentPage() {
   const startSale = () => {
     setStoreMsg({ type: "", text: "" });
     if (soldLines.length === 0) { setStoreMsg({ type: "err", text: t("consignment.errNothingSold") }); return; }
-    setSaleModal({ invoice: null, holder: "shop", commission: activeStore?.commissionPercent ?? "", payment: "cash", busy: false, err: "", result: null });
+    setSaleModal({ invoice: null, holder: "shop", commission: activeStore?.commissionPercent ?? "", cash: soldGross.toFixed(2), card: "0", busy: false, err: "", result: null });
   };
 
   const confirmSale = async () => {
@@ -160,7 +160,8 @@ export default function ConsignmentPage() {
       body: JSON.stringify({
         storeId: activeStoreId, date: saleDate,
         lines: soldLines.map((l) => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.unitPrice })),
-        invoice: asInvoice, holdMoney, commissionPercent: asInvoice || holdMoney ? Number(m.commission || 0) : 0, paymentMethod: asInvoice ? "bank" : m.payment,
+        invoice: asInvoice, holdMoney, commissionPercent: asInvoice || holdMoney ? Number(m.commission || 0) : 0, paymentMethod: asInvoice ? "bank" : "cash",
+        paymentSplit: asInvoice ? undefined : [{ method: "cash", amount: Number(m.cash) || 0 }, { method: "card", amount: Number(m.card) || 0 }],
       }),
     });
     if (res.ok) {
@@ -534,6 +535,7 @@ export default function ConsignmentPage() {
         const pct = Math.min(basePct + extra, 100);
         const commission = Math.round(soldGross * pct) / 100;
         const done = m.result;
+        const splitBad = m.invoice !== null && Math.abs((Number(m.cash) || 0) + (Number(m.card) || 0) - soldGross) > 0.011;
         return (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => !m.busy && setSaleModal(null)}>
             <div className="card p-5 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -591,29 +593,31 @@ export default function ConsignmentPage() {
                         )}
                         <div className="flex justify-between font-semibold border-t border-slate-200 pt-1"><span>{t("consignment.amountDueShop")} ({pct}%)</span><span>{money(commission, cur)}</span></div>
                       </div>
-                      <div>
-                        <label className="label">{t("consignment.howReceived")}</label>
-                        <select className="input" value={m.payment} onChange={(e) => setSaleModal({ ...m, payment: e.target.value })}>
-                          <option value="cash">{t("common.paymentMethods.cash")}</option>
-                          <option value="card">{t("common.paymentMethods.card")}</option>
-                        </select>
-                      </div>
                     </div>
                   )}
-                  {m.invoice === false && (
+                  {m.invoice !== null && (
                     <div>
-                      <label className="label">{t("invoices.paymentMethod")}</label>
-                      <select className="input" value={m.payment} onChange={(e) => setSaleModal({ ...m, payment: e.target.value })}>
-                        <option value="cash">{t("common.paymentMethods.cash")}</option>
-                        <option value="card">{t("common.paymentMethods.card")}</option>
-                      </select>
+                      <label className="label">{t("consignment.howReceived")}</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs text-slate-500 mb-1">{t("consignment.cashReceived")}</div>
+                          <input type="number" min="0" step="any" className="input" value={m.cash}
+                            onChange={(e) => { const v = e.target.value; setSaleModal({ ...m, cash: v, card: String(Math.max(Math.round((soldGross - (Number(v) || 0)) * 100) / 100, 0)) }); }} />
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500 mb-1">{t("consignment.cardReceived")}</div>
+                          <input type="number" min="0" step="any" className="input" value={m.card}
+                            onChange={(e) => { const v = e.target.value; setSaleModal({ ...m, card: v, cash: String(Math.max(Math.round((soldGross - (Number(v) || 0)) * 100) / 100, 0)) }); }} />
+                        </div>
+                      </div>
+                      {splitBad && <div className="text-xs text-red-600 mt-1">{t("consignment.splitMustMatch", { total: money(soldGross, cur) })}</div>}
                     </div>
                   )}
 
                   {m.err && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{m.err}</div>}
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setSaleModal(null)} disabled={m.busy} className="btn-secondary">{t("common.cancel")}</button>
-                    <button onClick={confirmSale} disabled={m.busy || m.invoice === null} className="btn-primary disabled:opacity-40">
+                    <button onClick={confirmSale} disabled={m.busy || m.invoice === null || splitBad} className="btn-primary disabled:opacity-40">
                       {m.busy ? t("common.saving") : t("consignment.recordReceiptBtn")}
                     </button>
                   </div>

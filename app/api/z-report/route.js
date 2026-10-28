@@ -32,10 +32,15 @@ function computeZData(db, mode, period) {
   // Ανά τρόπο πληρωμής.
   const byMethodMap = {};
   for (const r of receipts) {
-    const key = r.paymentMethod || "cash";
-    if (!byMethodMap[key]) byMethodMap[key] = { method: key, count: 0, total: 0 };
-    byMethodMap[key].count++;
-    byMethodMap[key].total += Number(r.total || 0);
+    // Απόδειξη με μετρητά ΚΑΙ κάρτα: κάθε μέρος μετράει στον δικό του τρόπο πληρωμής.
+    const parts = Array.isArray(r.paymentSplit) && r.paymentSplit.length > 1
+      ? r.paymentSplit.map((s) => ({ key: s.method, amount: Number(s.amount || 0) }))
+      : [{ key: r.paymentMethod || "cash", amount: Number(r.total || 0) }];
+    for (const p of parts) {
+      if (!byMethodMap[p.key]) byMethodMap[p.key] = { method: p.key, count: 0, total: 0 };
+      byMethodMap[p.key].count++;
+      byMethodMap[p.key].total += p.amount;
+    }
   }
   const byPaymentMethod = Object.values(byMethodMap)
     .map((x) => ({ ...x, total: round2(x.total) }))

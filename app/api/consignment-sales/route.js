@@ -23,7 +23,7 @@ export async function POST(request) {
 
   const db = readDB();
   const result = registerConsignmentSales(db, {
-    storeId, lines, date: body.date, invoice: !!body.invoice, holdMoney: !!body.holdMoney, commissionPercent: body.commissionPercent, paymentMethod: body.paymentMethod,
+    storeId, lines, date: body.date, invoice: !!body.invoice, holdMoney: !!body.holdMoney, commissionPercent: body.commissionPercent, paymentMethod: body.paymentMethod, paymentSplit: body.paymentSplit,
   });
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.error === "errors.notFound" ? 404 : 400 });
 
