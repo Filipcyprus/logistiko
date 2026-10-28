@@ -10,7 +10,7 @@ export async function POST(request) {
   const storeId = body.storeId;
   const date = body.date || new Date().toISOString().slice(0, 10);
   const items = (Array.isArray(body.items) ? body.items : [])
-    .map((it) => ({ productId: it.productId, quantity: Number(it.quantity || 0), unitPrice: it.unitPrice != null && it.unitPrice !== "" ? Number(it.unitPrice) : null }))
+    .map((it) => ({ productId: it.productId, quantity: Number(it.quantity || 0), testers: Math.max(Number(it.testers || 0), 0), unitPrice: it.unitPrice != null && it.unitPrice !== "" ? Number(it.unitPrice) : null }))
     .filter((it) => it.productId && it.quantity > 0);
 
   if (!storeId || items.length === 0) {
@@ -27,17 +27,21 @@ export async function POST(request) {
     if (!p) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
     // Επιτρέπεται και χωρίς επαρκές απόθεμα (π.χ. άρωμα που δεν έχει έρθει ακόμα): το απόθεμα αποθήκης
     // πάει αρνητικό μέχρι να γίνει παραλαβή, όπως ήδη γίνεται και σε άλλα προϊόντα.
-    resolved.push({ product: p, quantity: it.quantity, unitPrice: it.unitPrice });
+    // Από τα μπουκάλια που στέλνονται, τα "testers" δεν πουλιούνται: μένουν ξεχωριστά στο κατάστημα για δοκιμή.
+    resolved.push({ product: p, quantity: it.quantity, testers: Math.min(it.testers, it.quantity), unitPrice: it.unitPrice });
   }
 
   const deliveryId = uid();
   const deliveryItems = [];
-  for (const { product: p, quantity: qty, unitPrice } of resolved) {
+  for (const { product: p, quantity: qty, testers, unitPrice } of resolved) {
     p.stock = Math.round((Number(p.stock || 0) - qty) * 1000) / 1000;
     p.consignmentStock = p.consignmentStock || [];
     const entry = p.consignmentStock.find((c) => c.storeId === storeId);
-    if (entry) entry.quantity = Math.round((Number(entry.quantity || 0) + qty) * 1000) / 1000;
-    else p.consignmentStock.push({ storeId, quantity: qty });
+    const sellable = qty - testers;
+    if (entry) {
+      entry.quantity = Math.round((Number(entry.quantity || 0) + sellable) * 1000) / 1000;
+      if (testers) entry.testers = Math.round((Number(entry.testers || 0) + testers) * 1000) / 1000;
+    } else p.consignmentStock.push({ storeId, quantity: sellable, testers });
 
     db.stockMovements.unshift({
       id: uid(),
@@ -56,7 +60,7 @@ export async function POST(request) {
     // καταστήματα μπορεί να έχουν διαφορετική τιμή για το ίδιο άρωμα), αλλιώς η γενική προτεινόμενη
     // τιμή πώλησης του προϊόντος τη στιγμή της παράδοσης — στιγμιότυπο, ώστε το τυπωμένο δελτίο να
     // μην αλλάζει αναδρομικά αν η τιμή του προϊόντος αλλάξει αργότερα.
-    deliveryItems.push({ productId: p.id, productName: p.name, unit: p.unit, quantity: qty, unitPrice: unitPrice != null ? unitPrice : (Number(p.retailPrice) || 0) });
+    deliveryItems.push({ productId: p.id, productName: p.name, unit: p.unit, quantity: qty, testers, unitPrice: unitPrice != null ? unitPrice : (Number(p.retailPrice) || 0) });
   }
 
   const delivery = {

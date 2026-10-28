@@ -37,8 +37,10 @@ function reverseDelivery(db, delivery) {
     p.consignmentStock = p.consignmentStock || [];
     const entry = p.consignmentStock.find((c) => c.storeId === delivery.storeId);
     if (entry) {
-      entry.quantity = Math.round((Number(entry.quantity || 0) - it.quantity) * 1000) / 1000;
-      if (entry.quantity <= 0) p.consignmentStock = p.consignmentStock.filter((c) => c !== entry);
+      const t = Number(it.testers || 0);
+      entry.quantity = Math.round((Number(entry.quantity || 0) - (it.quantity - t)) * 1000) / 1000;
+      entry.testers = Math.round((Number(entry.testers || 0) - t) * 1000) / 1000;
+      if (entry.quantity <= 0 && entry.testers <= 0) p.consignmentStock = p.consignmentStock.filter((c) => c !== entry);
     }
   }
   // Παλαιότερες αποστολές (πριν προστεθεί το πεδίο deliveryId) δεν έχουν ετικέτα στις κινήσεις τους —
@@ -52,7 +54,7 @@ function reverseDelivery(db, delivery) {
 export async function PUT(request, { params }) {
   const body = await request.json();
   const items = (Array.isArray(body.items) ? body.items : [])
-    .map((it) => ({ productId: it.productId, quantity: Number(it.quantity || 0), unitPrice: it.unitPrice != null && it.unitPrice !== "" ? Number(it.unitPrice) : null }))
+    .map((it) => ({ productId: it.productId, quantity: Number(it.quantity || 0), testers: Math.max(Number(it.testers || 0), 0), unitPrice: it.unitPrice != null && it.unitPrice !== "" ? Number(it.unitPrice) : null }))
     .filter((it) => it.productId && it.quantity > 0);
 
   if (items.length === 0) return NextResponse.json({ error: "errors.invalidInput" }, { status: 400 });
@@ -71,16 +73,19 @@ export async function PUT(request, { params }) {
     if (!p) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
     // Επιτρέπεται και χωρίς επαρκές απόθεμα (π.χ. άρωμα που δεν έχει έρθει ακόμα): το απόθεμα αποθήκης
     // πάει αρνητικό μέχρι να γίνει παραλαβή, όπως ήδη γίνεται και σε άλλα προϊόντα.
-    resolved.push({ product: p, quantity: it.quantity, unitPrice: it.unitPrice });
+    resolved.push({ product: p, quantity: it.quantity, testers: Math.min(it.testers, it.quantity), unitPrice: it.unitPrice });
   }
 
   const deliveryItems = [];
-  for (const { product: p, quantity: qty, unitPrice } of resolved) {
+  for (const { product: p, quantity: qty, testers, unitPrice } of resolved) {
     p.stock = Math.round((Number(p.stock || 0) - qty) * 1000) / 1000;
     p.consignmentStock = p.consignmentStock || [];
     const entry = p.consignmentStock.find((c) => c.storeId === delivery.storeId);
-    if (entry) entry.quantity = Math.round((Number(entry.quantity || 0) + qty) * 1000) / 1000;
-    else p.consignmentStock.push({ storeId: delivery.storeId, quantity: qty });
+    const sellable = qty - testers;
+    if (entry) {
+      entry.quantity = Math.round((Number(entry.quantity || 0) + sellable) * 1000) / 1000;
+      if (testers) entry.testers = Math.round((Number(entry.testers || 0) + testers) * 1000) / 1000;
+    } else p.consignmentStock.push({ storeId: delivery.storeId, quantity: sellable, testers });
 
     db.stockMovements.unshift({
       id: uid(),
@@ -95,7 +100,7 @@ export async function PUT(request, { params }) {
       createdAt: new Date().toISOString(),
     });
 
-    deliveryItems.push({ productId: p.id, productName: p.name, unit: p.unit, quantity: qty, unitPrice: unitPrice != null ? unitPrice : (Number(p.retailPrice) || 0) });
+    deliveryItems.push({ productId: p.id, productName: p.name, unit: p.unit, quantity: qty, testers, unitPrice: unitPrice != null ? unitPrice : (Number(p.retailPrice) || 0) });
   }
 
   delivery.items = deliveryItems;

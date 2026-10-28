@@ -27,13 +27,14 @@ export default function ConsignmentPage() {
 
   const [activeStoreId, setActiveStoreId] = useState("");
   const [sendDate, setSendDate] = useState(todayISO());
-  const [sendLines, setSendLines] = useState([{ productId: "", quantity: 1, price: "" }]);
+  const [sendLines, setSendLines] = useState([{ productId: "", quantity: 1, testers: 1, price: "" }]);
   const [sendBusy, setSendBusy] = useState(false);
   const [sendErr, setSendErr] = useState("");
 
   // Πωλήσεις / επιστροφές ανά κατάστημα: ποσότητες που πληκτρολογεί ο χρήστης δίπλα σε κάθε άρωμα.
   const [soldQty, setSoldQty] = useState({});
   const [backQty, setBackQty] = useState({});
+  const [backTester, setBackTester] = useState({});
   const [priceEdit, setPriceEdit] = useState({});
   const [saleDate, setSaleDate] = useState(todayISO());
   const [saleModal, setSaleModal] = useState(null); // { invoice: null|true|false, commission, payment, busy, err, result }
@@ -97,6 +98,12 @@ export default function ConsignmentPage() {
     const entry = (product.consignmentStock || []).find((c) => c.storeId === storeId);
     return entry ? Number(entry.quantity || 0) : 0;
   };
+  // Τα testers είναι μπουκάλια του καταστήματος που ΔΕΝ πουλιούνται — κρατιούνται ξεχωριστά από το απόθεμα πώλησης.
+  const storeTestersFor = (product, storeId) => {
+    const entry = (product.consignmentStock || []).find((c) => c.storeId === storeId);
+    return entry ? Number(entry.testers || 0) : 0;
+  };
+  const testerWord = (n) => (Number(n) === 1 ? t("consignment.testerOne") : t("consignment.testerMany"));
 
   // Ανοίγει αυτόματα το πρώτο κατάστημα, ώστε η οθόνη να μη φαίνεται άδεια.
   useEffect(() => {
@@ -105,15 +112,15 @@ export default function ConsignmentPage() {
 
   const selectStore = (id) => {
     setActiveStoreId(id);
-    setSoldQty({}); setBackQty({}); setStoreMsg({ type: "", text: "" });
-    setSendLines([{ productId: "", quantity: 1, price: "" }]); setSendErr("");
+    setSoldQty({}); setBackQty({}); setBackTester({}); setStoreMsg({ type: "", text: "" });
+    setSendLines([{ productId: "", quantity: 1, testers: 1, price: "" }]); setSendErr("");
   };
 
   const activeStore = stores.find((x) => x.id === activeStoreId);
   const atStore = activeStore
-    ? perfumes.map((p) => ({ p, qty: storeStockFor(p, activeStoreId) })).filter((x) => x.qty > 0).sort((a, b) => a.p.name.localeCompare(b.p.name))
+    ? perfumes.map((p) => ({ p, qty: storeStockFor(p, activeStoreId), testers: storeTestersFor(p, activeStoreId) })).filter((x) => x.qty > 0 || x.testers > 0).sort((a, b) => a.p.name.localeCompare(b.p.name))
     : [];
-  const piecesAtStore = (storeId) => perfumes.reduce((a, p) => a + storeStockFor(p, storeId), 0);
+  const piecesAtStore = (storeId) => perfumes.reduce((a, p) => a + storeStockFor(p, storeId) + storeTestersFor(p, storeId), 0);
   const soldBottles = (storeId) => soldBottlesOf(sales, storeId);
 
   // Τιμή πώλησης προς το κατάστημα: ό,τι έχεις γράψει εσύ εδώ, αλλιώς η τιμή του τελευταίου δελτίου αποστολής
@@ -133,7 +140,9 @@ export default function ConsignmentPage() {
     .filter((x) => Number(soldQty[x.p.id]) > 0)
     .map((x) => ({ productId: x.p.id, name: x.p.name, quantity: Number(soldQty[x.p.id]), unitPrice: Number(priceFor(x.p)) || 0 }));
   const soldGross = soldLines.reduce((a, l) => a + l.quantity * l.unitPrice, 0);
-  const backLines = atStore.filter((x) => Number(backQty[x.p.id]) > 0).map((x) => ({ productId: x.p.id, quantity: Number(backQty[x.p.id]) }));
+  const backLines = atStore
+    .map((x) => ({ productId: x.p.id, quantity: Number(backQty[x.p.id]) || 0, testers: backTester[x.p.id] ? x.testers : 0 }))
+    .filter((l) => l.quantity > 0 || l.testers > 0);
 
   const startSale = () => {
     setStoreMsg({ type: "", text: "" });
@@ -171,17 +180,17 @@ export default function ConsignmentPage() {
     setBackBusy(true);
     const res = await fetch("/api/consignment-stock/return", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ storeId: activeStoreId, date: saleDate, items: backLines }) });
     setBackBusy(false);
-    if (res.ok) { setBackQty({}); setStoreMsg({ type: "ok", text: t("consignment.takeBackDone") }); load(); }
+    if (res.ok) { setBackQty({}); setBackTester({}); setStoreMsg({ type: "ok", text: t("consignment.takeBackDone") }); load(); }
     else { const err = await res.json().catch(() => ({})); setStoreMsg({ type: "err", text: err.error ? t(err.error) : t("common.error") }); }
   };
 
-  const addSendLine = () => setSendLines((prev) => [...prev, { productId: "", quantity: 1, price: "" }]);
+  const addSendLine = () => setSendLines((prev) => [...prev, { productId: "", quantity: 1, testers: 1, price: "" }]);
   const removeSendLine = (idx) => setSendLines((prev) => prev.filter((_, i) => i !== idx));
   const updateSendLine = (idx, patch) => setSendLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
 
   const doSend = async () => {
     setSendErr("");
-    const items = sendLines.filter((l) => l.productId && Number(l.quantity) > 0).map((l) => ({ productId: l.productId, quantity: Number(l.quantity), unitPrice: l.price !== "" ? Number(l.price) : undefined }));
+    const items = sendLines.filter((l) => l.productId && Number(l.quantity) > 0).map((l) => ({ productId: l.productId, quantity: Number(l.quantity), testers: Math.min(Math.max(Number(l.testers) || 0, 0), Number(l.quantity)), unitPrice: l.price !== "" ? Number(l.price) : undefined }));
     if (!activeStoreId || items.length === 0) { setSendErr(t("consignment.errSendFields")); return; }
     setSendBusy(true);
     const res = await fetch("/api/consignment-stock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ storeId: activeStoreId, date: sendDate, items }) });
@@ -376,10 +385,13 @@ export default function ConsignmentPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {atStore.map(({ p, qty }) => (
+                        {atStore.map(({ p, qty, testers }) => (
                           <tr key={p.id}>
                             <td className="table-td font-medium">{p.name}</td>
-                            <td className="table-td text-right font-semibold">{qty}</td>
+                            <td className="table-td text-right font-semibold">
+                              {qty}
+                              {testers > 0 && <span className="block text-xs font-normal text-slate-500">+ {testers} {testerWord(testers)}</span>}
+                            </td>
                             <td className="table-td text-right">
                               <input type="number" min="0" step="any" className="input !w-24 !py-1 text-right ml-auto"
                                 value={priceFor(p)} onChange={(e) => setPriceEdit({ ...priceEdit, [`${activeStoreId}:${p.id}`]: e.target.value })} />
@@ -391,6 +403,12 @@ export default function ConsignmentPage() {
                             <td className="table-td text-right">
                               <input type="number" min="0" max={qty} step="any" placeholder="0" className="input !w-20 !py-1 text-right ml-auto"
                                 value={backQty[p.id] ?? ""} onChange={(e) => setBackQty({ ...backQty, [p.id]: e.target.value })} />
+                              {testers > 0 && (
+                                <label className="mt-1 flex items-center justify-end gap-1 text-xs text-slate-500 cursor-pointer">
+                                  <input type="checkbox" checked={!!backTester[p.id]} onChange={(e) => setBackTester({ ...backTester, [p.id]: e.target.checked })} />
+                                  {testers} {testerWord(testers)}
+                                </label>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -438,6 +456,10 @@ export default function ConsignmentPage() {
                         <label className="label">{t("consignment.fieldQuantity")}</label>
                         <input type="number" min="1" step="any" className="input" value={line.quantity} onChange={(e) => updateSendLine(idx, { quantity: e.target.value })} />
                       </div>
+                      <div className="w-24">
+                        <label className="label" title={t("consignment.fieldTesterOf")}>{t("consignment.fieldTesterOf")}</label>
+                        <input type="number" min="0" max={line.quantity || undefined} step="1" className="input" value={line.testers} onChange={(e) => updateSendLine(idx, { testers: e.target.value })} />
+                      </div>
                       <div className="w-28">
                         <label className="label">{t("consignment.fieldPrice")}</label>
                         <input type="number" min="0" step="any" className="input" value={line.price} onChange={(e) => updateSendLine(idx, { price: e.target.value })} placeholder={t("consignment.fieldPricePlaceholder")} />
@@ -464,7 +486,7 @@ export default function ConsignmentPage() {
                       <div key={d.id} className="p-4 flex items-start justify-between gap-3">
                         <div>
                           <div className="text-xs text-slate-400">{formatDate(d.date)}</div>
-                          <div className="text-sm text-slate-600 mt-1">{d.items.map((it) => `${it.productName} × ${it.quantity}`).join(", ")}</div>
+                          <div className="text-sm text-slate-600 mt-1">{d.items.map((it) => `${it.productName} × ${it.quantity}${it.testers > 0 ? ` (${t("consignment.inclTester", { count: it.testers, word: testerWord(it.testers) })})` : ""}`).join(", ")}</div>
                         </div>
                         <a href={`/consignment/delivery/${d.id}`} className="btn-secondary shrink-0"><Icon name="printer" size={14} /> {t("consignment.viewDelivery")}</a>
                       </div>
@@ -493,7 +515,7 @@ export default function ConsignmentPage() {
                     <tr key={p.id}>
                       <td className="table-td font-medium">{p.name}</td>
                       <td className="table-td text-right">{p.stock}</td>
-                      {stores.map((st) => <td key={st.id} className="table-td text-right">{storeStockFor(p, st.id)}</td>)}
+                      {stores.map((st) => <td key={st.id} className="table-td text-right">{storeStockFor(p, st.id)}{storeTestersFor(p, st.id) > 0 && <span className="text-xs text-slate-500"> +{storeTestersFor(p, st.id)}T</span>}</td>)}
                     </tr>
                   ))}
                 </tbody>

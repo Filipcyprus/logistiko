@@ -51,18 +51,19 @@ export default function ConsignmentDeliveryPage() {
 
   const startEdit = () => {
     setErr("");
-    setEditItems(delivery.items.map((it) => ({ productId: it.productId, quantity: it.quantity, price: it.unitPrice ?? "" })));
+    setEditItems(delivery.items.map((it) => ({ productId: it.productId, quantity: it.quantity, testers: it.testers || 0, price: it.unitPrice ?? "" })));
     setEditing(true);
   };
   const cancelEdit = () => { setEditing(false); setErr(""); };
 
   const updateLine = (idx, patch) => setEditItems((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
   const removeLine = (idx) => setEditItems((prev) => prev.filter((_, i) => i !== idx));
-  const addLine = () => setEditItems((prev) => [...prev, { productId: "", quantity: 1, price: "" }]);
+  const addLine = () => setEditItems((prev) => [...prev, { productId: "", quantity: 1, testers: 1, price: "" }]);
+  const testerWord = (n) => (Number(n) === 1 ? t("consignment.testerOne") : t("consignment.testerMany"));
 
   const saveEdit = async () => {
     setErr("");
-    const items = editItems.filter((l) => l.productId && Number(l.quantity) > 0).map((l) => ({ productId: l.productId, quantity: Number(l.quantity), unitPrice: l.price !== "" ? Number(l.price) : undefined }));
+    const items = editItems.filter((l) => l.productId && Number(l.quantity) > 0).map((l) => ({ productId: l.productId, quantity: Number(l.quantity), testers: Math.min(Math.max(Number(l.testers) || 0, 0), Number(l.quantity)), unitPrice: l.price !== "" ? Number(l.price) : undefined }));
     if (items.length === 0) { setErr(t("consignment.errSendFields")); return; }
     setSaving(true);
     const res = await fetch(`/api/consignment-deliveries/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items }) });
@@ -124,6 +125,10 @@ export default function ConsignmentDeliveryPage() {
                   <label className="label">{t("consignment.fieldQuantity")}</label>
                   <input type="number" min="1" step="any" className="input" value={line.quantity} onChange={(e) => updateLine(idx, { quantity: e.target.value })} />
                 </div>
+                <div className="w-24">
+                  <label className="label">{t("consignment.fieldTesterOf")}</label>
+                  <input type="number" min="0" max={line.quantity || undefined} step="1" className="input" value={line.testers} onChange={(e) => updateLine(idx, { testers: e.target.value })} />
+                </div>
                 <div className="w-28">
                   <label className="label">{t("consignment.fieldPrice")}</label>
                   <input type="number" min="0" step="any" className="input" value={line.price} onChange={(e) => updateLine(idx, { price: e.target.value })} placeholder={t("consignment.fieldPricePlaceholder")} />
@@ -180,21 +185,30 @@ export default function ConsignmentDeliveryPage() {
             {delivery.items.map((it, i) => (
               <tr key={i} className="border-b border-slate-100">
                 <td className="py-2">{it.productName}</td>
-                <td className="py-2 text-right">{it.quantity} {it.unit}</td>
+                <td className="py-2 text-right">
+                  {it.quantity} {it.unit}
+                  {it.testers > 0 && <div className="text-xs text-slate-500">{t("consignment.saleAndTester", { sale: it.quantity - it.testers, testers: it.testers, word: testerWord(it.testers) })}</div>}
+                </td>
                 <td className="py-2 text-right">{it.unitPrice ? money(it.unitPrice, company.currency) : "—"}</td>
-                <td className="py-2 text-right">{it.unitPrice ? money(it.unitPrice * it.quantity, company.currency) : "—"}</td>
+                <td className="py-2 text-right">{it.unitPrice ? money(it.unitPrice * (it.quantity - (it.testers || 0)), company.currency) : "—"}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="border-t border-slate-300 text-slate-700">
               <td className="py-2" colSpan={3}>{t("consignment.deliveryTotalBottles")}</td>
-              <td className="py-2 text-right font-semibold">{delivery.items.reduce((sum, it) => sum + Number(it.quantity || 0), 0)}</td>
+              <td className="py-2 text-right font-semibold">
+                {(() => {
+                  const total = delivery.items.reduce((sum, it) => sum + Number(it.quantity || 0), 0);
+                  const tst = delivery.items.reduce((sum, it) => sum + Number(it.testers || 0), 0);
+                  return tst > 0 ? t("consignment.totalWithTesters", { total, testers: tst, word: testerWord(tst) }) : total;
+                })()}
+              </td>
             </tr>
             {delivery.items.some((it) => it.unitPrice) && (
               <tr className="font-semibold text-slate-800">
                 <td className="py-2" colSpan={3}>{t("consignment.deliveryTotalValue")}</td>
-                <td className="py-2 text-right">{money(delivery.items.reduce((sum, it) => sum + (it.unitPrice || 0) * it.quantity, 0), company.currency)}</td>
+                <td className="py-2 text-right">{money(delivery.items.reduce((sum, it) => sum + (it.unitPrice || 0) * (it.quantity - (it.testers || 0)), 0), company.currency)}</td>
               </tr>
             )}
           </tfoot>
@@ -206,6 +220,8 @@ export default function ConsignmentDeliveryPage() {
             ? t("consignment.deliveryTerms", { company: company.companyName, percent: store.commissionPercent })
             : t("consignment.deliveryTermsNoPercent", { company: company.companyName })}
         </p>
+
+        {delivery.items.some((it) => it.testers > 0) && <p className="mt-2 text-sm text-slate-600">{t("consignment.deliveryTesterNote")}</p>}
 
         <div className="mt-12 grid grid-cols-2 gap-10 text-sm">
           {[["consignment.deliveredBy", company.companyName], ["consignment.receivedBy", store?.legalName || delivery.storeName]].map(([key, who]) => (
