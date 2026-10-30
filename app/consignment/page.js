@@ -545,12 +545,13 @@ export default function ConsignmentPage() {
                   <div className="text-sm rounded-lg px-3 py-2 bg-emerald-50 text-emerald-700">
                     {done.invoice.type === "timologio"
                       ? t("consignment.saleRecordedInvoice", { number: done.invoice.number, amount: money(done.invoice.total, cur) })
-                      : done.invoice.commissionDue
-                        ? t("consignment.saleRecordedHeld", { number: done.invoice.number, amount: money(done.invoice.commissionDue.amount, cur) })
+                      : done.commissionInvoice
+                        ? t("consignment.saleRecordedCommission", { number: done.invoice.number, inv: done.commissionInvoice.number, amount: money(done.commissionInvoice.amount, cur) })
                         : t("consignment.saleRecordedReceipt", { number: done.invoice.number })}
                   </div>
                   <div className="flex justify-end gap-2">
                     <Link href={`/parastatika/${done.invoice.id}`} className="btn-secondary">{t("consignment.openDocument")} {done.invoice.number}</Link>
+                    {done.commissionInvoice && <Link href={`/consignment/commission/${done.commissionInvoice.id}`} className="btn-secondary">{t("consignment.openCommissionInvoice")}</Link>}
                     <button onClick={() => setSaleModal(null)} className="btn-primary">{t("common.close")}</button>
                   </div>
                 </>
@@ -686,6 +687,7 @@ export default function ConsignmentPage() {
                     <td className="table-td text-right font-medium">{money(s.total, cur)}{s.commissionPercent ? <div className="text-xs font-normal text-slate-400">−{s.commissionPercent}%</div> : null}</td>
                     <td className="table-td text-right">
                       <a href={`/parastatika/${s.invoiceId}`} className="text-brand-600 text-xs font-medium">{s.invoiceNumber}</a>
+                      {s.commissionInvoiceId && <a href={`/consignment/commission/${s.commissionInvoiceId}`} className="block text-brand-600 text-xs font-medium">{s.commissionInvoiceNumber}</a>}
                     </td>
                   </tr>
                 ))}

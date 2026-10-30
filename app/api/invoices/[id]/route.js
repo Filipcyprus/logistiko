@@ -97,6 +97,12 @@ export async function DELETE(_req, { params }) {
       const n = Number(String(ex.number).match(/(\d+)$/)?.[1]);
       if (n && n === (db.counters.expense || 1) - 1) db.counters.expense = n;
     }
+    // Το τιμολόγιο προμήθειας φεύγει μαζί με το έξοδο (αν το έξοδο έχει ήδη πληρωθεί, μένει και αυτό).
+    if ((!ex || !Number(ex.paidAmount || 0)) && inv.commissionInvoiceId) {
+      const ci = (db.commissionInvoices || []).find((x) => x.id === inv.commissionInvoiceId);
+      db.commissionInvoices = (db.commissionInvoices || []).filter((x) => x.id !== inv.commissionInvoiceId);
+      if (ci && Number(ci.aa) === (db.counters.commissionInvoice || 1) - 1) db.counters.commissionInvoice = Number(ci.aa);
+    }
   }
 
   // Κανονικό παραστατικό: είχε βγάλει στοκ → επιστροφή (+). Πιστωτικό: είχε προσθέσει στοκ → αφαίρεση (−).

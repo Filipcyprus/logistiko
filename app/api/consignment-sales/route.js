@@ -43,7 +43,7 @@ export async function POST(request) {
   writeDB(db);
   await logActivity(request, "consignment_sale", {
     store: result.invoice.shopName, number: result.invoice.number, type: result.invoice.type, total: result.invoice.total,
-    commission: result.commissionAmount || 0, holdMoney: !!body.holdMoney,
+    commission: result.commissionAmount || 0, holdMoney: !!body.holdMoney, commissionInvoice: result.commissionInvoice?.number || "",
   });
-  return NextResponse.json({ invoice: result.invoice, sales: result.sales, commissionAmount: result.commissionAmount, expense: result.expense || null }, { status: 201 });
+  return NextResponse.json({ invoice: result.invoice, sales: result.sales, commissionAmount: result.commissionAmount, expense: result.expense || null, commissionInvoice: result.commissionInvoice || null }, { status: 201 });
 }
