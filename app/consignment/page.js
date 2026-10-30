@@ -349,6 +349,7 @@ export default function ConsignmentPage() {
                       />
                       <span className="text-xs text-slate-500">%</span>
                     </div>
+                    <Link href={`/consignment/store-stock/${activeStore.id}`} className="btn-secondary !py-1 text-sm"><Icon name="printer" size={14} /> {t("consignment.printStoreStock")}</Link>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-slate-500">{t("consignment.fieldDate")}</label>
                       <input type="date" className="input !py-1 !w-40" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
