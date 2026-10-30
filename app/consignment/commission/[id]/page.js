@@ -100,7 +100,6 @@ export default function CommissionInvoicePage() {
           <div>{t("consignment.commissionBasis", { sales: money(doc.salesTotal, cur), percent: doc.percent, receipt: doc.receiptNumber })}</div>
           {doc.bonusPercent > 0 && <div>{t("consignment.commissionBonusLine", { base: doc.basePercent, bonus: doc.bonusPercent })}</div>}
           <div>{t("consignment.commissionNoVat")}</div>
-          <div className="font-semibold text-slate-700">{t("consignment.commissionSelfBilled", { issuer: company.companyName, shop: store?.legalName || doc.storeName })}</div>
         </div>
       </div>
     </div>
