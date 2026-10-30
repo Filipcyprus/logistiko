@@ -86,7 +86,7 @@ export async function DELETE(_req, { params }) {
 
     // Η προμήθεια που είχε γραφτεί προς το κατάστημα φεύγει μαζί, εφόσον δεν έχει ήδη πληρωθεί.
     const ex = inv.commissionExpenseId ? (db.expenses || []).find((x) => x.id === inv.commissionExpenseId) : null;
-    if (ex && !Number(ex.paidAmount || 0)) {
+    if (ex) {
       try {
         removeEntriesBySource(db, "expense", ex.id);
       } catch (e) {
@@ -98,7 +98,7 @@ export async function DELETE(_req, { params }) {
       if (n && n === (db.counters.expense || 1) - 1) db.counters.expense = n;
     }
     // Το τιμολόγιο προμήθειας φεύγει μαζί με το έξοδο (αν το έξοδο έχει ήδη πληρωθεί, μένει και αυτό).
-    if ((!ex || !Number(ex.paidAmount || 0)) && inv.commissionInvoiceId) {
+    if (inv.commissionInvoiceId) {
       const ci = (db.commissionInvoices || []).find((x) => x.id === inv.commissionInvoiceId);
       db.commissionInvoices = (db.commissionInvoices || []).filter((x) => x.id !== inv.commissionInvoiceId);
       if (ci && Number(ci.aa) === (db.counters.commissionInvoice || 1) - 1) db.counters.commissionInvoice = Number(ci.aa);
