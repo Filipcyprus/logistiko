@@ -101,17 +101,6 @@ export default function CommissionInvoicePage() {
           {doc.bonusPercent > 0 && <div>{t("consignment.commissionBonusLine", { base: doc.basePercent, bonus: doc.bonusPercent })}</div>}
           <div>{t("consignment.commissionNoVat")}</div>
         </div>
-
-        <div className="mt-12 grid grid-cols-2 gap-10 text-sm">
-          {[["consignment.commissionIssuedBy", company.companyName], ["consignment.receivedBy", store?.legalName || doc.storeName]].map(([key, who]) => (
-            <div key={key}>
-              <div className="font-semibold text-slate-700">{t(key)}</div>
-              <div className="text-slate-500 text-xs mb-8">{who}</div>
-              <div className="border-t border-slate-400 pt-1 text-slate-500 text-xs">{t("consignment.signSignature")}</div>
-              <div className="mt-6 border-t border-slate-300 pt-1 text-slate-500 text-xs">{t("consignment.signDate")}</div>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
