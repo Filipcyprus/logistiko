@@ -407,16 +407,7 @@ export default function StockPage() {
                           {p.image ? <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden"><img src={p.image} alt="" className="w-full h-full object-contain" /></div> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300"><Icon name="image" size={16} /></div>}
                         </td>
                         <td className="table-td text-slate-500 text-sm">{p.sku || "—"}</td>
-                        <td className="table-td font-medium">{p.name}{(p.category || p.subcategory) && <div className="text-xs text-slate-400">{[p.category, p.subcategory].filter(Boolean).join(" › ")}</div>}
-                          {(p.consignmentStock || []).filter((c) => Number(c.quantity) > 0 || Number(c.testers) > 0).length > 0 && (
-                            <div className="mt-0.5 text-xs font-normal text-brand-700">
-                              {t("stock.atConsignmentStores")}: {(p.consignmentStock || []).filter((c) => Number(c.quantity) > 0 || Number(c.testers) > 0).map((c) => {
-                                const st = consignStores.find((x) => x.id === c.storeId);
-                                return `${st ? st.name : "?"} ${Number(c.quantity || 0)}${Number(c.testers) > 0 ? ` +${c.testers}T` : ""}`;
-                              }).join(" · ")}
-                            </div>
-                          )}
-                        </td>
+                        <td className="table-td font-medium">{p.name}{(p.category || p.subcategory) && <div className="text-xs text-slate-400">{[p.category, p.subcategory].filter(Boolean).join(" › ")}</div>}</td>
                         <td className="table-td">
                           <input
                             list="brand-list" placeholder="—"
@@ -481,6 +472,29 @@ export default function StockPage() {
                               <span className="text-xs text-slate-400">{p.unit}</span>
                             </div>
                           )}
+                          {p.trackStock !== false && (
+                            <div className="text-[11px] text-slate-400 text-right mt-0.5">{t("stock.mainWarehouse")}</div>
+                          )}
+                          {(() => {
+                            const held = (p.consignmentStock || []).filter((c) => Number(c.quantity) > 0 || Number(c.testers) > 0);
+                            if (held.length === 0) return null;
+                            const bottles = held.reduce((a, c) => a + Number(c.quantity || 0) + Number(c.testers || 0), 0);
+                            return (
+                              <details className="mt-1 text-right">
+                                <summary className="cursor-pointer text-xs text-brand-700 select-none">{t("stock.atConsignmentStores")} ({held.length}) · {bottles}</summary>
+                                <div className="mt-1 text-xs text-slate-600 space-y-0.5 text-right">
+                                  {held.map((c) => {
+                                    const st = consignStores.find((x) => x.id === c.storeId);
+                                    return (
+                                      <div key={c.storeId}>
+                                        {st ? st.name : "?"}: <b>{Number(c.quantity || 0)}</b>{Number(c.testers) > 0 ? <span className="text-slate-400"> + {c.testers} {t("consignment.tester")}</span> : null}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </details>
+                            );
+                          })()}
                         </td>
                         <td className="table-td text-center text-sm">
                           {p.department === "perfumes" && p.trackExpiry && p.warehouseStocks?.length > 0 ? (
