@@ -14,17 +14,28 @@ export default function StoreStockSheet() {
   const [store, setStore] = useState(undefined);
   const [products, setProducts] = useState(null);
   const [company, setCompany] = useState(null);
+  const [deliveries, setDeliveries] = useState(null);
 
   useEffect(() => {
     fetch("/api/consignment-stores").then((r) => r.json()).then((l) => setStore(l.find((s) => s.id === id) || null));
     fetch("/api/products").then((r) => r.json()).then(setProducts);
     fetch("/api/settings").then((r) => r.json()).then(setCompany);
+    fetch("/api/consignment-deliveries").then((r) => r.json()).then(setDeliveries);
   }, [id]);
 
   if (store === null) return <div className="text-slate-500">{t("common.notFound")}</div>;
-  if (!store || !products || !company) return <div className="text-slate-400">{t("common.loading")}</div>;
+  if (!store || !products || !company || !deliveries) return <div className="text-slate-400">{t("common.loading")}</div>;
 
   const cur = company.currency || "€";
+  // Τιμή πώλησης ΣΕ ΑΥΤΟ το κατάστημα: από την τελευταία παράδοση προς αυτό· αλλιώς η προτεινόμενη τιμή του προϊόντος.
+  const priceOf = (p) => {
+    for (const d of deliveries) {
+      if (d.storeId !== id) continue;
+      const it = (d.items || []).find((i) => i.productId === p.id);
+      if (it && it.unitPrice != null) return Number(it.unitPrice);
+    }
+    return Number(p.retailPrice) || 0;
+  };
   const rows = products
     .filter((p) => p.department === "perfumes")
     .map((p) => {
@@ -35,7 +46,7 @@ export default function StoreStockSheet() {
     .sort((a, b) => a.p.name.localeCompare(b.p.name));
   const totalSale = rows.reduce((a, r) => a + r.sale, 0);
   const totalTester = rows.reduce((a, r) => a + r.tester, 0);
-  const value = rows.reduce((a, r) => a + r.sale * (Number(r.p.retailPrice) || 0), 0);
+  const value = rows.reduce((a, r) => a + r.sale * priceOf(r.p), 0);
 
   return (
     <div className="space-y-4">
@@ -66,6 +77,7 @@ export default function StoreStockSheet() {
           {store.legalName && store.legalName !== store.name && <div>{store.name}</div>}
           {store.afm && <div>{t("consignment.deliveryStoreVat")}: {store.afm}</div>}
           {(store.address || store.city) && <div>{[store.address, store.city].filter(Boolean).join(", ")}</div>}
+          {store.contact && <div>{t("consignment.responsiblePerson")}: {store.contact}{store.contactId ? ` — ${t("consignment.responsibleId")}: ${store.contactId}` : ""}</div>}
         </div>
 
         <table className="w-full mt-4 text-sm">
@@ -83,7 +95,7 @@ export default function StoreStockSheet() {
                 <td className="py-1.5">{p.name}</td>
                 <td className="py-1.5 text-right font-medium">{sale}</td>
                 <td className="py-1.5 text-right text-slate-500">{tester || ""}</td>
-                <td className="py-1.5 text-right">{Number(p.retailPrice) ? money(p.retailPrice, cur) : "—"}</td>
+                <td className="py-1.5 text-right">{priceOf(p) ? money(priceOf(p), cur) : "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -99,10 +111,14 @@ export default function StoreStockSheet() {
         <p className="text-xs text-slate-400 mt-1">{t("consignment.storeStockHint")}</p>
 
         <div className="mt-12 grid grid-cols-2 gap-10 text-sm">
-          {[["consignment.deliveredBy", company.companyName], ["consignment.receivedBy", store.legalName || store.name]].map(([key, who]) => (
-            <div key={key}>
-              <div className="font-semibold text-slate-700">{t(key)}</div>
-              <div className="text-slate-500 text-xs mb-8">{who}</div>
+          {[
+            { key: "consignment.deliveredBy", lines: [company.companyName], sig: company.signature },
+            { key: "consignment.receivedBy", lines: [store.contact, store.legalName].filter(Boolean).length ? [store.contact, store.legalName].filter(Boolean) : [store.name], sig: "" },
+          ].map((x) => (
+            <div key={x.key}>
+              <div className="font-semibold text-slate-700">{t(x.key)}</div>
+              <div className="text-slate-500 text-xs">{x.lines.map((l, i) => <div key={i}>{l}</div>)}</div>
+              <div className="h-14 flex items-end">{x.sig ? <img src={x.sig} alt="" className="max-h-14" /> : null}</div>
               <div className="border-t border-slate-400 pt-1 text-slate-500 text-xs">{t("consignment.signSignature")}</div>
               <div className="mt-6 border-t border-slate-300 pt-1 text-slate-500 text-xs">{t("consignment.signDate")}</div>
             </div>

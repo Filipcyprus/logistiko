@@ -9,7 +9,7 @@ import { bonusFor, nextBonus, soldBottlesOf } from "@/lib/consignmentBonus";
 import Icon from "@/components/Icon";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-const emptyStore = { name: "", legalName: "", afm: "", address: "", city: "", phone: "", email: "", contact: "", commissionPercent: "", bonusLevels: [] };
+const emptyStore = { name: "", legalName: "", afm: "", address: "", city: "", phone: "", email: "", contact: "", contactId: "", commissionPercent: "", bonusLevels: [] };
 
 export default function ConsignmentPage() {
   const { t } = useLanguage();
@@ -83,7 +83,7 @@ export default function ConsignmentPage() {
   };
   const editStore = (s) => {
     setEditingStoreId(s.id);
-    setNewStore({ name: s.name || "", legalName: s.legalName || "", afm: s.afm || "", address: s.address || "", city: s.city || "", phone: s.phone || "", email: s.email || "", contact: s.contact || "", commissionPercent: s.commissionPercent ?? "", bonusLevels: (s.bonusLevels || []).map((l) => ({ ...l })) });
+    setNewStore({ name: s.name || "", legalName: s.legalName || "", afm: s.afm || "", address: s.address || "", city: s.city || "", phone: s.phone || "", email: s.email || "", contact: s.contact || "", contactId: s.contactId || "", commissionPercent: s.commissionPercent ?? "", bonusLevels: (s.bonusLevels || []).map((l) => ({ ...l })) });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const cancelEditStore = () => { setEditingStoreId(null); setNewStore(emptyStore); };
@@ -236,6 +236,7 @@ export default function ConsignmentPage() {
               <div><label className="label">{t("consignment.storeName")}</label><input className="input" value={newStore.name} onChange={(e) => setNewStore({ ...newStore, name: e.target.value })} /></div>
               <div><label className="label">{t("consignment.storeLegalName")}</label><input className="input" value={newStore.legalName} onChange={(e) => setNewStore({ ...newStore, legalName: e.target.value })} placeholder={t("consignment.storeLegalNameHint")} /></div>
               <div><label className="label">{t("consignment.storeContact")}</label><input className="input" value={newStore.contact} onChange={(e) => setNewStore({ ...newStore, contact: e.target.value })} /></div>
+              <div><label className="label">{t("consignment.storeContactId")}</label><input className="input" value={newStore.contactId} onChange={(e) => setNewStore({ ...newStore, contactId: e.target.value })} /></div>
               <div><label className="label">{t("consignment.storeAfm")}</label><input className="input" value={newStore.afm} onChange={(e) => setNewStore({ ...newStore, afm: e.target.value })} /></div>
               <div><label className="label">{t("consignment.storePhone")}</label><input className="input" value={newStore.phone} onChange={(e) => setNewStore({ ...newStore, phone: e.target.value })} /></div>
               <div><label className="label">{t("consignment.storeEmail")}</label><input type="email" className="input" value={newStore.email} onChange={(e) => setNewStore({ ...newStore, email: e.target.value })} /></div>

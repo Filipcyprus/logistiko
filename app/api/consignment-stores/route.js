@@ -20,6 +20,7 @@ export async function POST(request) {
     phone: body.phone || "",
     email: body.email || "",
     contact: body.contact || "",
+    contactId: body.contactId || "",
     // Το ποσοστό κέρδους που δίνουμε στο κατάστημα για κάθε πώληση (π.χ. 20 = 20%). null = δεν έχει οριστεί.
     commissionPercent: body.commissionPercent === "" || body.commissionPercent == null ? null : Number(body.commissionPercent),
     notes: body.notes || "",

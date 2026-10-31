@@ -166,7 +166,7 @@ export default function ConsignmentDeliveryPage() {
             {store?.legalName && store.legalName !== delivery.storeName && <div>{store.legalName}</div>}
             {store?.afm && <div>{t("consignment.deliveryStoreVat")}: {store.afm}</div>}
             {(store?.address || store?.city) && <div>{[store.address, store.city].filter(Boolean).join(", ")}</div>}
-            {store?.contact && <div>{t("consignment.storeContact")}: {store.contact}</div>}
+            {store?.contact && <div>{t("consignment.responsiblePerson")}: {store.contact}{store.contactId ? ` — ${t("consignment.responsibleId")}: ${store.contactId}` : ""}</div>}
             {store?.phone && <div>{t("customers.fieldPhone")}: {store.phone}</div>}
             {store?.email && <div>{store.email}</div>}
           </div>
@@ -224,12 +224,15 @@ export default function ConsignmentDeliveryPage() {
         {delivery.items.some((it) => it.testers > 0) && <p className="mt-2 text-sm text-slate-600">{t("consignment.deliveryTesterNote")}</p>}
 
         <div className="mt-12 grid grid-cols-2 gap-10 text-sm">
-          {[["consignment.deliveredBy", company.companyName], ["consignment.receivedBy", store?.legalName || delivery.storeName]].map(([key, who]) => (
-            <div key={key}>
-              <div className="font-semibold text-slate-700">{t(key)}</div>
-              <div className="text-slate-500 text-xs mb-8">{who}</div>
+          {[
+            { key: "consignment.deliveredBy", lines: [company.companyName], sig: company.signature },
+            { key: "consignment.receivedBy", lines: [store?.contact, store?.legalName].filter(Boolean).length ? [store?.contact, store?.legalName].filter(Boolean) : [delivery.storeName], sig: "" },
+          ].map((x) => (
+            <div key={x.key}>
+              <div className="font-semibold text-slate-700">{t(x.key)}</div>
+              <div className="text-slate-500 text-xs">{x.lines.map((l, i) => <div key={i}>{l}</div>)}</div>
+              <div className="h-14 flex items-end">{x.sig ? <img src={x.sig} alt="" className="max-h-14" /> : null}</div>
               <div className="border-t border-slate-400 pt-1 text-slate-500 text-xs">{t("consignment.signSignature")}</div>
-              <div className="mt-6 border-t border-slate-300 pt-1 text-slate-500 text-xs">{t("consignment.signName")}</div>
               <div className="mt-6 border-t border-slate-300 pt-1 text-slate-500 text-xs">{t("consignment.signDate")}</div>
             </div>
           ))}

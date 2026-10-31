@@ -17,6 +17,7 @@ export default function SettingsPage() {
   const [s, setS] = useState(null);
   const [saved, setSaved] = useState(false);
   const fileRef = useRef();
+  const signRef = useRef();
   const restoreRef = useRef();
   const [staff, setStaff] = useState([]);
   const [newStaff, setNewStaff] = useState({ username: "", password: "", role: "cashier", canDiscount: false, linkedId: "" });
@@ -134,6 +135,14 @@ export default function SettingsPage() {
     }
   };
 
+  const onSignature = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => upd({ signature: reader.result });
+    reader.readAsDataURL(file);
+  };
+
   const onLogo = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -188,6 +197,16 @@ export default function SettingsPage() {
             <button onClick={() => fileRef.current?.click()} className="btn-secondary">{t("settings.uploadLogo")}</button>
             {s.logo && <button onClick={() => upd({ logo: "" })} className="btn-ghost text-red-600">{t("settings.removeLogo")}</button>}
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onLogo} />
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="w-40 h-16 rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden bg-white">
+            {s.signature ? <img src={s.signature} alt="signature" className="max-w-full max-h-full" /> : <Icon name="edit" size={22} className="text-slate-300" />}
+          </div>
+          <div className="flex gap-2 flex-wrap items-center">
+            <button onClick={() => signRef.current?.click()} className="btn-secondary">{t("settings.uploadSignature")}</button>
+            {s.signature && <button onClick={() => upd({ signature: "" })} className="btn-ghost text-red-600">{t("settings.removeLogo")}</button>}
+            <input ref={signRef} type="file" accept="image/*" className="hidden" onChange={onSignature} />
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

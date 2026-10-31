@@ -21,6 +21,7 @@ export async function GET(request, { params }) {
       afm: db.settings.afm,
       phone: db.settings.phone,
       email: db.settings.email,
+      signature: db.settings.signature || "",
       currency: db.settings.currency || "€",
     },
   });
