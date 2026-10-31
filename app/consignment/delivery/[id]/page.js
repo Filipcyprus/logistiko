@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatDate, money } from "@/lib/format";
 import Icon from "@/components/Icon";
+import { usePrintFileName } from "@/lib/usePrintFileName";
 import ProductPicker from "@/components/ProductPicker";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
@@ -30,6 +31,8 @@ export default function ConsignmentDeliveryPage() {
     fetch("/api/products").then((r) => r.json()).then((list) => setPerfumes(list.filter((p) => p.department === "perfumes")));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  usePrintFileName(data ? `Delivery - ${data.delivery.storeName}` : null);
 
   // Ήρθαμε κατευθείαν από το "Αποστολή": ανοίγει μόνο του το παράθυρο εκτύπωσης (μία φορά).
   useEffect(() => {

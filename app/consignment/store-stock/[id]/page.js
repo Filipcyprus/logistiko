@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { formatDate, money, todayISO } from "@/lib/format";
 import Icon from "@/components/Icon";
+import { usePrintFileName } from "@/lib/usePrintFileName";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 // Τωρινό, ΠΛΗΡΕΣ απόθεμα ενός καταστήματος παρακαταθήκης (όχι μόνο ό,τι έφερες/πήρες πίσω) — για εκτύπωση.
@@ -22,6 +23,8 @@ export default function StoreStockSheet() {
     fetch("/api/settings").then((r) => r.json()).then(setCompany);
     fetch("/api/consignment-deliveries").then((r) => r.json()).then(setDeliveries);
   }, [id]);
+
+  usePrintFileName(store ? `Stock - ${store.name}` : null);
 
   if (store === null) return <div className="text-slate-500">{t("common.notFound")}</div>;
   if (!store || !products || !company || !deliveries) return <div className="text-slate-400">{t("common.loading")}</div>;

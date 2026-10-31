@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDate, money } from "@/lib/format";
 import Icon from "@/components/Icon";
+import { usePrintFileName } from "@/lib/usePrintFileName";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 // Τιμολόγιο προμήθειας: από εμάς προς το κατάστημα, μόνο για το ποσό που του δίνουμε.
@@ -18,6 +19,8 @@ export default function CommissionInvoicePage() {
   useEffect(() => {
     fetch(`/api/commission-invoices/${id}`).then((r) => (r.ok ? r.json() : null)).then((d) => (d ? setData(d) : setNotFound(true)));
   }, [id]);
+
+  usePrintFileName(data ? `${data.doc.number} - ${data.doc.storeName}` : null);
 
   if (notFound) return (
     <div className="text-slate-500">
