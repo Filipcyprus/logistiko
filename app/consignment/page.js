@@ -21,6 +21,7 @@ export default function ConsignmentPage() {
   const [sales, setSales] = useState([]);
   const [orders, setOrders] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
+  const [commissionInvoices, setCommissionInvoices] = useState([]);
   const [tab, setTab] = useState("stock");
   const [newStore, setNewStore] = useState(emptyStore);
   const [saving, setSaving] = useState(false);
@@ -47,6 +48,7 @@ export default function ConsignmentPage() {
     fetch("/api/consignment-sales").then((r) => r.json()).then(setSales);
     fetch("/api/consignment-orders").then((r) => r.json()).then(setOrders);
     fetch("/api/consignment-deliveries").then((r) => r.json()).then(setDeliveries);
+    fetch("/api/commission-invoices").then((r) => r.json()).then(setCommissionInvoices);
   };
 
   const pendingOrderCount = orders.filter((o) => o.status !== "fulfilled").length;
@@ -221,6 +223,7 @@ export default function ConsignmentPage() {
           {pendingOrderCount > 0 && <span className="badge bg-amber-100 text-amber-700">{pendingOrderCount}</span>}
         </button>
         <button onClick={() => setTab("history")} className={`px-4 py-2 text-sm font-medium border-b-2 ${tab === "history" ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500"}`}>{t("consignment.tabHistory")}</button>
+        <button onClick={() => setTab("commissions")} className={`px-4 py-2 text-sm font-medium border-b-2 ${tab === "commissions" ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500"}`}>{t("consignment.tabCommissionInvoices")}</button>
         <button onClick={() => setTab("stores")} className={`px-4 py-2 text-sm font-medium border-b-2 ${tab === "stores" ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500"}`}>{t("consignment.tabStores")}</button>
       </div>
 
@@ -658,6 +661,39 @@ export default function ConsignmentPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {tab === "commissions" && (
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="table-th">{t("consignment.colNumber")}</th>
+                  <th className="table-th">{t("consignment.colDate")}</th>
+                  <th className="table-th">{t("consignment.colStore")}</th>
+                  <th className="table-th">{t("consignment.colReceipt")}</th>
+                  <th className="table-th text-right">{t("consignment.colPercent")}</th>
+                  <th className="table-th text-right">{t("consignment.colTotal")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {commissionInvoices.length === 0 ? (
+                  <tr><td className="table-td text-slate-400" colSpan={6}>{t("consignment.noCommissionInvoices")}</td></tr>
+                ) : commissionInvoices.map((c) => (
+                  <tr key={c.id}>
+                    <td className="table-td"><a href={`/consignment/commission/${c.id}`} className="text-brand-600 font-medium">{c.number}</a></td>
+                    <td className="table-td">{formatDate(c.date)}</td>
+                    <td className="table-td">{c.storeName}</td>
+                    <td className="table-td"><a href={`/parastatika/${c.receiptId}`} className="text-brand-600 text-xs font-medium">{c.receiptNumber}</a></td>
+                    <td className="table-td text-right">{c.percent}%</td>
+                    <td className="table-td text-right font-medium">{money(c.amount, cur)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
