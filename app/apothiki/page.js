@@ -19,6 +19,7 @@ export default function StockPage() {
   const [move, setMove] = useState({ type: "in", quantity: 0, reason: "" });
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [consignStores, setConsignStores] = useState([]);
   const [catFilter, setCatFilter] = useState("");
   const [subFilter, setSubFilter] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
@@ -43,6 +44,7 @@ export default function StockPage() {
     fetch("/api/products").then((r) => r.json()).then(setProducts);
     fetch("/api/stock").then((r) => r.json()).then(setMovements);
     fetch("/api/categories").then((r) => r.json()).then(setCategories);
+    fetch("/api/consignment-stores").then((r) => r.json()).then(setConsignStores);
     fetch("/api/reorder-list").then((r) => r.json()).then((list) => setReorderCount(list.length));
   };
   useEffect(() => {
@@ -405,7 +407,16 @@ export default function StockPage() {
                           {p.image ? <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden"><img src={p.image} alt="" className="w-full h-full object-contain" /></div> : <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300"><Icon name="image" size={16} /></div>}
                         </td>
                         <td className="table-td text-slate-500 text-sm">{p.sku || "—"}</td>
-                        <td className="table-td font-medium">{p.name}{(p.category || p.subcategory) && <div className="text-xs text-slate-400">{[p.category, p.subcategory].filter(Boolean).join(" › ")}</div>}</td>
+                        <td className="table-td font-medium">{p.name}{(p.category || p.subcategory) && <div className="text-xs text-slate-400">{[p.category, p.subcategory].filter(Boolean).join(" › ")}</div>}
+                          {(p.consignmentStock || []).filter((c) => Number(c.quantity) > 0 || Number(c.testers) > 0).length > 0 && (
+                            <div className="mt-0.5 text-xs font-normal text-brand-700">
+                              {t("stock.atConsignmentStores")}: {(p.consignmentStock || []).filter((c) => Number(c.quantity) > 0 || Number(c.testers) > 0).map((c) => {
+                                const st = consignStores.find((x) => x.id === c.storeId);
+                                return `${st ? st.name : "?"} ${Number(c.quantity || 0)}${Number(c.testers) > 0 ? ` +${c.testers}T` : ""}`;
+                              }).join(" · ")}
+                            </div>
+                          )}
+                        </td>
                         <td className="table-td">
                           <input
                             list="brand-list" placeholder="—"
