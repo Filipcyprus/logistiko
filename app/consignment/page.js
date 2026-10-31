@@ -183,7 +183,7 @@ export default function ConsignmentPage() {
     setBackBusy(true);
     const res = await fetch("/api/consignment-stock/return", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ storeId: activeStoreId, date: saleDate, items: backLines }) });
     setBackBusy(false);
-    if (res.ok) { setBackQty({}); setBackTester({}); setStoreMsg({ type: "ok", text: t("consignment.takeBackDone") }); load(); }
+    if (res.ok) { router.push(`/consignment/store-stock/${activeStoreId}?print=1`); }
     else { const err = await res.json().catch(() => ({})); setStoreMsg({ type: "err", text: err.error ? t(err.error) : t("common.error") }); }
   };
 
@@ -199,8 +199,8 @@ export default function ConsignmentPage() {
     const res = await fetch("/api/consignment-stock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ storeId: activeStoreId, date: sendDate, items }) });
     setSendBusy(false);
     if (res.ok) {
-      const { deliveryId } = await res.json();
-      router.push(`/consignment/delivery/${deliveryId}?print=1`);
+      // Μετά από κάθε αλλαγή τυπώνεται το ΤΩΡΙΝΟ απόθεμα του καταστήματος, όχι το δελτίο αποστολής.
+      router.push(`/consignment/store-stock/${activeStoreId}?print=1`);
     } else {
       const err = await res.json().catch(() => ({}));
       setSendErr(err.error ? t(err.error) : t("common.error"));
@@ -494,7 +494,7 @@ export default function ConsignmentPage() {
                           <div className="text-xs text-slate-400">{formatDate(d.date)}</div>
                           <div className="text-sm text-slate-600 mt-1">{d.items.map((it) => `${it.productName} × ${it.quantity}${it.testers > 0 ? ` (${t("consignment.inclTester", { count: it.testers, word: testerWord(it.testers) })})` : ""}`).join(", ")}</div>
                         </div>
-                        <a href={`/consignment/delivery/${d.id}`} className="btn-secondary shrink-0"><Icon name="printer" size={14} /> {t("consignment.viewDelivery")}</a>
+                        <a href={`/consignment/delivery/${d.id}`} className="btn-secondary shrink-0"><Icon name="eye" size={14} /> {t("consignment.viewDelivery")}</a>
                       </div>
                     ))}
                   </div>
@@ -556,6 +556,7 @@ export default function ConsignmentPage() {
                   </div>
                   <div className="flex justify-end gap-2">
                     <Link href={`/parastatika/${done.invoice.id}`} className="btn-secondary">{t("consignment.openDocument")} {done.invoice.number}</Link>
+                    <Link href={`/consignment/store-stock/${activeStoreId}?print=1`} className="btn-secondary"><Icon name="printer" size={14} /> {t("consignment.printStoreStock")}</Link>
                     {done.commissionInvoice && <Link href={`/consignment/commission/${done.commissionInvoice.id}`} className="btn-secondary">{t("consignment.openCommissionInvoice")}</Link>}
                     <button onClick={() => setSaleModal(null)} className="btn-primary">{t("common.close")}</button>
                   </div>

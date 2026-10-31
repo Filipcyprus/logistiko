@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { formatDate, money, todayISO } from "@/lib/format";
 import Icon from "@/components/Icon";
 import { usePrintFileName } from "@/lib/usePrintFileName";
@@ -11,6 +11,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 export default function StoreStockSheet() {
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useLanguage();
   const [store, setStore] = useState(undefined);
   const [products, setProducts] = useState(null);
@@ -25,6 +26,16 @@ export default function StoreStockSheet() {
   }, [id]);
 
   usePrintFileName(store ? `Stock - ${store.name}` : null);
+
+  // Ήρθαμε από αποστολή/επιστροφή/πώληση: ανοίγει μόνο του το παράθυρο εκτύπωσης (μία φορά).
+  const ready = !!(store && products && company && deliveries);
+  useEffect(() => {
+    if (!ready || searchParams.get("print") !== "1") return undefined;
+    router.replace(`/consignment/store-stock/${id}`);
+    const timer = setTimeout(() => window.print(), 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
   if (store === null) return <div className="text-slate-500">{t("common.notFound")}</div>;
   if (!store || !products || !company || !deliveries) return <div className="text-slate-400">{t("common.loading")}</div>;

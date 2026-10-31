@@ -1,18 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDate, money } from "@/lib/format";
 import Icon from "@/components/Icon";
-import { usePrintFileName } from "@/lib/usePrintFileName";
 import ProductPicker from "@/components/ProductPicker";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 export default function ConsignmentDeliveryPage() {
   const { id } = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [notFound, setNotFound] = useState(false);
@@ -31,17 +29,6 @@ export default function ConsignmentDeliveryPage() {
     fetch("/api/products").then((r) => r.json()).then((list) => setPerfumes(list.filter((p) => p.department === "perfumes")));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
-
-  usePrintFileName(data ? `Delivery - ${data.delivery.storeName}` : null);
-
-  // Ήρθαμε κατευθείαν από το "Αποστολή": ανοίγει μόνο του το παράθυρο εκτύπωσης (μία φορά).
-  useEffect(() => {
-    if (!data || searchParams.get("print") !== "1") return;
-    router.replace(`/consignment/delivery/${id}`);
-    const timer = setTimeout(() => window.print(), 400);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
 
   if (notFound) return (
     <div className="text-slate-500">
@@ -93,7 +80,6 @@ export default function ConsignmentDeliveryPage() {
             <>
               <button onClick={startEdit} className="btn-secondary"><Icon name="edit" size={15} /> {t("consignment.editDelivery")}</button>
               <button onClick={doDelete} disabled={saving} className="btn-secondary text-red-600"><Icon name="trash" size={15} /> {t("consignment.deleteDelivery")}</button>
-              <button onClick={() => window.print()} className="btn-primary"><Icon name="printer" size={15} /> {t("common.print")}</button>
             </>
           )}
           {editing && (
