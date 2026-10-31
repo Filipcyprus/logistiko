@@ -20,6 +20,7 @@ export default function StockPage() {
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState([]);
   const [consignStores, setConsignStores] = useState([]);
+  const [consignDeliveries, setConsignDeliveries] = useState([]);
   const [catFilter, setCatFilter] = useState("");
   const [subFilter, setSubFilter] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
@@ -45,6 +46,7 @@ export default function StockPage() {
     fetch("/api/stock").then((r) => r.json()).then(setMovements);
     fetch("/api/categories").then((r) => r.json()).then(setCategories);
     fetch("/api/consignment-stores").then((r) => r.json()).then(setConsignStores);
+    fetch("/api/consignment-deliveries").then((r) => r.json()).then(setConsignDeliveries);
     fetch("/api/reorder-list").then((r) => r.json()).then((list) => setReorderCount(list.length));
   };
   useEffect(() => {
@@ -256,9 +258,23 @@ export default function StockPage() {
   const inStock = products.filter((p) => p.trackStock !== false && Number(p.stock) > 0);
   const stockValue = inStock.reduce((a, p) => a + Number(p.stock) * Number(p.cost || 0), 0);
   // Αξία (κόστος) και πλήθος ειδών σε απόθεμα ανά τμήμα — οι κάρτες πάνω από τη λίστα.
+  // Τιμή πώλησης ενός αρώματος ΣΕ κάθε κατάστημα: από την τελευταία παράδοση προς αυτό, αλλιώς η προτεινόμενη τιμή.
+  const awayPrice = (p, storeId) => {
+    for (const d of consignDeliveries) {
+      if (d.storeId !== storeId) continue;
+      const it = (d.items || []).find((i) => i.productId === p.id);
+      if (it && it.unitPrice != null) return Number(it.unitPrice);
+    }
+    return Number(p.retailPrice) || 0;
+  };
+  const awayValueOf = (p) => (p.consignmentStock || []).reduce((a, c) => a + Number(c.quantity || 0) * awayPrice(p, c.storeId), 0);
+  const totalAway = products.reduce((a, p) => a + awayValueOf(p), 0);
   const deptStats = ["printShop", "barber", "perfumes", ""].map((d) => {
     const items = inStock.filter((p) => (p.department || "") === d);
-    return { d, count: items.length, value: items.reduce((a, p) => a + Number(p.stock) * Number(p.cost || 0), 0) };
+    return {
+      d, count: items.length, value: items.reduce((a, p) => a + Number(p.stock) * Number(p.cost || 0), 0),
+      away: products.filter((p) => (p.department || "") === d).reduce((a, p) => a + awayValueOf(p), 0),
+    };
   }).filter((x) => x.d !== "" || x.count > 0);
 
   return (
@@ -289,6 +305,7 @@ export default function StockPage() {
               <div className="text-xs font-medium text-slate-500">{t(`stock.${key}`)}</div>
               <div className="text-xl font-bold text-slate-800 mt-1">{money(x.value, cur)}</div>
               <div className="text-xs text-slate-400 mt-0.5">{t("stock.deptItemsInStock", { count: x.count })}</div>
+              {x.away > 0 && <div className="text-[11px] text-slate-400">+ {money(x.away, cur)} {t("stock.awayAtStores")}</div>}
             </button>
           );
         })}
@@ -296,6 +313,7 @@ export default function StockPage() {
           <div className="text-xs font-medium text-slate-300">{t("stock.allDepartments")}</div>
           <div className="text-xl font-bold text-white mt-1">{money(stockValue, cur)}</div>
           <div className="text-xs text-slate-400 mt-0.5">{t("stock.deptItemsInStock", { count: inStock.length })}</div>
+          {totalAway > 0 && <div className="text-[11px] text-slate-400">+ {money(totalAway, cur)} {t("stock.awayAtStores")}</div>}
         </div>
       </div>
 
@@ -481,13 +499,13 @@ export default function StockPage() {
                             const bottles = held.reduce((a, c) => a + Number(c.quantity || 0) + Number(c.testers || 0), 0);
                             return (
                               <details className="mt-1 text-right">
-                                <summary className="cursor-pointer text-xs text-brand-700 select-none">{t("stock.atConsignmentStores")} ({held.length}) · {bottles}</summary>
+                                <summary className="cursor-pointer text-xs text-brand-700 select-none">{t("stock.atConsignmentStores")} ({held.length}) · {bottles} <span className="text-[11px] text-slate-400">({money(awayValueOf(p), cur)})</span></summary>
                                 <div className="mt-1 text-xs text-slate-600 space-y-0.5 text-right">
                                   {held.map((c) => {
                                     const st = consignStores.find((x) => x.id === c.storeId);
                                     return (
                                       <div key={c.storeId}>
-                                        {st ? st.name : "?"}: <b>{Number(c.quantity || 0)}</b>{Number(c.testers) > 0 ? <span className="text-slate-400"> + {c.testers} {t("consignment.tester")}</span> : null}
+                                        {st ? st.name : "?"}: <b>{Number(c.quantity || 0)}</b>{Number(c.testers) > 0 ? <span className="text-slate-400"> + {c.testers} {t("consignment.tester")}</span> : null} <span className="text-[11px] text-slate-400">({money(Number(c.quantity || 0) * awayPrice(p, c.storeId), cur)})</span>
                                       </div>
                                     );
                                   })}
