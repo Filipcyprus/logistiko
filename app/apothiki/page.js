@@ -21,6 +21,9 @@ export default function StockPage() {
   const [categories, setCategories] = useState([]);
   const [consignStores, setConsignStores] = useState([]);
   const [consignDeliveries, setConsignDeliveries] = useState([]);
+  // Τα σύνολα (αξίες) είναι θολά κάθε φορά που ανοίγει η σελίδα — το μάτι τα δείχνει μέχρι να φύγεις/ανανεώσεις.
+  const [showVals, setShowVals] = useState(false);
+  const bl = showVals ? "" : "blur-sm select-none";
   const [catFilter, setCatFilter] = useState("");
   const [subFilter, setSubFilter] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
@@ -282,7 +285,7 @@ export default function StockPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">{t("stock.title")}</h1>
-          <p className="text-slate-500 text-sm">{t("stock.summary", { count: inStock.length, value: money(stockValue, cur) })}</p>
+          <p className={`text-slate-500 text-sm transition ${bl}`}>{t("stock.summary", { count: inStock.length, value: money(stockValue, cur) })}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Link href="/agores/lista" className="btn-secondary"><Icon name="cart" size={16} /> {t("stock.reorderList")}{reorderCount > 0 && <span className="badge bg-brand-100 text-brand-700 ml-1">{reorderCount}</span>}</Link>
@@ -292,6 +295,9 @@ export default function StockPage() {
           </button>
           <a href="/api/products/import-excel/template" className="text-xs text-brand-600 hover:underline whitespace-nowrap">{t("stock.downloadTemplate")}</a>
           <a href="/api/products/export-excel" className="btn-secondary"><Icon name="download" size={16} /> {t("stock.exportExcel")}</a>
+          <button onClick={() => setShowVals((v) => !v)} className="btn-secondary" aria-pressed={showVals} title={showVals ? t("dashboard.hideNumbers") : t("dashboard.showNumbers")}>
+            <Icon name={showVals ? "eyeOff" : "eye"} size={16} /> {showVals ? t("dashboard.hideNumbers") : t("dashboard.showNumbers")}
+          </button>
           <Link href="/apothiki/neo" className="btn-primary"><Icon name="plus" size={16} /> {t("stock.newItem")}</Link>
         </div>
       </div>
@@ -303,17 +309,17 @@ export default function StockPage() {
             <button key={x.d || "other"} onClick={() => { setDeptFilter(x.d); setTab("products"); setPage(1); }}
               className={`card p-4 text-left transition-colors hover:border-brand-300 ${deptFilter === x.d && x.d !== "" ? "!border-brand-500 bg-brand-50/40" : ""}`}>
               <div className="text-xs font-medium text-slate-500">{t(`stock.${key}`)}</div>
-              <div className="text-xl font-bold text-slate-800 mt-1">{money(x.value, cur)}</div>
+              <div className={`text-xl font-bold text-slate-800 mt-1 transition ${bl}`}>{money(x.value, cur)}</div>
               <div className="text-xs text-slate-400 mt-0.5">{t("stock.deptItemsInStock", { count: x.count })}</div>
-              {x.away > 0 && <div className="text-[11px] text-slate-400">+ {money(x.away, cur)} {t("stock.awayAtStores")}</div>}
+              {x.away > 0 && <div className={`text-[11px] text-slate-400 transition ${bl}`}>+ {money(x.away, cur)} {t("stock.awayAtStores")}</div>}
             </button>
           );
         })}
         <div className="card p-4 bg-slate-800 border-slate-800">
           <div className="text-xs font-medium text-slate-300">{t("stock.allDepartments")}</div>
-          <div className="text-xl font-bold text-white mt-1">{money(stockValue, cur)}</div>
+          <div className={`text-xl font-bold text-white mt-1 transition ${bl}`}>{money(stockValue, cur)}</div>
           <div className="text-xs text-slate-400 mt-0.5">{t("stock.deptItemsInStock", { count: inStock.length })}</div>
-          {totalAway > 0 && <div className="text-[11px] text-slate-400">+ {money(totalAway, cur)} {t("stock.awayAtStores")}</div>}
+          {totalAway > 0 && <div className={`text-[11px] text-slate-400 transition ${bl}`}>+ {money(totalAway, cur)} {t("stock.awayAtStores")}</div>}
         </div>
       </div>
 
@@ -499,13 +505,13 @@ export default function StockPage() {
                             const bottles = held.reduce((a, c) => a + Number(c.quantity || 0) + Number(c.testers || 0), 0);
                             return (
                               <details className="mt-1 text-right">
-                                <summary className="cursor-pointer text-xs text-brand-700 select-none">{t("stock.atConsignmentStores")} ({held.length}) · {bottles} <span className="text-[11px] text-slate-400">({money(awayValueOf(p), cur)})</span></summary>
+                                <summary className="cursor-pointer text-xs text-brand-700 select-none">{t("stock.atConsignmentStores")} ({held.length}) · {bottles} <span className={`text-[11px] text-slate-400 transition ${bl}`}>({money(awayValueOf(p), cur)})</span></summary>
                                 <div className="mt-1 text-xs text-slate-600 space-y-0.5 text-right">
                                   {held.map((c) => {
                                     const st = consignStores.find((x) => x.id === c.storeId);
                                     return (
                                       <div key={c.storeId}>
-                                        {st ? st.name : "?"}: <b>{Number(c.quantity || 0)}</b>{Number(c.testers) > 0 ? <span className="text-slate-400"> + {c.testers} {t("consignment.tester")}</span> : null} <span className="text-[11px] text-slate-400">({money(Number(c.quantity || 0) * awayPrice(p, c.storeId), cur)})</span>
+                                        {st ? st.name : "?"}: <b>{Number(c.quantity || 0)}</b>{Number(c.testers) > 0 ? <span className="text-slate-400"> + {c.testers} {t("consignment.tester")}</span> : null} <span className={`text-[11px] text-slate-400 transition ${bl}`}>({money(Number(c.quantity || 0) * awayPrice(p, c.storeId), cur)})</span>
                                       </div>
                                     );
                                   })}
