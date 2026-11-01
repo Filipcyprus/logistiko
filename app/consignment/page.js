@@ -183,7 +183,7 @@ export default function ConsignmentPage() {
     setBackBusy(true);
     const res = await fetch("/api/consignment-stock/return", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ storeId: activeStoreId, date: saleDate, items: backLines }) });
     setBackBusy(false);
-    if (res.ok) { router.push(`/consignment/store-stock/${activeStoreId}?print=1`); }
+    if (res.ok) { setBackQty({}); setBackTester({}); setStoreMsg({ type: "ok", text: t("consignment.takeBackDone") }); load(); }
     else { const err = await res.json().catch(() => ({})); setStoreMsg({ type: "err", text: err.error ? t(err.error) : t("common.error") }); }
   };
 
@@ -199,8 +199,10 @@ export default function ConsignmentPage() {
     const res = await fetch("/api/consignment-stock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ storeId: activeStoreId, date: sendDate, items }) });
     setSendBusy(false);
     if (res.ok) {
-      // Μετά από κάθε αλλαγή τυπώνεται το ΤΩΡΙΝΟ απόθεμα του καταστήματος, όχι το δελτίο αποστολής.
-      router.push(`/consignment/store-stock/${activeStoreId}?print=1`);
+      // Δεν ανοίγει κανένα χαρτί αυτόματα: το απόθεμα του καταστήματος τυπώνεται μόνο με το κουμπί "Εκτύπωση".
+      setSendLines([{ productId: "", quantity: 1, testers: 1, price: "" }]);
+      setStoreMsg({ type: "ok", text: t("consignment.sentDone") });
+      load();
     } else {
       const err = await res.json().catch(() => ({}));
       setSendErr(err.error ? t(err.error) : t("common.error"));
@@ -479,27 +481,6 @@ export default function ConsignmentPage() {
                   <button onClick={doSend} disabled={sendBusy} className="btn-primary">{sendBusy ? t("common.saving") : t("consignment.sendBtn")}</button>
                 </div>
               </div>
-
-              <div className="card overflow-hidden">
-                <div className="p-4 border-b border-slate-100">
-                  <h2 className="font-semibold text-slate-700">{t("consignment.storeDeliveriesTitle")}</h2>
-                </div>
-                {deliveries.filter((d) => d.storeId === activeStoreId).length === 0 ? (
-                  <p className="p-5 text-sm text-slate-400">{t("consignment.noDeliveries")}</p>
-                ) : (
-                  <div className="divide-y divide-slate-100">
-                    {deliveries.filter((d) => d.storeId === activeStoreId).slice(0, 20).map((d) => (
-                      <div key={d.id} className="p-4 flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-xs text-slate-400">{formatDate(d.date)}</div>
-                          <div className="text-sm text-slate-600 mt-1">{d.items.map((it) => `${it.productName} × ${it.quantity}${it.testers > 0 ? ` (${t("consignment.inclTester", { count: it.testers, word: testerWord(it.testers) })})` : ""}`).join(", ")}</div>
-                        </div>
-                        <a href={`/consignment/delivery/${d.id}`} className="btn-secondary shrink-0"><Icon name="eye" size={14} /> {t("consignment.viewDelivery")}</a>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </>
           )}
 
@@ -556,7 +537,6 @@ export default function ConsignmentPage() {
                   </div>
                   <div className="flex justify-end gap-2">
                     <Link href={`/parastatika/${done.invoice.id}`} className="btn-secondary">{t("consignment.openDocument")} {done.invoice.number}</Link>
-                    <Link href={`/consignment/store-stock/${activeStoreId}?print=1`} className="btn-secondary"><Icon name="printer" size={14} /> {t("consignment.printStoreStock")}</Link>
                     {done.commissionInvoice && <Link href={`/consignment/commission/${done.commissionInvoice.id}`} className="btn-secondary">{t("consignment.openCommissionInvoice")}</Link>}
                     <button onClick={() => setSaleModal(null)} className="btn-primary">{t("common.close")}</button>
                   </div>
