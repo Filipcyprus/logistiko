@@ -28,6 +28,7 @@ export default function StockPage() {
   const [subFilter, setSubFilter] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
   const [lowStockOnly, setLowStockOnly] = useState(false);
+  const [noPicOnly, setNoPicOnly] = useState(false); // είδη χωρίς φωτογραφία (π.χ. νέα αρώματα που περιμένουν εικόνα)
   const [showHidden, setShowHidden] = useState(false); // κρυμμένα είδη (π.χ. χωρίς απόθεμα που δεν φέρνουμε πια)
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 50;
@@ -116,6 +117,7 @@ export default function StockPage() {
     if (catFilter && (p.category || "") !== catFilter) return false;
     if (subFilter && (p.subcategory || "") !== subFilter) return false;
     if (lowStockOnly && (p.trackStock === false || Number(p.stock) > Number(p.lowStock || 0))) return false;
+    if (noPicOnly && p.image) return false;
     return productMatchesQuery(p, q);
   });
   // Ο κατάλογος έχει χιλιάδες είδη — να αποδίδουμε (render) ολόκληρη τη φιλτραρισμένη λίστα
@@ -350,6 +352,12 @@ export default function StockPage() {
               title="Show only products below low stock threshold"
             >
               <Icon name="alert" size={14} className="inline mr-1" /> {t("stock.lowStockOnly", "Low Stock")}
+            </button>
+            <button
+              onClick={() => { setNoPicOnly(!noPicOnly); setPage(1); }}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${noPicOnly ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+            >
+              <Icon name="image" size={14} className="inline mr-1" /> {t("stock.noPictureFilter", { count: products.filter((p) => p.department === "perfumes" && !p.image && !p.archived).length })}
             </button>
             {(hiddenCount > 0 || showHidden) && (
               <button
