@@ -48,6 +48,11 @@ export async function PUT(request, { params }) {
     const existing = getById("products", params.id);
     patch.barcode = existing?.barcode || generateBarcode();
   }
+  // Φωτογραφία-προσωρινή ("photo coming soon"): μόλις ανέβει πραγματική φωτογραφία, παύει να θεωρείται προσωρινή.
+  if (patch.image) {
+    const existing = getById("products", params.id);
+    if (existing && patch.image !== existing.image) patch.imagePlaceholder = false;
+  }
   const rec = update("products", params.id, patch);
   if (!rec) return NextResponse.json({ error: "errors.notFound" }, { status: 404 });
   await logActivity(request, "product_update", { name: rec.name, id: rec.id, fields: Object.keys(patch) });
