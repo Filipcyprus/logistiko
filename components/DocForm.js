@@ -29,7 +29,7 @@ export default function DocForm({ collection, title, dateFieldLabel, backHref })
       fetch("/api/products").then((r) => r.json()),
     ]).then(([s, c, p]) => {
       setSettings(s); setCustomers(c); setProducts(p);
-      setItems([emptyLine(s.vatRate ?? 24, t("common.unit"))]);
+      setItems([emptyLine(s.notVatRegistered ? 0 : (s.vatRate ?? 24), t("common.unit"))]);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -83,7 +83,7 @@ export default function DocForm({ collection, title, dateFieldLabel, backHref })
         </div>
       </div>
 
-      <LineItems items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.vatRate ?? 24} discountTiers={settings.quantityDiscounts} />
+      <LineItems items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.notVatRegistered ? 0 : (settings.vatRate ?? 24)} discountTiers={settings.quantityDiscounts} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 card p-5">

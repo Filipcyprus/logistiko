@@ -241,7 +241,7 @@ export async function POST(request) {
         price: c.wholesalePrice, wholesalePrice: c.wholesalePrice,
         retailPrice: c.retailPrice != null ? c.retailPrice : null,
         cost: c.cost,
-        vatRate: c.vatRate, saleVatRate: c.vatRate,
+        vatRate: c.vatRate, saleVatRate: db.settings.notVatRegistered ? 0 : c.vatRate,
         stock: c.newStock, lowStock: 0, warehouseStocks: [],
         volumeMl: null, weightG: null, shippingRate: 2.4,
         trackStock: true, trackSerial: false, serialNumbers: [],

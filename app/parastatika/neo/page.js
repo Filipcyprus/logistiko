@@ -59,7 +59,7 @@ function NewInvoiceInner() {
       setSeries(s.series || "A");
       // Μην αρχικοποιείς κενή γραμμή όταν το παραστατικό προσυμπληρώνεται από άλλο έγγραφο:
       // τα δύο effects τρέχουν παράλληλα και η κενή γραμμή έσβηνε τις γραμμές που ήρθαν.
-      if (!fromColl || !fromId) setItems([emptyLine(s.vatRate ?? 19, t("common.unit"))]);
+      if (!fromColl || !fromId) setItems([emptyLine(s.notVatRegistered ? 0 : (s.vatRate ?? 19), t("common.unit"))]);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -300,7 +300,7 @@ function NewInvoiceInner() {
 
       {kind !== "payment_receipt" && (
         <>
-          <LineItems items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.vatRate ?? 19} />
+          <LineItems items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.notVatRegistered ? 0 : (settings.vatRate ?? 19)} />
 
           <div className="card p-5 space-y-3">
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">

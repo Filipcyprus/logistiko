@@ -198,7 +198,7 @@ export default function DocView({ collection, kind, label, statusMap, canConvert
 
         {editing ? (
           <div className="mt-4 no-print">
-            <LineItems items={editItems} onChange={setEditItems} products={products} currency={cur} defaultVat={settings.vatRate ?? 19} />
+            <LineItems items={editItems} onChange={setEditItems} products={products} currency={cur} defaultVat={settings.notVatRegistered ? 0 : (settings.vatRate ?? 19)} />
             <div className="flex justify-end gap-2 mt-3">
               <button onClick={cancelEdit} disabled={savingItems} className="btn-secondary">{t("common.cancel")}</button>
               <button onClick={saveEdit} disabled={savingItems} className="btn-primary">{savingItems ? t("common.saving") : t("documents.saveItems")}</button>

@@ -50,7 +50,7 @@ export async function POST(request) {
     retailPrice: body.retailPrice !== "" && body.retailPrice != null ? Number(body.retailPrice) : null,
     cost: Number(body.cost || 0),
     vatRate: body.vatRate != null ? Number(body.vatRate) : 0,
-    saleVatRate: body.saleVatRate != null ? Number(body.saleVatRate) : defVat,
+    saleVatRate: db.settings.notVatRegistered ? 0 : (body.saleVatRate != null ? Number(body.saleVatRate) : defVat),
     stock: initialStock,
     lowStock: Number(body.lowStock || 0),
     warehouseStocks,

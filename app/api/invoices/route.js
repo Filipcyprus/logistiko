@@ -21,7 +21,7 @@ export async function POST(request) {
   const body = await request.json();
   const db = readDB();
 
-  const items = (body.items || []).filter(
+  let items = (body.items || []).filter(
     (it) => it.description && Number(it.quantity) > 0
   );
   if (items.length === 0) {
@@ -29,6 +29,16 @@ export async function POST(request) {
       { error: "errors.needLine" },
       { status: 400 }
     );
+  }
+
+  // Επιχείρηση χωρίς εγγραφή στο ΦΠΑ: κανένα παραστατικό δεν χρεώνει ΦΠΑ. Το ποσό που πληρώνει ο πελάτης μένει το ίδιο,
+  // άρα ό,τι είχε υπολογιστεί ως ΦΠΑ μπαίνει μέσα στην τιμή της γραμμής.
+  if (db.settings.notVatRegistered) {
+    items = items.map((it) => {
+      const rate = Number(it.vatRate || 0);
+      if (!rate) return it;
+      return { ...it, unitPrice: Math.round(Number(it.unitPrice || 0) * (1 + rate / 100) * 1000) / 1000, vatRate: 0 };
+    });
   }
 
   // Τύπος: "apodeixi" (Απόδειξη) ή "timologio" (Τιμολόγιο)
