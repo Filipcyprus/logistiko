@@ -191,6 +191,29 @@ export default function ConsignmentPage() {
   const removeSendLine = (idx) => setSendLines((prev) => prev.filter((_, i) => i !== idx));
   const updateSendLine = (idx, patch) => setSendLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
 
+  // Add + take back in one go (one visit to the store): first the take-back, then the new perfumes.
+  const sendItemsNow = () => sendLines.filter((l) => l.productId && Number(l.quantity) > 0);
+  const doSaveBoth = async () => {
+    setSendErr(""); setStoreMsg({ type: "", text: "" });
+    const addItems = sendItemsNow().map((l) => ({ productId: l.productId, quantity: Number(l.quantity), testers: Math.min(Math.max(Number(l.testers) || 0, 0), Number(l.quantity)), unitPrice: l.price !== "" ? Number(l.price) : undefined }));
+    if (!activeStoreId || (addItems.length === 0 && backLines.length === 0)) { setSendErr(t("consignment.errNothingToSave")); return; }
+    setSendBusy(true);
+    const post = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (backLines.length > 0) {
+      const r1 = await post("/api/consignment-stock/return", { storeId: activeStoreId, date: saleDate, items: backLines });
+      if (!r1.ok) { const err = await r1.json().catch(() => ({})); setSendBusy(false); setSendErr(err.error ? t(err.error) : t("common.error")); return; }
+      setBackQty({}); setBackTester({});
+    }
+    if (addItems.length > 0) {
+      const r2 = await post("/api/consignment-stock", { storeId: activeStoreId, date: sendDate, items: addItems });
+      if (!r2.ok) { const err = await r2.json().catch(() => ({})); setSendBusy(false); load(); setSendErr(err.error ? t(err.error) : t("common.error")); return; }
+      setSendLines([{ productId: "", quantity: 1, testers: 1, price: "" }]);
+    }
+    setSendBusy(false);
+    setStoreMsg({ type: "ok", text: t("consignment.savedBoth") });
+    load();
+  };
+
   const doSend = async () => {
     setSendErr("");
     const items = sendLines.filter((l) => l.productId && Number(l.quantity) > 0).map((l) => ({ productId: l.productId, quantity: Number(l.quantity), testers: Math.min(Math.max(Number(l.testers) || 0, 0), Number(l.quantity)), unitPrice: l.price !== "" ? Number(l.price) : undefined }));
@@ -426,9 +449,7 @@ export default function ConsignmentPage() {
                 )}
                 {atStore.length > 0 && (
                   <div className="p-4 border-t border-slate-100 flex items-center justify-between flex-wrap gap-3">
-                    <button onClick={doTakeBack} disabled={backBusy || backLines.length === 0} className="btn-secondary disabled:opacity-40">
-                      {backBusy ? t("common.saving") : t("consignment.takeBackBtn", { count: backLines.length })}
-                    </button>
+                    <span className="text-xs text-slate-400">{t("consignment.takeBackHint")}</span>
                     <button onClick={startSale} disabled={soldLines.length === 0} className="btn-primary disabled:opacity-40">
                       {t("consignment.registerSalesBtn", { count: soldLines.length })}
                     </button>
@@ -478,7 +499,7 @@ export default function ConsignmentPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <button onClick={addSendLine} className="btn-secondary"><Icon name="plus" size={15} /> {t("consignment.addLine")}</button>
-                  <button onClick={doSend} disabled={sendBusy} className="btn-primary">{sendBusy ? t("common.saving") : t("consignment.sendBtn")}</button>
+                  <button onClick={doSaveBoth} disabled={sendBusy} className="btn-primary">{sendBusy ? t("common.saving") : t("consignment.saveBothBtn", { add: sendItemsNow().length, back: backLines.length })}</button>
                 </div>
               </div>
             </>
