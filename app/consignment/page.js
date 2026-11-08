@@ -195,7 +195,7 @@ export default function ConsignmentPage() {
   const sendItemsNow = () => sendLines.filter((l) => l.productId && Number(l.quantity) > 0);
   const doSaveBoth = async () => {
     setSendErr(""); setStoreMsg({ type: "", text: "" });
-    const addItems = sendItemsNow().map((l) => ({ productId: l.productId, quantity: Number(l.quantity), testers: Math.min(Math.max(Number(l.testers) || 0, 0), Number(l.quantity)), unitPrice: l.price !== "" ? Number(l.price) : undefined }));
+    const addItems = sendItemsNow().map((l) => ({ productId: l.productId, quantity: Number(l.quantity) + Math.max(Number(l.testers) || 0, 0), testers: Math.max(Number(l.testers) || 0, 0), unitPrice: l.price !== "" ? Number(l.price) : undefined }));
     if (!activeStoreId || (addItems.length === 0 && backLines.length === 0)) { setSendErr(t("consignment.errNothingToSave")); return; }
     setSendBusy(true);
     const post = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -216,7 +216,7 @@ export default function ConsignmentPage() {
 
   const doSend = async () => {
     setSendErr("");
-    const items = sendLines.filter((l) => l.productId && Number(l.quantity) > 0).map((l) => ({ productId: l.productId, quantity: Number(l.quantity), testers: Math.min(Math.max(Number(l.testers) || 0, 0), Number(l.quantity)), unitPrice: l.price !== "" ? Number(l.price) : undefined }));
+    const items = sendLines.filter((l) => l.productId && Number(l.quantity) > 0).map((l) => ({ productId: l.productId, quantity: Number(l.quantity) + Math.max(Number(l.testers) || 0, 0), testers: Math.max(Number(l.testers) || 0, 0), unitPrice: l.price !== "" ? Number(l.price) : undefined }));
     if (!activeStoreId || items.length === 0) { setSendErr(t("consignment.errSendFields")); return; }
     setSendBusy(true);
     const res = await fetch("/api/consignment-stock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ storeId: activeStoreId, date: sendDate, items }) });
@@ -479,15 +479,15 @@ export default function ConsignmentPage() {
                           }}
                           formatOption={(p) => `${p.name} (${t("consignment.warehouseStock")}: ${p.stock})`}
                         />
-                        {(() => { const p = perfumes.find((x) => x.id === line.productId); return p && Number(line.quantity) > Number(p.stock || 0) ? <div className="text-xs text-amber-600 mt-1">{t("consignment.beyondStockHint")}</div> : null; })()}
+                        {(() => { const p = perfumes.find((x) => x.id === line.productId); return p && Number(line.quantity) + (Number(line.testers) || 0) > Number(p.stock || 0) ? <div className="text-xs text-amber-600 mt-1">{t("consignment.beyondStockHint")}</div> : null; })()}
                       </div>
                       <div className="w-24">
                         <label className="label">{t("consignment.fieldQuantity")}</label>
                         <input type="number" min="1" step="any" className="input" value={line.quantity} onChange={(e) => updateSendLine(idx, { quantity: e.target.value })} />
                       </div>
                       <div className="w-24">
-                        <label className="label" title={t("consignment.fieldTesterOf")}>{t("consignment.fieldTesterOf")}</label>
-                        <input type="number" min="0" max={line.quantity || undefined} step="1" className="input" value={line.testers} onChange={(e) => updateSendLine(idx, { testers: e.target.value })} />
+                        <label className="label" title={t("consignment.fieldTesterExtra")}>{t("consignment.fieldTesterExtra")}</label>
+                        <input type="number" min="0" step="1" className="input" value={line.testers} onChange={(e) => updateSendLine(idx, { testers: e.target.value })} />
                       </div>
                       <div className="w-28">
                         <label className="label">{t("consignment.fieldPrice")}</label>
