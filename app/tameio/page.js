@@ -93,7 +93,10 @@ export default function TillPage() {
   const tillProducts = products;
   const q = query.trim();
   // Τα κρυμμένα είδη δεν εμφανίζονται στην αναζήτηση· το σκανάρισμα barcode τα βρίσκει κανονικά.
-  const matches = q ? tillProducts.filter((p) => !p.archived && productMatchesQuery(p, q)).slice(0, 8) : [];
+  // Πελάτης με χώρα παράδοσης εκτός Κύπρου: τα εύφλεκτα/αεροζόλ προϊόντα (π.χ. Rovra Freeze Spray) δεν προτείνονται.
+  const selCust = customers.find((c) => c.id === customerId);
+  const blockNoShip = !!selCust?.country && selCust.country !== "CY";
+  const matches = q ? tillProducts.filter((p) => !p.archived && !(blockNoShip && p.noShipAbroad) && productMatchesQuery(p, q)).slice(0, 8) : [];
 
   // Προϊόν με κλίμακες τιμής (π.χ. φωτοτυπίες): η τιμή ανά τεμάχιο αλλάζει με την ποσότητα. Οι τιμές
   // των κλιμάκων είναι τελικές (με ΦΠΑ), όπως η λιανική — το ΦΠΑ αφαιρείται για το καθαρό.

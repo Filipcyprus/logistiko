@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/audit";
 import { decrementWarehouseStocks } from "@/lib/stockHelpers";
 import { postEntry } from "@/lib/posting";
 import { entryForInvoice } from "@/lib/postingRules";
+import { violatesShipRestriction } from "@/lib/shipRestrictions";
 
 // Χωρίς αυτό, το Next.js μπορεί να "παγώσει" αυτό το route σε στατικό αποτέλεσμα κατά το build
 // (δεν διαβάζει cookies/headers, οπότε φαίνεται "στατικό") — ό,τι αλλαγή γίνεται απευθείας στο
@@ -39,6 +40,10 @@ export async function POST(request) {
       if (!rate) return it;
       return { ...it, unitPrice: Math.round(Number(it.unitPrice || 0) * (1 + rate / 100) * 1000) / 1000, vatRate: 0 };
     });
+  }
+
+  if (violatesShipRestriction(db, body.customerId, items)) {
+    return NextResponse.json({ error: "errors.notShippable" }, { status: 400 });
   }
 
   // Τύπος: "apodeixi" (Απόδειξη) ή "timologio" (Τιμολόγιο)

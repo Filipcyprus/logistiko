@@ -162,8 +162,13 @@ function NewInvoiceInner() {
     }
   };
 
+  // Πελάτης με χώρα παράδοσης εκτός Κύπρου (π.χ. Ελλάδα): τα εύφλεκτα/αεροζόλ προϊόντα απενεργοποιούνται.
+  const selCust = customers.find((c) => c.id === customerId);
+  const blockNoShip = !!selCust?.country && selCust.country !== "CY";
+
   const save = async () => {
     if (kind === "payment_receipt") return savePaymentReceipt();
+    if (blockNoShip && items.some((it) => it.productId && products.find((p) => p.id === it.productId)?.noShipAbroad)) { alert(t("errors.notShippable")); return; }
     const valid = items.filter((it) => it.description && Number(it.quantity) > 0);
     if (valid.length === 0) { alert(t("invoices.errNeedLine")); return; }
     if (kind === "timologio" && !customerId && !customerName.trim()) { alert(t("invoices.errNeedCustomer")); return; }
@@ -300,7 +305,7 @@ function NewInvoiceInner() {
 
       {kind !== "payment_receipt" && (
         <>
-          <LineItems items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.notVatRegistered ? 0 : (settings.vatRate ?? 19)} />
+          <LineItems blockNoShip={blockNoShip} items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.notVatRegistered ? 0 : (settings.vatRate ?? 19)} />
 
           <div className="card p-5 space-y-3">
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">

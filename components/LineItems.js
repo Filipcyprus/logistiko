@@ -13,7 +13,7 @@ export function emptyLine(vatRate = 19, unit = "pcs") {
   return { productId: null, description: "", quantity: 1, unit, unitPrice: 0, vatRate, discount: 0, code: "" };
 }
 
-export default function LineItems({ items, onChange, products = [], currency = "€", defaultVat = 24, discountTiers, pricing = true }) {
+export default function LineItems({ items, onChange, products = [], currency = "€", defaultVat = 24, discountTiers, pricing = true, blockNoShip = false }) {
   const { t } = useLanguage();
   // Αναζήτηση ανά γραμμή: κείμενο που πληκτρολογείται (query) και ποια γραμμή έχει
   // ανοιχτή τη λίστα προτάσεων (openIdx) — αντικαθιστά το select που απαιτούσε scroll.
@@ -101,6 +101,7 @@ export default function LineItems({ items, onChange, products = [], currency = "
   };
 
   const selectProduct = (idx, p) => {
+    if (blockNoShip && p.noShipAbroad) return; // δεν αποστέλλεται στη χώρα του πελάτη
     pickProduct(idx, p.id);
     setOpenIdx(null);
     setQuery((prev) => ({ ...prev, [idx]: "" }));
@@ -162,8 +163,8 @@ export default function LineItems({ items, onChange, products = [], currency = "
                             {matchesFor(idx).length === 0 ? (
                               <div className="text-xs text-slate-400 p-2">{t("lineItems.noProductMatches")}</div>
                             ) : matchesFor(idx).map((p) => (
-                              <button key={p.id} type="button" onMouseDown={() => selectProduct(idx, p)} className="w-full text-left px-2 py-1.5 rounded hover:bg-slate-50 text-xs flex items-center justify-between gap-2">
-                                <span className="truncate">{p.name}</span>
+                              <button key={p.id} type="button" disabled={blockNoShip && !!p.noShipAbroad} onMouseDown={() => selectProduct(idx, p)} className={`w-full text-left px-2 py-1.5 rounded text-xs flex items-center justify-between gap-2 ${blockNoShip && p.noShipAbroad ? "opacity-50 cursor-not-allowed bg-red-50" : "hover:bg-slate-50"}`}>
+                                <span className="truncate">{p.name}{blockNoShip && p.noShipAbroad ? <span className="ml-1 text-red-600 font-medium">— {t("lineItems.notShippable")}</span> : null}</span>
                                 {p.trackStock !== false && <span className="text-slate-400 shrink-0 whitespace-nowrap">{t("lineItems.stockSuffix", { stock: p.stock })}</span>}
                               </button>
                             ))}

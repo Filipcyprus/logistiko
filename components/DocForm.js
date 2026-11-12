@@ -83,7 +83,7 @@ export default function DocForm({ collection, title, dateFieldLabel, backHref })
         </div>
       </div>
 
-      <LineItems items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.notVatRegistered ? 0 : (settings.vatRate ?? 24)} discountTiers={settings.quantityDiscounts} />
+      <LineItems blockNoShip={!!customers.find((c) => c.id === customerId)?.country && customers.find((c) => c.id === customerId).country !== "CY"} items={items} onChange={setItems} products={products} currency={cur} defaultVat={settings.notVatRegistered ? 0 : (settings.vatRate ?? 24)} discountTiers={settings.quantityDiscounts} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 card p-5">
